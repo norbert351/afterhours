@@ -36,7 +36,7 @@ function renderUniverse(instruments) {
       <td><b>${i.symbol}</b><div class="iss">${i.name || ""}</div></td>
       <td class="iss">${i.issuer}</td>
       <td>$${fmt(i.markPrice)}</td>
-      <td>$${fmt(i.tokenPrice)}</td>
+      <td class="muted">${i.tokenPrice == null ? "—" : "$" + i.tokenPrice.toLocaleString()}</td>
       <td>${prem}</td>
       <td class="muted">$${fmt(i.markValuation ?? i.impliedValuation, 0)}</td>
       <td class="muted">${addr}</td>

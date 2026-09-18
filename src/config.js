@@ -23,7 +23,9 @@ export const config = {
       base: process.env.TWELVEDATA_BASE || "https://api.twelvedata.com",
       apiKey: process.env.TWELVEDATA_API_KEY || "demo",
       // NYSE tickers we track as the "frozen reference" anchor.
-      symbols: (process.env.AH_REFERENCE_SYMBOLS || "AAPL,MSFT,NVDA")
+      // NOTE: the free `demo` key serves ONE symbol (AAPL). A real key
+      // (twelvedata.com/apikey) unlocks the full list.
+      symbols: (process.env.AH_REFERENCE_SYMBOLS || "AAPL")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
