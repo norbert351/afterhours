@@ -1,0 +1,19 @@
+{
+  "name": "afterhours",
+  "version": "0.1.0",
+  "description": "AfterHours — real-time on-chain equity intelligence & market-hours dislocation engine (Solana + BNB, verified data)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --dns-result-order=ipv4first src/index.js",
+    "dev": "node --watch --dns-result-order=ipv4first src/index.js",
+    "verify": "node --dns-result-order=ipv4first scripts/verify-data.js"
+  },
+  "main": "src/index.js",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

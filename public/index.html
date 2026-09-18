@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AfterHours · on-chain equity intelligence</title>
+<style>
+  :root{
+    --bg:#0b0f1a; --panel:#131a2b; --panel2:#0f1524; --line:#222c45;
+    --txt:#e8edf7; --mut:#8b95b0; --acc:#5ad1ff; --up:#3ddb85; --down:#ff5d73;
+    --warn:#ffc857; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0e3a5c,#12437a 55%,#0a2743);border:1px solid #2b4a7a;display:grid;place-items:center;font-weight:800;color:var(--acc);font-size:13px}
+  h1{font-size:19px;margin:0;letter-spacing:.2px}
+  .sub{color:var(--mut);font-size:12px;margin-top:2px}
+  .badge{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;font-family:var(--mono)}
+  .badge.open{background:rgba(61,219,133,.12);color:var(--up);border:1px solid rgba(61,219,133,.35)}
+  .badge.closed{background:rgba(255,93,115,.1);color:var(--down);border:1px solid rgba(255,93,115,.35)}
+  section{margin-top:22px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:0 0 12px;font-weight:700}
+  .grid{display:grid;gap:10px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .card,.row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .k{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  .v{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:5px}
+  .v small{font-size:11px;color:var(--mut);font-weight:400}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-family:var(--sans)}
+  td .iss{color:var(--mut);font-size:11px}
+  .up{color:var(--up)} .down{color:var(--down)} .warn{color:var(--warn)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill.token_premium{background:rgba(61,219,133,.14);color:var(--up)}
+  .pill.token_discount{background:rgba(255,93,115,.13);color:var(--down)}
+  .pill.cross_issuer{background:rgba(255,200,87,.13);color:var(--warn)}
+  .muted{color:var(--mut)}
+  form{display:flex;gap:8px;flex-wrap:wrap}
+  input[type=text]{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:11px 13px;border-radius:9px;font-size:14px;font-family:var(--sans)}
+  input:focus{outline:none;border-color:var(--acc)}
+  button{background:var(--acc);color:#06263a;border:0;padding:11px 18px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer}
+  button.secondary{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px;color:var(--acc)}
+  .rowflex{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+  .foot{color:var(--mut);font-size:11px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line);line-height:1.6}
+  .err{color:var(--down)} .ok{color:var(--up)}
+  .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut);margin-left:6px}
+  @media(max-width:560px){.hide-sm{display:none} table{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">AH</div>
+      <div>
+        <h1>AfterHours</h1>
+        <div class="sub">On-chain equity intelligence · verified live data</div>
+      </div>
+    </div>
+    <span id="mktBadge" class="badge">…</span>
+  </header>
+
+  <section>
+    <h2>Market status</h2>
+    <div class="grid cards" id="refCards"></div>
+  </section>
+
+  <section>
+    <h2>Tokenized equity universe <span class="chip" id="univCount"></span></h2>
+    <div class="card" style="overflow-x:auto">
+      <table><thead><tr>
+        <th>Token</th><th>Issuer</th><th>Mark</th><th>Token</th><th>Premium</th><th>Valuation</th><th>Contract</th>
+      </tr></thead><tbody id="univBody"></tbody></table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dislocations · gaps that trade away from reference</h2>
+    <div class="card">
+      <div id="discWrap"><p class="muted">Loading…</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plain-English market rules</h2>
+    <div class="card">
+      <form id="ruleForm">
+        <input id="ruleInput" type="text" placeholder='e.g. "OPENAI trades more than 2% above its mark price"' />
+        <button type="submit">Add rule</button>
+      </form>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">Rule detects real live dislocations (alerts), no orders executed.</p>
+      <div id="rulesWrap" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <div class="foot" id="foot">AfterHours · data sources: PreStocks, Tessera (verified), Twelve Data reference (verified), Pyth feed registry (keyed live prices). No fabricated prices.</div>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
