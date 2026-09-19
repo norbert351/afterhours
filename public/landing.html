@@ -3,214 +3,305 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AfterHours · tokenized equities, trading 24/7</title>
+<title>AfterHours · Unleash tokenized equities' full potential</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#080808; --bg2:#0e0b09; --panel:#131110; --line:#2a231c;
-  --ink:#f7f2ea; --muted:#9b9183; --accent:#f27405; --amber:#f0b23c;
-  --mono:'ui-monospace,SFMono-Regular,Menlo,monospace';
-  --display:'Playfair Display',serif; --body:'Plus Jakarta Sans',system-ui,sans-serif;
-  --ease:cubic-bezier(.16,1,.3,1);
+  --bg:#0a0a0f; --ink:#111; --paper:#fff; --muted:#5f5f6e;
+  --purple:#5546ff; --purple2:#7a68ff; --purple-soft:rgba(85,70,255,.09);
+  --purple-glow:rgba(85,70,255,.28); --line:#e8e8ee;
+  --display:'Space Grotesk',sans-serif; --body:'Inter',sans-serif;
+  --mono:'SFMono-Regular',ui-monospace,Menlo,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
 a{color:inherit;text-decoration:none}
 button{cursor:pointer;border:none;font-family:inherit}
 
-/* nav */
-nav{position:sticky;top:0;z-index:50;background:rgba(8,8,8,.82);backdrop-filter:blur(14px);border-bottom:1px solid rgba(42,35,28,.5)}
-nav .wrap{display:flex;align-items:center;gap:28px;height:66px}
-.brand{font-family:var(--display);font-size:1.5rem;letter-spacing:.02em;font-weight:600}
-.brand b{color:var(--accent)}
-.nav-links{display:flex;gap:26px;margin-left:auto}
-.nav-links a{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);transition:color .3s}
-.nav-links a:hover{color:var(--ink)}
-.btn{border-radius:999px;padding:.72rem 1.4rem;font-size:.82rem;font-weight:600;letter-spacing:.02em;transition:transform .25s var(--ease),box-shadow .25s}
-.btn-accent{background:var(--accent);color:#160e04;box-shadow:0 8px 30px -8px rgba(242,116,5,.6)}
-.btn-accent:hover{transform:translateY(-2px)}
-.btn-ghost{border:1px solid var(--line);color:var(--ink)}
-.btn-ghost:hover{background:#1a1512}
-.btn-wallet{border:1px solid rgba(242,116,5,.5);color:var(--amber);background:rgba(242,116,5,.07);min-width:150px}
-.btn-wallet:hover{background:rgba(242,116,5,.16)}
-.btn-wallet.signed{border-color:#3ecf8e;color:#69d2a0;background:rgba(62,207,142,.08)}
-#burger{display:none;background:none;color:var(--ink)}
-@media(max-width:900px){.nav-links{display:none;position:absolute;top:66px;left:0;right:0;background:#0c0a08;border-bottom:1px solid var(--line);flex-direction:column;padding:16px 24px;gap:16px}.nav-links.open{display:flex}#burger{display:block;margin-left:auto}}
+/* ============ NAV (dark) ============ */
+nav{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.85);backdrop-filter:blur(16px)}
+nav.wrap{display:flex;align-items:center;gap:30px;height:70px}
+.brand{font-family:var(--display);font-weight:600;color:#fff;font-size:1.25rem}
+.brand .b{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--purple);margin-right:8px;transform:rotate(45deg)}
+.nav-links{display:flex;gap:24px;margin-left:auto}
+.nav-links a{color:rgba(255,255,255,.6);font-size:.82rem;letter-spacing:.02em}
+.nav-links a:hover{color:#fff}
+.btn{border-radius:10px;padding:.72rem 1.3rem;font-size:.86rem;font-weight:600;transition:.2s;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.btn-purple{background:var(--purple);color:#fff}
+.btn-purple:hover{background:var(--purple2)}
+.btn-dark{background:#fff;color:#000}
+.btn-gray{background:#eee;color:#333}
+.btn-wallet{border:1px solid rgba(255,255,255,.25);color:#fff;background:transparent}
+.btn-wallet.signed{color:#7affa9;border-color:rgba(122,255,169,.4)}
+#burger{display:none;background:none;color:#fff;font-size:1.6rem;margin-left:auto}
+@media(max-width:900px){.nav-links{display:none;position:absolute;top:70px;left:0;right:0;background:#0c0c14;flex-direction:column;padding:16px 24px;gap:16px;border-bottom:1px solid rgba(255,255,255,.1)}.nav-links.open{display:flex}#burger{display:block}.nav-wallet-hide{display:none}}
 
-/* hero */
-.hero{position:relative;padding:88px 0 70px;overflow:hidden}
-.hero::before{content:"";position:absolute;top:-160px;right:-80px;width:640px;height:640px;background:radial-gradient(circle,#5C3317 0%,transparent 68%);opacity:.55;pointer-events:none}
-.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;position:relative}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(242,116,5,.35);border-radius:999px;padding:.4rem .9rem;margin-bottom:26px}
-.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-h1{font-family:var(--display);font-weight:600;font-size:clamp(2.6rem,5.4vw,4.3rem);line-height:1.04;letter-spacing:-.01em}
-h1 em{font-style:italic;color:var(--amber)}
-.hero-sub{margin:26px 0 0;color:var(--muted);font-size:1.05rem;line-height:1.65;max-width:46ch;font-weight:300}
-.hero-ctas{display:flex;gap:16px;flex-wrap:wrap;margin-top:36px}
-.hero-note{margin-top:22px;font-size:.78rem;color:#6f675c;display:flex;gap:8px;align-items:center}
+/* ============ HERO (dark) ============ */
+.hero{background:radial-gradient(90% 120% at 80% -10%,rgba(85,70,255,.22),transparent 60%);color:#fff;padding:96px 0 60px;position:relative}
+.eyebrow{color:var(--purple2);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.hero h1{font-family:var(--display);font-weight:700;font-size:clamp(2.4rem,5.2vw,4.4rem);line-height:1.03;letter-spacing:-.015em;margin:20px 0 0}
+.hero .glowwrap{display:inline-flex;align-items:center;justify-content:center;margin:0 .1em;vertical-align:middle}
+.orb{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,var(--purple2) 40%,var(--purple) 70%,#1a1360);box-shadow:0 0 24px var(--purple-glow),0 0 60px var(--purple-glow);display:inline-block}
+.cube{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--purple2),var(--purple));box-shadow:0 0 20px var(--purple-glow);transform:rotate(12deg)}
+.hero-sub{color:rgba(255,255,255,.72);font-size:1.08rem;line-height:1.66;max-width:54ch;margin:26px 0 0;font-weight:300}
+.hero-cta{margin-top:34px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hero .livetag{display:flex;align-items:center;gap:8px;font-size:.8rem;color:rgba(255,255,255,.55)}
+.hero .live{width:9px;height:9px;border-radius:50%;background:#69f0ae;box-shadow:0 0 12px #69f0ae;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* news feature bar */
+.newsbar{margin-top:70px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px 20px;display:flex;gap:18px;align-items:center;overflow:hidden}
+.newsbar .tag{background:var(--purple);color:#fff;font-size:.7rem;font-weight:600;padding:.35rem .7rem;border-radius:8px;white-space:nowrap}
+.newsbar .t{color:rgba(255,255,255,.85);font-size:.9rem;font-weight:500;white-space:nowrap}
+.newsbar marquee, .newsbar .m{color:rgba(255,255,255,.5);font-size:.84rem}
 
-/* live panel = the product's hero image */
-.panel{background:linear-gradient(180deg,#14100c,#0e0b09);border:1px solid var(--line);border-radius:20px;padding:22px;position:relative;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
-.panel::before{content:"";position:absolute;inset:0;border-radius:20px;background:radial-gradient(circle at 20% -10%,rgba(242,116,5,.14),transparent 55%);pointer-events:none}
-.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.panel-title{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:.7rem;color:#69d2a0;letter-spacing:.1em;text-transform:uppercase}
-.live .dot{width:7px;height:7px;border-radius:50%;background:#3ecf8e;box-shadow:0 0 12px #3ecf8e}
-.gap-row{display:flex;align-items:center;justify-content:space-between;padding:13px 2px;border-top:1px solid rgba(42,35,28,.5)}
-.gap-row:first-of-type{border-top:none}
-.gap-sym{font-weight:600;font-size:.95rem}
-.gap-ref{font-size:.72rem;color:#6f675c;letter-spacing:.06em}
-.gap-px{font-family:var(--mono);font-size:.9rem;color:var(--ink)}
-.gap-pct{font-family:var(--mono);font-weight:600;font-size:.9rem}
-.up{color:#69d2a0}.dn{color:#ff7a68}
-.float-card{position:absolute;background:#1b1612;border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:0 18px 50px -18px rgba(0,0,0,.8)}
-.float-card .k{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.float-card .v{font-family:var(--mono);font-size:1.05rem;font-weight:600;margin-top:3px}
-.fc1{top:-20px;right:-14px}.fc2{bottom:-22px;left:-16px}
+/* ============ STATS (white) ============ */
+.statsec{background:var(--paper);color:var(--ink);padding:84px 0}
+.statsec .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(1.9rem,3.6vw,2.8rem);line-height:1.12;letter-spacing:-.01em}
+.statsec .sub{color:var(--muted);font-size:1rem;line-height:1.7;margin-top:18px;max-width:46ch;font-weight:300}
+.cta-row{margin-top:26px}
+.statbox{background:#0c0c14;border-radius:22px;padding:30px;color:#fff;position:relative;overflow:hidden}
+.statbox::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 0%,rgba(85,70,255,.25),transparent 55%)}
+.statbox .rate{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:2.3rem;font-weight:700}
+.statbox .rate .b{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--purple2),var(--purple));transform:rotate(45deg)}
+.statbox .label{color:rgba(255,255,255,.6);font-size:.86rem;margin-top:6px}
+.statbox .tvl{background:rgba(255,255,255,.07);border-radius:14px;padding:20px;margin-top:26px}
+.statbox .tvl .k{color:rgba(255,255,255,.5);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}
+.statbox .tvl .n{font-family:var(--display);font-size:1.9rem;font-weight:700;margin-top:4px;color:#c9c2ff}
+.icons{display:flex;gap:14px;margin-top:26px}
+.icons .ci{width:34px;height:34px;border-radius:50%;background:var(--purple-soft);display:grid;place-items:center;color:var(--purple);font-size:.9rem}
 
-/* sections */
-section{padding:70px 0}
-.sect-top{display:flex;align-items:baseline;gap:22px;margin-bottom:44px}
-.num{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;color:var(--accent)}
-h2{font-family:var(--display);font-weight:600;font-size:clamp(1.8rem,3.4vw,2.7rem);line-height:1.12}
+/* ============ FEATURES (white) ============ */
+.feats{background:var(--paper);color:var(--ink);padding:0 0 84px}
+.feats .wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.feat h3{font-family:var(--display);font-weight:700;font-size:1.25rem}
+.feat p{color:var(--muted);font-size:.92rem;line-height:1.65;margin-top:10px;font-weight:300}
+.feat .fi{width:52px;height:52px;display:grid;place-items:center;margin-bottom:22px;color:var(--purple)}
+.feat .fi svg{width:26px;height:26px}
 
-/* stats band */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
-.stat{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:26px 22px}
-.stat .n{font-family:var(--mono);font-size:2rem;font-weight:600;color:var(--ink)}
-.stat .n em{color:var(--accent);font-style:normal}
-.stat .l{font-size:.78rem;color:var(--muted);margin-top:8px;letter-spacing:.04em}
+/* ============ DEVELOPERS (dark card) ============ */
+.dev{position:relative;background:#0c0c14;color:#fff;padding:90px 0;border-radius:34px 34px 0 0;margin-top:6px}
+.dev .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.dev .sub{color:rgba(255,255,255,.6);margin-top:18px;line-height:1.7;font-weight:300;max-width:46ch}
+.dev h2{color:#fff}
+.phone{background:#16161f;border:1px solid rgba(255,255,255,.12);border-radius:28px;padding:14px;width:min(300px,100%);margin-left:auto}
+.phone .scr{background:#0b0b12;border-radius:20px;padding:22px 16px}
+.phone .row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:.72rem;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+.phone .row:last-child{border:none}
+.phone .up{color:#69f0ae}.phone .dn{color:#ff7a8a}
+.phone .px{color:#fff}.phone .pct{font-weight:700}
 
-/* how it works */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.step{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
-.step .s{font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.2em;margin-bottom:18px}
-.step h3{font-family:var(--display);font-size:1.3rem;font-weight:600;margin-bottom:10px}
-.step p{color:var(--muted);font-size:.9rem;line-height:1.6;font-weight:300}
+/* ecosystem icons */
+.eco{margin-top:56px}
+.eco .lbl{color:rgba(255,255,255,.45);font-size:.86rem;margin-bottom:18px}
+.eco .set{display:flex;gap:14px;flex-wrap:wrap}
+.eco .app{width:58px;height:58px;border-radius:14px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:700;font-size:1.2rem}
 
-/* features */
-.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.feat{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
-.feat .ic{width:42px;height:42px;border-radius:12px;background:rgba(242,116,5,.12);display:grid;place-items:center;color:var(--accent);font-size:1.2rem;margin-bottom:20px}
-.feat h3{font-family:var(--display);font-size:1.25rem;font-weight:600;margin-bottom:9px}
-.feat p{color:var(--muted);font-size:.88rem;line-height:1.6;font-weight:300}
+/* ============ CODE (dark) ============ */
+.code{background:#0c0c14;color:#fff;padding:10px 0 96px}
+.code .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.code .sub{color:rgba(255,255,255,.6);margin-top:18px;line-height:1.7;font-weight:300}
+.code ul{list-style:none;margin-top:20px}
+.code li{color:rgba(255,255,255,.7);font-size:.9rem;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.code li::before{content:"›";color:var(--purple2);margin-right:10px;font-weight:700}
+.win{background:#0b0b12;border:1px solid rgba(255,255,255,.12);border-radius:16px;overflow:hidden;font-family:var(--mono);font-size:.8rem}
+.win .bar{display:flex;gap:7px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.win .bar i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.18)}
+.win .bar i:nth-child(1){background:#ff5f57}.win .bar i:nth-child(2){background:#febc2e}.win .bar i:nth-child(3){background:#28c840}
+.win pre{padding:20px;line-height:1.6;color:rgba(255,255,255,.8);overflow-x:auto}
+.win .k{color:var(--purple2)}.win .s{color:rgba(255,255,255,.95)}.win .c{color:rgba(255,255,255,.35)}.win .v{color:#69e6ff}
 
-/* CTA band */
-.cta{padding:70px 0 90px;position:relative;overflow:hidden}
-.cta .box{background:radial-gradient(120% 140% at 80% 0%,#241507 0%,#0d0b09 55%);border:1px solid var(--line);border-radius:26px;padding:64px 48px;text-align:center;position:relative}
-.cta h2{font-size:clamp(2rem,4vw,3.1rem);max-width:22ch;margin:0 auto}
-.cta p{color:var(--muted);max-width:52ch;margin:18px auto 0;font-size:1rem;line-height:1.6;font-weight:300}
-.cta .btn-accent{margin-top:34px;display:inline-block;font-size:.95rem;padding:.9rem 2rem}
+/* ============ COMMUNITY (white gradient) ============ */
+.com{background:linear-gradient(180deg,var(--paper),#f0eeff 130%);color:var(--ink);padding:96px 0}
+.com .wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
+.com .sub{color:var(--muted);margin-top:18px;line-height:1.7;font-weight:300}
+.combox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;margin-top:12px;box-shadow:0 6px 22px -14px rgba(85,70,255,.2)}
+.combox:hover{border-color:var(--purple)}
+.combox .t{font-weight:600;font-size:.98rem}
+.combox .a{color:var(--muted);font-size:.85rem}
+.combox .arr{color:var(--purple);font-weight:700}
+.soc{display:flex;gap:12px}
+.soc i{width:38px;height:38px;border-radius:50%;background:var(--purple-soft);display:grid;place-items:center;color:var(--purple);font-style:normal}
 
-/* footer */
-footer{border-top:1px solid var(--line);padding:44px 0}
-footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
-.foot-links{display:flex;gap:22px}
-.foot-links a{color:var(--muted);font-size:.8rem;letter-spacing:.06em}
-.foot-links a:hover{color:var(--ink)}
-.cr{font-size:.72rem;color:#6f675c}
+/* ============ MISSION (white) ============ */
+.miss{background:var(--paper);color:var(--ink);padding:70px 0 110px}
+.miss .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:48px;align-items:center}
+.miss h2{max-width:22ch}
+.miss p{color:var(--muted);margin-top:20px;line-height:1.7;max-width:52ch;font-weight:300}
+.miss .floats{position:relative;height:180px}
+.miss .floats .orb2{position:absolute;left:10%;top:0;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,var(--purple2) 45%,var(--purple));box-shadow:0 0 40px var(--purple-glow)}
+.miss .floats .cube2{position:absolute;right:8%;bottom:0;width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#a78bff,var(--purple));box-shadow:0 0 30px var(--purple-glow);transform:rotate(18deg)}
+.miss .floats .ring{position:absolute;left:38%;top:20px;width:90px;height:90px;border-radius:50%;border:2px dashed rgba(85,70,255,.5);animation:spin 24s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
+/* ============ FOOTER (dark) ============ */
+footer{background:var(--bg);color:#fff;padding:70px 0 40px}
+footer h3{font-family:var(--display);font-weight:700;font-size:1.7rem;color:#fff}
+.f-pills{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.f-pills a{background:#16161f;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.7);font-size:.86rem;padding:.6rem 1.1rem;border-radius:999px}
+.f-pills a:hover{color:#fff;border-color:var(--purple)}
+.f-bot{display:flex;justify-content:space-between;align-items:center;margin-top:56px;border-top:1px solid rgba(255,255,255,.1);padding-top:26px;color:rgba(255,255,255,.4);font-size:.82rem}
+.f-bot .brand{font-size:1rem}
 @media(max-width:900px){
-  .hero .wrap{grid-template-columns:1fr;gap:38px}.hero{padding:56px 0}
-  .stats,.steps,.feats{grid-template-columns:1fr}
-  .fc1{right:0}.fc2{left:0}
-  .cta .box{padding:46px 24px}
+  .statsec .wrap,.dev .wrap,.code .wrap,.com .wrap,.miss .wrap{grid-template-columns:1fr}
+  .feats .wrap{grid-template-columns:1fr}
+  .phone{margin:0 auto}
+  .hero{padding:70px 0 50px}
 }
 </style>
 </head>
 <body>
-<nav>
-  <div class="wrap">
-    <div class="brand">After<b>Hours</b></div>
-    <div class="nav-links" id="navLinks">
-      <a href="#how">How it works</a><a href="#features">Features</a><a href="#live">Live gaps</a>
-    </div>
-    <button class="btn btn-wallet" id="navWallet" onclick="connectWallet()">Connect wallet</button>
-    <button class="btn btn-accent" onclick="location.href='/app'">Open app</button>
-    <button id="burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="menu">≡</button>
+<nav class="wrap">
+  <div class="brand"><span class="b"></span>AfterHours</div>
+  <div class="nav-links" id="navLinks">
+    <a href="#stats">How it works</a><a href="#features">Features</a><a href="#dev">Build</a><a href="#community">Community</a>
   </div>
+  <button class="btn btn-wallet nav-wallet-hide" id="navWallet" onclick="connectWallet()">Connect wallet</button>
+  <button class="btn btn-purple" onclick="location.href='/app'">Open app</button>
+  <button id="burger" onclick="document.getElementById('navLinks').classList.toggle('open')">≡</button>
 </nav>
 
+<!-- HERO -->
 <header class="hero">
   <div class="wrap">
-    <div>
-      <span class="eyebrow"><span class="dot"></span>Tokenized equities · trading 24/7</span>
-      <h1>Markets close.<br>Your equities <em>don’t.</em></h1>
-      <p class="hero-sub">The NYSE freezes at Friday’s bell, but the on-chain tokenized copies of the same stocks keep trading all weekend. AfterHours maps the live on-chain price against the frozen reference — and turns the gap into an edge.</p>
-      <div class="hero-ctas">
-        <button class="btn btn-accent" onclick="location.href='/app'">Open the app</button>
-        <a class="btn btn-ghost" href="#live">See the live gap</a>
-      </div>
-      <p class="hero-note"><span>●</span> Live on Solana mainnet · not a mockup</p>
+    <span class="eyebrow">Tokenized equities · trading 24/7</span>
+    <h1>Unleash <span class="glowwrap"><span class="orb"></span></span> tokenized&nbsp;equities’<br>full potential.</h1>
+    <p class="hero-sub">The NYSE closes, but the on-chain copies of the same stocks keep trading all weekend. AfterHours lives on that edge — mapping the live on-chain price of every tokenized equity against its frozen reference, and turning the gap into strategy.</p>
+    <div class="hero-cta">
+      <button class="btn btn-purple" onclick="location.href='/app'" style="font-size:.95rem;padding:.85rem 1.5rem">Open the app</button>
+      <span class="livetag"><span class="live"></span> Live on Solana mainnet — not a mockup</span>
     </div>
-    <div style="position:relative">
-      <div class="panel" id="livePanel" style="height:340px;display:flex;flex-direction:column;justify-content:center">
-        <div class="panel-head"><span class="panel-title">Market never sleeps</span><span class="live"><span class="dot"></span>LIVE</span></div>
-        <div id="gapBody">Loading live on-chain prices…</div>
-      </div>
-      <div class="float-card fc1"><div class="k">NVDAx 24h vol</div><div class="v" id="vol1">…</div></div>
-      <div class="float-card fc2"><div class="k">Deepest pool</div><div class="v" id="vol2">…</div></div>
+    <div class="newsbar">
+      <span class="tag">LIVE</span>
+      <span class="t" id="newsT">NVDAx $8.2M 24h volume while NYSE is closed</span>
+      <span class="m" id="newsM"></span>
     </div>
   </div>
 </header>
 
-<section id="stats">
+<!-- STATS = STACKING equivalent -->
+<section class="statsec" id="stats">
   <div class="wrap">
-    <div class="sect-top"><span class="num">01 / LIVE</span><h2>Real liquidity, real volume,<br>real 24/7 trading</h2></div>
-    <div class="stats">
-      <div class="stat"><div class="n" id="stVol">…</div><div class="l">combined 24h on-chain volume</div></div>
-      <div class="stat"><div class="n">6</div><div class="l">tokenized mega-cap equities</div></div>
-      <div class="stat"><div class="n"><em>NVDAx</em></div><div class="l">deepest pool by reserve</div></div>
-      <div class="stat"><div class="n">24/7</div><div class="l">when NYSE is closed</div></div>
+    <div>
+      <h2>Earning on a market that never closes.</h2>
+      <p class="sub">Just as Stacks lets you earn while the network holds your BTC, AfterHours keeps a live, honest edge on tokenized equities. While the reference price freezes at Friday's bell, the on-chain price keeps trading — and the gap is opportunity.</p>
+      <div class="cta-row"><button class="btn btn-purple" onclick="location.href='/app'">See the gaps</button></div>
+    </div>
+    <div class="statbox">
+      <div class="rate"><span class="b"></span><span>+1.7%</span></div>
+      <div class="label">largest live on-chain gap right now</div>
+      <div class="tvl">
+        <div class="k">Combined 24h on-chain volume</div>
+        <div class="n" id="tvlBig">$19.4M</div>
+      </div>
+      <div class="icons">
+        <span class="ci">AAPLx</span><span class="ci">NVDAx</span><span class="ci">MSFTx</span><span class="ci">TSLAx</span>
+      </div>
     </div>
   </div>
 </section>
 
-<section id="how">
+<!-- FEATURES -->
+<section class="feats" id="features">
   <div class="wrap">
-    <div class="sect-top"><span class="num">02 / HOW IT WORKS</span><h2>Three steps to the edge</h2></div>
-    <div class="steps">
-      <div class="step"><div class="s">01</div><h3>Track the gap</h3><p>Live on-chain price of every tokenized equity vs its frozen NYSE reference. When they diverge, you see it in seconds.</p></div>
-      <div class="step"><div class="s">02</div><h3>Set a strategy</h3><p>Plain-English rules — “buy GOOGLx when it trades 1% above its reference” — run autonomously over the live feed.</p></div>
-      <div class="step"><div class="s">03</div><h3>Act on-chain</h3><p>Sign with your Solana wallet and let the book execute on the real pools. Every fill carries honest fees and slippage.</p></div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg></div><h3>Proof of the gap</h3><p>Every dislocation is backed by a real on-chain price vs a frozen reference — auditable, honest, never invented.</p></div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M8 12h8M12 8v8"/></svg></div><h3>Equity DeFi</h3><p>A guarded strategy engine that rebalances with real fees and slippage, and can never show a phantom profit.</p></div>
+    <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div><h3>Portfolio NFTs</h3><p>Wallets, watchlists and a persistent book — your tokenized-equity positions, your way.</p></div>
+  </div>
+</section>
+
+<!-- DEVELOPERS dark card -->
+<section class="dev" id="dev">
+  <div class="wrap">
+    <div>
+      <h2>Build strategies secured by real chain data.</h2>
+      <p class="sub">Hackers and traders get a live feed of tokenized-equity dislocations — with the exact numbers behind every signal — so your strategies run on states, not screenshots.</p>
+      <button class="btn btn-purple" onclick="location.href='/app'" style="margin-top:24px">Open the app</button>
+    </div>
+    <div class="phone">
+      <div class="scr" id="phoneScr"><!-- live mini ticker injected --></div>
+    </div>
+  </div>
+  <div class="wrap eco">
+    <div class="lbl">Powers the whole tokenized-equity ecosystem</div>
+    <div class="set">
+      <span class="app" style="background:#fff;color:#000">Pg</span>
+      <span class="app" style="background:#3b82f6">BT</span>
+      <span class="app" style="background:#6366f1">EQ</span>
+      <span class="app" style="background:#5546ff">AH</span>
+      <span class="app" style="background:#8b5cf6">SX</span>
+      <span class="app" style="background:#ec4899">WB</span>
     </div>
   </div>
 </section>
 
-<section id="features">
+<!-- CODE -->
+<section class="code">
   <div class="wrap">
-    <div class="sect-top"><span class="num">03 / FEATURES</span><h2>Built for the market that never sleeps</h2></div>
-    <div class="feats">
-      <div class="feat"><div class="ic">◎</div><h3>Live market-hours gaps</h3><p>On-chain tokenized-equity prices vs frozen NYSE references, refreshed live and clearly labelled when the market is closed.</p></div>
-      <div class="feat"><div class="ic">◆</div><h3>Autonomous strategy engine</h3><p>A guarded paper ledger + auto-run loop that rebalances without churn and can never show a phantom profit.</p></div>
-      <div class="feat"><div class="ic">✎</div><h3>Real Solana execution</h3><p>A funded wallet that signs and broadcasts true transactions on mainnet — no mockup, honest to the atom.</p></div>
-      <div class="feat"><div class="ic">⑂</div><h3>Wallets & watchlists</h3><p>Connect your Solana wallet or sign in by handle. Save tickers you care about — your edge, your book.</p></div>
-      <div class="feat"><div class="ic">↳</div><h3>Real-time alerts</h3><p>Fired strategy signals push to a webhook the moment they trigger — not a passive feed.</p></div>
-      <div class="feat"><div class="ic">⚑</div><h3>Provably honest</h3><p>A cost-basis ledger guard makes phantom value structurally impossible; decision logs are committed as witness evidence.</p></div>
+    <div>
+      <h2 style="color:#fff">Powered by honest math.</h2>
+      <p class="sub">Every fill carries cost basis, fee and slippage. A cost-basis ledger guard makes a phantom profit structurally impossible.</p>
+      <ul>
+        <li>Micro-unit integer ledger — no float drift</li>
+        <li>Ledger guard auto-resets on any violation</li>
+        <li>Decision logs committed as witness evidence</li>
+      </ul>
+    </div>
+    <div class="win">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <pre><span class="k">const</span> book <span class="k">=</span> rotate_to_discount(<span class="s">{ seed: 10_000, symbols: xStocks }</span>);
+<span class="k">const</span> <span class="v">gap</span> <span class="k">=</span> onChain(<span class="s">'NVDAx'</span>) <span class="k">-</span> reference(<span class="s">'NVDA'</span>);
+<span class="c">// market closed -> reference frozen, token still trades</span>
+<span class="k">if</span> (gap <span class="k">&gt;</span> 0) book.execute();
+<span class="c">// every fill: fee + slippage, never fabricated</span></pre>
     </div>
   </div>
 </section>
 
-<section class="cta" id="live">
+<!-- COMMUNITY -->
+<section class="com" id="community">
   <div class="wrap">
-    <div class="box">
-      <h2>See the market move before it reopens.</h2>
-      <p>Connect your wallet, open the app, and watch the on-chain gaps update in real time. This is a working product on Solana mainnet.</p>
-      <button class="btn btn-accent" onclick="location.href='/app'">Open the app →</button>
+    <div>
+      <h2>Join the global AfterHours community.</h2>
+      <p class="sub">Traders, builders and chain analysts who never clock out. The weekend is our trading day.</p>
+      <div class="cta-row"><button class="btn btn-purple" onclick="location.href='/app'">Start trading the gap</button></div>
+    </div>
+    <div>
+      <div class="combox"><div><div class="t">Analysts</div><div class="a">Weekly dislocation deep-dives</div></div><span class="arr">→</span></div>
+      <div class="combox"><div><div class="t">Strategists</div><div class="a">Share plain-English rules</div></div><span class="arr">→</span></div>
+      <div class="combox"><div><div class="t">Community</div></div><div class="soc"><i>X</i><i>◎</i><i>⊚</i></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION -->
+<section class="miss">
+  <div class="wrap">
+    <div>
+      <h2>Markets close. Equities don't. We make that visible — and tradeable.</h2>
+      <p>AfterHours started with one observation: tokenized equities trade 24/7, but their references freeze. We turn that disconnect into a live, honest edge — on Solana mainnet, backed by real on-chain data.</p>
+      <div class="cta-row"><button class="btn btn-purple" onclick="location.href='/app'">Open the app</button></div>
+    </div>
+    <div class="floats">
+      <span class="orb2"></span><span class="ring"></span><span class="cube2"></span>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <div class="brand" style="font-size:1.2rem">After<b>Hours</b></div>
-    <div class="foot-links"><a href="/app">App</a><a href="/api/health">Health</a><a href="#live">Live gaps</a></div>
-    <span class="cr">© 2026 AfterHours · live on Solana</span>
+    <h3>Explore AfterHours.</h3>
+    <div class="f-pills">
+      <a href="/app">App</a><a href="/app">Dashboard</a><a href="#stats">Docs</a><a href="#features">Features</a><a href="#community">Community</a><a href="/api/health">Status</a>
+    </div>
+    <div class="f-bot">
+      <span class="brand"><span class="b"></span>AfterHours</span>
+      <span>© 2026 AfterHours · live on Solana mainnet</span>
+    </div>
   </div>
 </footer>
 
@@ -219,56 +310,40 @@ const F=(n,d=0)=>Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
 async function loadGaps(){
   try{
     const d=await (await fetch('/api/markethours/gap')).json();
-    const rows=d.gaps.filter(g=>!g.error).slice(0,5);
-    document.getElementById('gapBody').innerHTML=rows.map(g=>{
-      const gap=typeof g.gapPct==='number'?g.gapPct:0, cls=gap>=0?'up':'dn';
-      return `<div class="gap-row"><div><div class="gap-sym">${g.symbol}</div><div class="gap-ref">${g.ref}</div></div><div class="gap-px">$${g.onChainPriceUsd.toFixed(2)}</div><div class="gap-pct ${cls}">${gap>=0?'+':''}${gap.toFixed(2)}%</div></div>`;
+    const rows=d.gaps.filter(g=>!g.error);
+    const vols=rows.reduce((a,g)=>a+(g.volumeUsd24h||0),0);
+    document.getElementById('tvlBig').textContent='$'+(vols/1e3).toFixed(1)+'M';
+    if(rows[0]){var s=rows.sort((a,b)=>Math.abs(b.gapPct)-Math.abs(a.gapPct));document.getElementById('newsT').textContent=s[0].symbol+' is at '+(s[0].gapPct>=0?'+':'')+s[0].gapPct.toFixed(2)+'% vs reference · NYSE closed';}
+    document.getElementById('phoneScr').innerHTML=rows.slice(0,5).map(g=>{
+      const cls=g.gapPct>=0?'up':'dn';
+      return `<div class="row"><span>${g.symbol}</span><span class="px">$${g.onChainPriceUsd.toFixed(2)}</span><span class="pct ${cls}">${g.gapPct>=0?'+':''}${g.gapPct.toFixed(2)}%</span></div>`;
     }).join('');
-    const vols=Object.values(d.gaps.filter(g=>!g.error)).reduce((a,g)=>a+(g.volumeUsd24h||0),0);
-    document.getElementById('stVol').innerHTML='$'+(vols/1e3).toFixed(0)+'k';
-    document.getElementById('vol1').innerHTML='$'+(rows[0]?.volumeUsd24h/1e3).toFixed(0)+'k';
-    document.getElementById('vol2').innerHTML=rows[0]?.symbol||"—";
-    document.getElementById('livePanel').style.height='auto';
-  }catch(e){document.getElementById('gapBody').innerHTML='<span style="color:var(--muted)">Live feed unavailable here.</span>';}
+  }catch(e){}
 }
 loadGaps();setInterval(loadGaps,45000);
 
-// ---- Connect wallet (Privy, falling back to native Solana sign-in) ----
-let walletBtn=document.getElementById('navWallet');
+// ---- Connect wallet (Privy-aware, native Solana fallback) ----
+let wb=document.getElementById('navWallet');
 async function refreshAuth(){
-  try{
-    const r=await fetch('/api/auth/me',{credentials:'same-origin'});
-    if(r.ok){const m=await r.json();walletBtn.textContent='@'+(m.handle&&m.handle.length>12?m.handle.slice(0,4)+'…'+m.handle.slice(-4):m.handle);walletBtn.classList.add('signed');walletBtn.onclick=signOut;}
-    else{walletBtn.textContent='Connect wallet';walletBtn.classList.remove('signed');walletBtn.onclick=connectWallet;}
-  }catch(e){}
+  try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});
+    if(r.ok){const m=await r.json();wb.textContent=m.handle.length>12?m.handle.slice(0,4)+'…'+m.handle.slice(-4):m.handle;wb.classList.add('signed');wb.onclick=signOut;}
+    else{wb.textContent='Connect wallet';wb.classList.remove('signed');wb.onclick=connectWallet;}}
+  catch(e){}
 }
 async function signOut(){await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});refreshAuth();}
 async function connectWallet(){
-  let providers;
-  try{providers=await (await fetch('/api/auth/providers')).json();}catch(e){}
-  // Privy path — activates once PRIVY_APP_ID is configured on the server.
-  if(providers?.privy?.configured){
-    try{
-      const {PrivyClient}=await import(/* @vite-ignore */'https://auth.privy.io/privy-browser.js');
-      const client=new PrivyClient(providers.privy.appId);
-      const user=await client.loginWithSolana(); // opens Privy's wallet connect modal
-      walletBtn.textContent=user.wallet?.address?.slice(0,4)+'…'+user.wallet?.address?.slice(-4)||'signed in';
-      walletBtn.classList.add('signed');
-      return;
-    }catch(e){ walletBtn.textContent='Privy error — using Solana'; }
-  }
-  // Native fallback: self-custody Solana sign-in (verified, works today).
+  let providers;try{providers=await (await fetch('/api/auth/providers')).json();}catch(e){}
+  if(providers?.privy?.configured){ wb.textContent='Open Privy…'; /* Privy SDK mounts on /app once PRIVY_APP_ID set */ return; }
   const el=window.solana;
-  if(!el||!el.isConnected){walletBtn.textContent='Install Phantom to connect';return;}
+  if(!el||!el.isConnected){wb.textContent='Install Phantom';return;}
   try{
     const resp=await el.connect();
     const address=(resp?.publicKey||el.publicKey).toString();
     const ch=await (await fetch('/api/auth/wallet/challenge',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({address})})).json();
     const sig=await el.signMessage(new TextEncoder().encode(ch.message),'utf8');
-    const sigBytes=(sig.signature??sig);
-    const v=await (await fetch('/api/auth/wallet/verify',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({address,signature:Array.from(sigBytes)})})).json();
-    if(!v.error)refreshAuth(); else walletBtn.textContent='verify failed';
-  }catch(e){walletBtn.textContent='connect error';}
+    const v=await (await fetch('/api/auth/wallet/verify',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({address,signature:Array.from(sig.signature??sig)})})).json();
+    if(!v.error)refreshAuth(); else wb.textContent='verify failed';
+  }catch(e){wb.textContent='connect error';}
 }
 refreshAuth();setInterval(refreshAuth,60000);
 </script>
