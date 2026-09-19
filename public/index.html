@@ -88,18 +88,46 @@
   </section>
 
   <section>
-    <h2>Plain-English market rules</h2>
-    <div class="card">
-      <form id="ruleForm">
-        <input id="ruleInput" type="text" placeholder='e.g. "OPENAI trades more than 2% above its mark price"' />
-        <button type="submit">Add rule</button>
-      </form>
-      <p class="muted" style="margin:10px 0 0;font-size:12px">Rule detects real live dislocations (alerts), no orders executed.</p>
-      <div id="rulesWrap" style="margin-top:12px"></div>
-    </div>
-  </section>
+      <h2>Plain-English market rules</h2>
+      <div class="card">
+        <form id="ruleForm">
+          <input id="ruleInput" type="text" placeholder='e.g. "OPENAI trades more than 2% above its mark price"' />
+          <button type="submit">Add rule</button>
+        </form>
+        <p class="muted" style="margin:10px 0 0;font-size:12px">Rule detects real live dislocations (alerts), no orders executed.</p>
+        <div id="rulesWrap" style="margin-top:12px"></div>
+      </div>
+    </section>
 
-  <div class="foot" id="foot">AfterHours · data sources: PreStocks, Tessera (verified), Twelve Data reference (verified), Pyth feed registry (keyed live prices). No fabricated prices.</div>
+    <section>
+      <h2>Strategy engine · paper account <span class="chip" id="runStatus"></span></h2>
+      <div class="grid cards" id="acctCards"></div>
+      <div class="card" style="margin-top:10px">
+        <form id="stratForm" style="margin-bottom:10px">
+          <input id="stratInput" type="text" value="rotate to discounted tokenized equities" />
+          <button type="submit" class="secondary">Add strategy</button>
+        </form>
+        <div class="rowflex">
+          <span class="muted" style="font-size:12px">Strategy <b>rotate_to_discount</b> buys tokenized equities trading below their mark, rebalances with a no-churn tolerance band. Paper-only — no orders sent.</span>
+          <button id="runBtn">▶ Run strategy now</button>
+        </div>
+        <div id="runResult" style="margin-top:10px"></div>
+      </div>
+      <div class="card" style="margin-top:10px;overflow-x:auto">
+        <table><thead><tr><th>Holding</th><th>Shares</th><th>Avg cost</th><th class="hide-sm">Value</th><th class="hide-sm">Realized</th></tr></thead><tbody id="posBody"></tbody></table>
+        <p class="muted" id="posEmpty" style="margin:8px 0 0;font-size:12px"></p>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="rowflex"><span><b>Recent decisions</b></span><span class="chip" id="lastSeq"></span></div>
+        <div id="decWrap" style="margin-top:8px"></div>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <div class="rowflex"><span><b>Alert feed</b></span></div>
+        <div id="alertWrap" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <div class="foot" id="foot">AfterHours · data sources: PreStocks, Tessera (verified), Twelve Data reference (verified), Pyth feed registry (keyed live prices). No fabricated prices.</div>
 </div>
 <script type="module" src="/app.js"></script>
 </body>

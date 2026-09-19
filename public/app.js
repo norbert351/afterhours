@@ -116,3 +116,78 @@ $("#ruleForm").addEventListener("submit", async (ev) => {
 load();
 renderRules();
 setInterval(load, 30_000);
+// ---- v2 strategy / paper section ----
+async function loadV2() {
+  try {
+    const st = await get("/api/v2/status");
+    const enabled = st.enabled;
+    $("#runStatus").textContent = enabled ? `● auto-run ${st.intervalMs/1000}s · ${st.runs} runs` : "auto-run off";
+  } catch (e) { $("#runStatus").textContent = "off"; }
+
+  try {
+    const book = await get("/api/v2/book");
+    const a = book.account;
+    const pnl = a.peakNavUsd - a.seedUsd;
+    $("#acctCards").innerHTML = [
+      [`NAV`, `$${a.peakNavUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+      [`Seed`, `$${a.seedUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+      [`Cash`, `$${a.cashUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+      [`PnL`, `<span class="${pnl>=0?'up':'down'}">${pnl>=0?'+':''}$${pnl.toLocaleString(undefined,{maximumFractionDigits:2})}</span>`],
+    ].map(([k,v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+    const pos = book.positions || [];
+    $("#posBody").innerHTML = pos.map(p => `<tr>
+      <td><b>${p.symbol}</b><div class="iss">${p.issuer||""}</div></td>
+      <td>${Number(p.shares).toFixed(6)}</td>
+      <td>$${Number(p.avgCostUsd).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+      <td class="hide-sm">$${Number(p.valueUsd).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+      <td class="muted hide-sm">$${Number(p.realizedPnlUsd).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+    </tr>`).join("");
+    $("#posEmpty").textContent = pos.length===0 ? "No holdings yet — run the strategy to deploy the paper book." : "";
+  } catch (e) {
+    $("#acctCards").innerHTML = `<div class="card"><div class="k">Paper</div><div class="v err">${e.message}</div></div>`;
+  }
+
+  try {
+    const dec = await get("/api/v2/decisions?limit=6");
+    $("#lastSeq").textContent = dec.length ? `#${dec[dec.length-1].seq}` : "";
+    $("#decWrap").innerHTML = dec.length===0 ? '<p class="muted" style="margin:0;font-size:12px">No runs yet.</p>'
+      : [...dec].reverse().map(d => `<div class="rowflex" style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 12px;margin-bottom:8px;font-size:12px">
+          <span class="chip">#${d.seq}</span><span>${d.reason}</span><span class="muted">NAV $${fmt(d.navMicro/1e6)}</span>
+        </div>`).join("");
+  } catch (e) {}
+
+  try {
+    const al = await get("/api/v2/alerts?limit=6");
+    $("#alertWrap").innerHTML = al.length===0 ? '<p class="muted" style="margin:0;font-size:12px">No alerts.</p>'
+      : al.slice(-6).reverse().map(a => `<div class="rowflex" style="margin-bottom:6px;font-size:12px"><span>${a.payload.text||""}</span><span class="chip">${new Date(a.ts).toLocaleTimeString()}</span></div>`).join("");
+  } catch (e) {}
+}
+
+async function runStrategy() {
+  const btn = $("#runBtn");
+  btn.textContent = "Running…"; btn.disabled = true;
+  try {
+    const r = await fetch("/api/v2/run", { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    const pnl = d.pnlTotal;
+    $("#runResult").innerHTML = `<div class="rowflex" style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 13px">
+      <span>seq <b>#${d.seq}</b></span><span>${d.fills} fills</span>
+      <span>NAV <b>$${d.nav.toFixed(2)}</b></span>
+      <span class="${pnl>=0?'up':'down'}">PnL ${pnl>=0?'+':''}$${pnl.toFixed(2)}</span>
+      <span class="muted">${d.strategy}</span>
+    </div>`;
+  } catch (e) { $("#runResult").innerHTML = `<p class="err">${e.message}</p>`; }
+  btn.textContent = "▶ Run strategy now"; btn.disabled = false;
+  loadV2();
+}
+
+$("#stratForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = $("#stratInput").value.trim() || "rotate to discounted";
+  await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ text, type: "rotate_to_discount" }) });
+});
+$("#runBtn").addEventListener("click", runStrategy);
+loadV2();
+setInterval(loadV2, 30_000);
