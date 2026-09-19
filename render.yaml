@@ -1,0 +1,27 @@
+# AfterHours — Render blueprint. Connect this repo in Render and it auto-deploys.
+services:
+  - type: web
+    name: afterhours
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    # Persistent disk for the node:sqlite ledger (survives redeploys).
+    disk:
+      name: afterhours-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: AH_DB_PATH
+        value: /var/data/afterhours.db
+      # Real keys — set these in the Render dashboard (secrets), NOT in code:
+      #   TWELVEDATA_API_KEY  (unlocks MSFT/NVDA/… references; demo is AAPL-only)
+      #   PYTH_API_KEY        (unlocks live weekend-gap prices)
+      #   AH_SEED_USD         (paper account seed, default 10000)
+      - key: TWELVEDATA_API_KEY
+        sync: false
+      - key: PYTH_API_KEY
+        sync: false
