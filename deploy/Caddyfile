@@ -1,0 +1,22 @@
+# AfterHours — Caddy drop-in for the custom domain.
+# HOW TO ENABLE (after you own the domain):
+#   1. In your DNS provider: set the domain's A record -> 129.226.83.2  (apex)
+#      and a CNAME from www -> <your-domain>  (or another A record).
+#   2. Merge this block into /etc/caddy/Caddyfile (or add a line to import it).
+#   3. `sudo caddy reload` — Caddy auto-provisions Let's Encrypt HTTPS via :443.
+#
+# Replace afterhoursequity.xyz with YOUR actual domain below.
+afterhoursequity.xyz, www.afterhoursequity.xyz {
+    reverse_proxy 127.0.0.1:8080
+    encode gzip
+    header {
+        X-Content-Type-Options nosniff
+        Strict-Transport-Security "max-age=31536000"
+    }
+    @health {
+        path /api/health
+    }
+    handle @health {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
