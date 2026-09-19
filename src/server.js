@@ -13,6 +13,7 @@ import { runEngine } from "./services/v2.js";
 import { startRunLoop } from "./services/loop.js";
 import { fromMicro } from "./services/paper.js";
 import * as solana from "./services/solana.js";
+import bs58 from "bs58";
 import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
@@ -122,6 +123,19 @@ app.post("/api/auth/logout", (req, res) => {
   res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
   res.json({ ok: true });
 });
+app.post("/api/auth/wallet/challenge", wrap(async (req, res) => {
+  const address = String(req.body?.address || "").trim();
+  if (!address) return res.status(400).json({ error: "wallet address required" });
+  try { bs58.decode(address); } catch { return res.status(400).json({ error: "invalid base58 address" }); }
+  res.json(auth.createWalletChallenge(address));
+}));
+app.post("/api/auth/wallet/verify", wrap(async (req, res) => {
+  const { address, signature } = req.body || {};
+  const out = auth.walletSignIn(db, { address, signature });
+  if (out.error) return res.status(out.status || 400).json(out);
+  res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=${out.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
+  res.json({ handle: out.handle, short: out.short });
+}));
 app.get("/api/auth/me", (req, res) => {
   const u = currentUser(req);
   if (!u) return res.status(401).json({ error: "not signed in" });

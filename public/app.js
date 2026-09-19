@@ -252,3 +252,26 @@ async function renderGaps() {
 }
 renderGaps();
 setInterval(renderGaps, 45_000);
+
+// ---- Connect wallet (custom Solana sign-in) ----
+async function connectWallet() {
+  const el = window.solana;
+  if (!el || !el.isConnected) {
+    $("#whoami").textContent = "Install a Solana wallet (Phantom) to connect — or use email/handle above.";
+    return;
+  }
+  try {
+    const resp = await el.connect();
+    const address = (resp?.publicKey || el.publicKey).toString();
+    $("#whoami").textContent = "requesting signature…";
+    const ch = await (await fetch("/api/auth/wallet/challenge", { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"same-origin", body: JSON.stringify({address}) })).json();
+    const sig = await el.signMessage(new TextEncoder().encode(ch.message), "utf8");
+    const sigBytes = (sig.signature ?? sig);
+    const v = await (await fetch("/api/auth/wallet/verify", { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"same-origin", body: JSON.stringify({ address, signature: Array.from(sigBytes) }) })).json();
+    $("#whoami").textContent = v.error ? v.error : ("wallet signed in @" + v.short);
+    if (!v.error) checkAuth();
+  } catch (e) {
+    $("#whoami").textContent = "connect error: " + (e.message || e);
+  }
+}
+$("#btnWallet").addEventListener("click", connectWallet);

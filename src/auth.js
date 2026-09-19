@@ -93,3 +93,46 @@ export function parseCookies(req) {
   return out;
 }
 export const AUTH_COOKIE = "ah_session";
+// ---- Custom Solana wallet authentication (self-custody, no Privy) ----
+// Flow: client requests a nonce -> wallet signs a UTF-8 message -> we verify the
+// ed25519 signature against the pubkey (= the wallet address) -> session cookie.
+import * as ed25519 from "@noble/ed25519";
+import { createHash } from "node:crypto";
+import bs58 from "bs58";
+// @noble/ed25519 v2 requires an explicit SHA-512 implementation.
+ed25519.hashes.sha512 = (m) => new Uint8Array(createHash("sha512").update(m).digest());
+
+const CHALLENGES = new Map(); // address -> { nonce, message, expiresAt }
+const CHALLENGE_TTL = 5 * 60_000;
+
+export function createWalletChallenge(address) {
+  const nonce = randomBytes(16).toString("hex");
+  const message = `AfterHours sign-in ${address} ${nonce}`;
+  const expiresAt = Date.now() + CHALLENGE_TTL;
+  CHALLENGES.set(address, { nonce, message, expiresAt });
+  return { nonce, message, expiresAt };
+}
+
+export function walletUserByAddress(db, address) { return db.prepare("SELECT * FROM users WHERE handle = ?").get(address); }
+
+export function walletSignIn(db, { address, signature }) {
+  const challenge = CHALLENGES.get(address);
+  if (!challenge) return { error: "no active challenge — request one first", status: 400 };
+  if (Date.now() > challenge.expiresAt) { CHALLENGES.delete(address); return { error: "challenge expired — try again", status: 400 }; }
+  try {
+    const pub = bs58.decode(address);        // 32-byte ed25519 public key
+    const sigBytes = Array.isArray(signature) ? Uint8Array.from(signature) : bs58.decode(String(signature));
+    const msg = new TextEncoder().encode(challenge.message);
+    const ok = ed25519.verify(sigBytes, msg, pub);
+    if (!ok) return { error: "signature did not verify", status: 401 };
+  } catch (e) {
+    return { error: `signature verify failed: ${e.message}`, status: 400 };
+  }
+  CHALLENGES.delete(address);
+  // upsert a wallet user (handle = address, passwordless)
+  db.prepare("INSERT OR IGNORE INTO users (handle, created_at) VALUES (?, ?)").run(address, Date.now());
+  const u = walletUserByAddress(db, address);
+  const token = "ah_" + randomBytes(32).toString("hex");
+  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, u.id, Date.now() + 7 * 86400e3);
+  return { token, handle: address, userId: u.id, short: address.slice(0, 4) + "…" + address.slice(-4) };
+}
