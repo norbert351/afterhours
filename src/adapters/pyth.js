@@ -24,28 +24,37 @@ export function feedRegistry() {
 }
 
 // Live prices for all five AAPL feeds. Requires PYTH_API_KEY.
-// Returns the actual weekend-gap you'd trade: equality frozen vs token live.
+// Returns per-feed status so a key that lacks a grant on a feed is reported
+// honestly (e.g. public-crypto-only keys get 403 on the tokenized-equity feeds
+// until a Pyth Pro grant covers them). Never fabricates — absent grants = error.
 export async function latestAaplPrices() {
   if (!config.sources.pyth.apiKey) {
-    throw Object.assign(
-      new Error("Pyth live prices need PYTH_API_KEY (401 without it) — feed registry only"),
-      { code: "PYTH_KEY_REQUIRED", status: 501 },
-    );
+    throw Object.assign(new Error("PYTH_API_KEY required for live Pyth prices"), { code: "PYTH_KEY_REQUIRED", status: 501 });
   }
-  const ids = Object.values(config.sources.pyth.aaplFeeds);
-  const url =
-    `${config.sources.pyth.base}/v2/updates/price/latest?` +
-    ids.map((id) => `ids[]=${id}`).join("&") +
-    "&parsed=true";
-  const data = await cachedFetch(url, {
-    ttlMs: 15_000,
-    headers: { Authorization: `Bearer ${config.sources.pyth.apiKey}` },
-  });
-  const parsed = data?.parsed || [];
-  return parsed.map((p) => ({
-    id: p.id,
-    price: p.price ? p.price.price * Math.pow(10, p.price.expo) : null,
-    confidence: p.price ? p.price.conf * Math.pow(10, p.price.expo) : null,
-    publishTime: p.price?.publish_time ?? null,
-  }));
+  const feeds = [
+    { role: "equity (NYSE, weekend-frozen)", id: config.sources.pyth.aaplFeeds.equity },
+    { role: "xStock token (24/7)", id: config.sources.pyth.aaplFeeds.xstock },
+    { role: "Ondo tokenized (24/7)", id: config.sources.pyth.aaplFeeds.ondo },
+    { role: "AAPL 24/7 (Pyth)", id: config.sources.pyth.aaplFeeds.aapl24 },
+    { role: "xStock redemption rate", id: config.sources.pyth.aaplFeeds.redemption },
+  ];
+  const out = [];
+  for (const f of feeds) {
+    try {
+      const url = `${config.sources.pyth.base}/v2/updates/price/latest?ids[]=${f.id}&parsed=true`;
+      const data = await cachedFetch(url, { ttlMs: 15_000, headers: { Authorization: `Bearer ${config.sources.pyth.apiKey}` } });
+      const p = (data?.parsed || [])[0];
+      out.push({
+        role: f.role,
+        price: p?.price ? p.price.price * Math.pow(10, p.price.expo) : null,
+        confidence: p?.price ? p.price.conf * Math.pow(10, p.price.expo) : null,
+        publishTime: p?.price?.publish_time ?? null,
+        ok: Boolean(p?.price),
+      });
+    } catch (e) {
+      out.push({ role: f.role, ok: false, error: (e.message || "").slice(0, 160) });
+    }
+  }
+  const entitled = out.filter((x) => x.ok).length;
+  return { feeds: out, entitledCount: entitled, blockedCount: out.length - entitled };
 }
