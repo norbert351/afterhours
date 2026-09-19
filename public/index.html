@@ -53,6 +53,25 @@
   .foot{color:var(--mut);font-size:11px;margin-top:26px;padding-top:14px;border-top:1px solid var(--line);line-height:1.6}
   .err{color:var(--down)} .ok{color:var(--up)}
   .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut);margin-left:6px}
+  .head-right{display:flex;align-items:center;gap:12px}
+  .nav-connect{border:1px solid var(--acc);color:var(--acc);background:rgba(85,70,255,.08);border-radius:999px;padding:9px 18px;font-weight:600;font-size:13px;white-space:nowrap}
+  .nav-connect.signed{border-color:#3ecf8e;color:#69f0ae;background:rgba(62,207,142,.08)}
+  .watchstrip{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .watchstrip .wchip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--txt)}
+  .modalveil{position:fixed;inset:0;background:rgba(5,5,10,.72);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+  .modalveil.show{display:flex}
+  .modal{background:#14141c;border:1px solid var(--line);border-radius:18px;padding:28px;width:min(420px,100%);max-height:90vh;overflow:auto;position:relative;animation:up .25s var(--cubic)}
+  @keyframes up{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+  .modal .close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--mut);font-size:24px;line-height:1}
+  .modal h3{font-family:var(--display);font-size:22px;margin:0 0 20px}
+  .modal input{width:100%;margin:8px 0;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 14px;border-radius:10px;font-size:14px;font-family:var(--sans)}
+  .modal input:focus{outline:none;border-color:var(--acc)}
+  .mbtn{width:100%;border-radius:10px;padding:13px;font-weight:600;font-size:14px;margin:6px 0}
+  .mbtn-wallet{background:var(--acc);color:#fff}
+  .mbtn-sub{background:transparent;border:1px solid var(--acc);color:var(--acc)}
+  .or{text-align:center;color:var(--mut);font-size:12px;margin:12px 0;letter-spacing:.1em;text-transform:uppercase}
+  .prova{display:flex;align-items:center;gap:8px;color:#69f0ae;font-size:12px;margin-top:10px}
+  .prova .dot{width:8px;height:8px;border-radius:50%;background:#3ecf8e;box-shadow:0 0 10px #3ecf8e}
   @media(max-width:560px){.hide-sm{display:none} table{font-size:12px}}
 </style>
 </head>
@@ -66,26 +85,28 @@
         <div class="sub">On-chain equity intelligence · verified live data</div>
       </div>
     </div>
-    <span id="mktBadge" class="badge">…</span>
+    <div class="head-right">
+      <span id="mktBadge" class="badge">…</span>
+      <button id="btnWallet" class="nav-connect">Connect wallet</button>
+    </div>
   </header>
 
-  <section>
-    <h2>Account · watchlist</h2>
-    <div class="card">
-      <div id="authBox">
-        <div class="rowflex" style="gap:8px">
-          <input id="ahHandle" type="text" placeholder="handle" style="min-width:100px;flex:0 1 auto" />
-          <input id="ahPass" type="password" placeholder="password" style="min-width:100px;flex:0 1 auto" />
-          <button id="btnLogin" class="secondary" style="padding:9px 14px">Sign in</button>
-          <button id="btnRegister" style="padding:9px 14px">Register</button>
-          <button id="btnWallet" style="padding:9px 14px;background:#5546ff;color:#fff">Connect wallet</button>
-          <button id="btnLogout" style="padding:9px 14px;display:none">Log out</button>
-          <span id="whoami" class="muted" style="font-size:12px"></span>
-        </div>
-      </div>
-      <div id="watchlistWrap" style="margin-top:10px"></div>
+  <div id="watchStrip" class="watchstrip" hidden></div>
+
+  <!-- Auth modal (wallet-style) -->
+  <div class="modalveil" id="authModal">
+    <div class="modal">
+      <button class="close" id="authClose" aria-label="close">×</button>
+      <h3>Connect to AfterHours</h3>
+      <button class="mbtn mbtn-wallet" id="mWallet">Connect wallet</button>
+      <div class="or">or continue with</div>
+      <input id="ahHandle" type="text" placeholder="your handle" />
+      <input id="ahPass" type="password" placeholder="password" />
+      <button class="mbtn mbtn-wallet" id="btnRegister">Create account</button>
+      <button class="mbtn mbtn-sub" id="btnLogin">Sign in</button>
+      <div class="prova"><span class="dot"></span><span id="authMsg">Secure · keys stay with you</span></div>
     </div>
-  </section>
+  </div>
 
   <section>
     <h2>Market status</h2>

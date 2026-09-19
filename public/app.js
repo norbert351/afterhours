@@ -192,42 +192,59 @@ $("#runBtn").addEventListener("click", runStrategy);
 loadV2();
 setInterval(loadV2, 30_000);
 
-// ---- v4 accounts + watchlist ----
+// ---- v4 accounts + watchlist (navbar + modal) ----
 let me = null;
+function fmtAddr(h){ return (h||'').length>14 ? h.slice(0,4)+'…'+h.slice(-4) : h; }
 async function checkAuth() {
   try {
     const r = await fetch("/api/auth/me", { credentials: "same-origin" });
-    if (r.ok) { me = await r.json(); $("#whoami").textContent = "@" + me.handle + " · " + me.watchlist.length + " watching"; }
-    else { me = null; $("#whoami").textContent = ""; }
-    $("#btnLogout").style.display = me ? "inline-block" : "none";
-    $("#btnLogin").style.display = me ? "none" : "";
-    $("#btnRegister").style.display = me ? "none" : "";
+    const b = $("#btnWallet");
+    if (r.ok) {
+      me = await r.json();
+      b.textContent = "@" + fmtAddr(me.handle);
+      b.classList.add("signed");
+      b.onclick = signOutConfirm;
+    } else {
+      me = null;
+      b.textContent = "Connect wallet";
+      b.classList.remove("signed");
+      b.onclick = openAuth;
+    }
     renderWatchlist();
   } catch (e) { me = null; }
 }
+function openAuth(){ $("#authModal").classList.add("show"); $("#authMsg").textContent="Secure · keys stay with you"; }
+function closeAuth(){ $("#authModal").classList.remove("show"); }
+async function signOutConfirm(){ if(confirm("Sign out of "+fmtAddr(me?.handle)+"?")){ await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"}); closeAuth(); checkAuth(); } }
 async function doAuth(path) {
   const h = $("#ahHandle").value.trim(), p = $("#ahPass").value;
-  if (!h || !p) return;
-  const r = await fetch("/api/auth/" + path, { method: "POST", headers: {"Content-Type":"application/json"}, credentials: "same-origin", body: JSON.stringify({ handle: h, password: p }) });
+  if (!h || !p) { $("#authMsg").textContent="Enter a handle and password"; return; }
+  if (path==="register" && p.length<6) { $("#authMsg").textContent="Password must be ≥ 6 characters"; return; }
+  const r = await fetch("/api/auth/"+path, { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"same-origin", body: JSON.stringify({handle:h,password:p}) });
   const d = await r.json().catch(()=>({}));
-  $("#whoami").textContent = d.error ? d.error : (path==="register"?"registered ✓":"signed in ✓");
-  if (r.ok) { $("#ahPass").value=""; checkAuth(); }
+  $("#authMsg").textContent = d.error ? d.error : (path==="register"?"Account created ✓":"Signed in ✓");
+  if (r.ok) { $("#ahPass").value=""; closeAuth(); checkAuth(); }
 }
 async function renderWatchlist() {
-  const w = $("#watchlistWrap");
-  if (!me) { w.innerHTML = ""; return; }
+  const w = $("#watchStrip");
+  if (!me) { w.hidden = true; return; }
   try {
-    const r = await fetch("/api/watchlist", { credentials: "same-origin" });
-    if (!r.ok) return;
+    const r = await fetch("/api/watchlist", { credentials:"same-origin" });
+    if (!r.ok) { w.hidden = true; return; }
     const list = await r.json();
-    w.innerHTML = list.length===0 ? '<span class="muted" style="font-size:12px">No saved tickers yet.</span>'
-      : list.map(x => `<span class="chip" style="margin:2px 4px 2px 0;display:inline-block">${x.symbol} ${x.price?("$"+Number(x.price).toFixed(2)):""} <a href="#" data-rm="${x.symbol}" style="color:var(--down);text-decoration:none">✕</a></span>`).join("");
-    w.querySelectorAll("a[data-rm]").forEach(a => a.addEventListener("click", async (ev)=>{ ev.preventDefault(); const sym=a.getAttribute("data-rm"); await fetch("/api/watchlist/"+sym,{method:"DELETE",credentials:"same-origin"}); checkAuth(); }));
-  } catch (e) {}
+    if (!list.length) { w.hidden = true; return; }
+    w.hidden = false;
+    w.innerHTML = '<span class="muted" style="font-size:11px;align-self:center">Watching:</span>' +
+      list.map(x=>`<span class="wchip">${x.symbol} ${x.price?("$"+Number(x.price).toFixed(2)):""} <a href="#" data-rm="${x.symbol}" style="color:var(--down);text-decoration:none">✕</a></span>`).join("");
+    w.querySelectorAll("a[data-rm]").forEach(a=>a.addEventListener("click", async (ev)=>{ ev.preventDefault(); await fetch("/api/watchlist/"+a.getAttribute("data-rm"),{method:"DELETE",credentials:"same-origin"}); checkAuth(); }));
+  } catch(e){ w.hidden=true; }
 }
+$("#btnWallet").addEventListener("click", openAuth);
+$("#authClose").addEventListener("click", closeAuth);
+$("#authModal").addEventListener("click", (e)=>{ if(e.target.id==="authModal") closeAuth(); });
 $("#btnLogin").addEventListener("click", () => doAuth("login"));
 $("#btnRegister").addEventListener("click", () => doAuth("register"));
-$("#btnLogout").addEventListener("click", async () => { await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"}); checkAuth(); });
+$("#mWallet").addEventListener("click", async () => { $("#authMsg").textContent="Opening wallet…"; await connectWallet(); });
 checkAuth();
 setInterval(checkAuth, 60_000);
 
@@ -256,24 +273,23 @@ setInterval(renderGaps, 45_000);
 // ---- Connect wallet (custom Solana sign-in) ----
 async function connectWallet() {
   // Privy path (auth island mounted on the page) — else native Solana.
-  if (window.__privyLogin) { await window.__privyLogin(); checkAuth(); return; }
+  if (window.__privyLogin) { await window.__privyLogin(); closeAuth(); checkAuth(); return; }
   const el = window.solana;
   if (!el || !el.isConnected) {
-    $("#whoami").textContent = "Install a Solana wallet (Phantom) to connect — or use email/handle above.";
+    $("#authMsg").textContent = "Install a Solana wallet (e.g. Phantom) to connect.";
     return;
   }
   try {
     const resp = await el.connect();
     const address = (resp?.publicKey || el.publicKey).toString();
-    $("#whoami").textContent = "requesting signature…";
+    $("#authMsg").textContent = "Requesting signature…";
     const ch = await (await fetch("/api/auth/wallet/challenge", { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"same-origin", body: JSON.stringify({address}) })).json();
     const sig = await el.signMessage(new TextEncoder().encode(ch.message), "utf8");
     const sigBytes = (sig.signature ?? sig);
     const v = await (await fetch("/api/auth/wallet/verify", { method:"POST", headers:{"Content-Type":"application/json"}, credentials:"same-origin", body: JSON.stringify({ address, signature: Array.from(sigBytes) }) })).json();
-    $("#whoami").textContent = v.error ? v.error : ("wallet signed in @" + v.short);
-    if (!v.error) checkAuth();
+    $("#authMsg").textContent = v.error ? v.error : ("Wallet connected ✓");
+    if (!v.error) { closeAuth(); checkAuth(); }
   } catch (e) {
-    $("#whoami").textContent = "connect error: " + (e.message || e);
+    $("#authMsg").textContent = "connect error: " + (e.message || e);
   }
 }
-$("#btnWallet").addEventListener("click", connectWallet);
