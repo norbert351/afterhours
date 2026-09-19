@@ -117,6 +117,9 @@ export function upsertPosition(db, p) {
 export function deletePosition(db, symbol) {
   db.prepare("DELETE FROM paper_positions WHERE symbol = ?").run(symbol);
 }
+export function clearAllPositions(db) {
+  db.prepare("DELETE FROM paper_positions").run();
+}
 
 // ---- decisions ----
 export function lastSeq(db) {

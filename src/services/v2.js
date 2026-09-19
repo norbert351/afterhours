@@ -88,8 +88,9 @@ export async function runEngine(db, { strategies = null } = {}) {
   if (invested > funded + budget) {
     guardTripped = true;
     console.error("[ledger-guard] cost-basis violation:", invested, "invested >", funded, "funded — reset to cash");
+    store.clearAllPositions(db);   // hard-delete EVERY persisted position
     book.positions.clear();
-    book.cashMicro = acc.seedMicro;   // clean slate
+    book.cashMicro = acc.seedMicro; // clean slate
   }
 
   const peakRealized = guardTripped ? 0 : nextRealizedMicro;
