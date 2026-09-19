@@ -3,6 +3,8 @@ import { buildUniverse, underlyingKey } from "./oracle.js";
 import { findDislocations } from "./dislocation.js";
 import { PaperBook, toMicro, fromMicro } from "./paper.js";
 import * as store from "../store.js";
+import * as solana from "./solana.js";
+import { XSTOCKS } from "../adapters/xstocks.js";
 
 // priceMicro for each instrument: what a buyer actually pays (tokenPrice when the
 // issuer splits mark vs token), and the fair-value valuation used for NAV.
@@ -132,6 +134,35 @@ export async function runEngine(db, { strategies = null } = {}) {
   const finalNavMicro = guardTripped ? acc.seedMicro : navAfter;
   const shownActions = guardTripped ? [] : actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) }));
   const shownRealized = guardTripped ? 0 : realizedPnlMicro;
+
+  // ── REAL EXECUTION (opt-in, honest) ──
+  // When AH_LIVE_EXEC=1 AND a Solana wallet is configured, buy the deepest live
+  // on-chain gap tokenized equity with a small capped amount through the wallet.
+  // Logs the real tx signature on success, or the EXACT reason it couldn't route
+  // (e.g. Jupiter unreachable from this host) — never a fabricated fill.
+  let live = null;
+  const liveEnabled = String(process.env.AH_LIVE_EXEC || "").trim() === "1";
+  if (liveEnabled && !guardTripped && solana.isConfigured()) {
+    try {
+      const { marketHoursGap } = await import("./markethours.js");
+      const gaps = (await marketHoursGap()).gaps.filter((g) => !g.error);
+      const best = [...gaps].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0];
+      if (best) {
+        const cfg = XSTOCKS[best.symbol];
+        const cap = Number(process.env.AH_LIVE_EXEC_USD || 5);
+        const usdc = Math.round(cap * 1_000_000); // USDC atoms (6 decimals)
+        const run = await solana.jupiterSwap({ inputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", outputMint: cfg.mint, amount: usdc });
+        live = { symbol: best.symbol, mint: cfg.mint, capUsd: cap, executed: true, signature: run.signature, explorer: run.explorer };
+      } else {
+        live = { executed: false, error: "no live gap to trade right now" };
+      }
+    } catch (e) {
+      live = { executed: false, error: (e.message || "").slice(0, 140) };
+    }
+  } else if (liveEnabled) {
+    live = { executed: false, error: "AH_LIVE_EXEC=1 requires SOLANA_PRIVATE_KEY configured" };
+  }
+
   return {
     strategy: strategy.strategyType,
     targets,
@@ -147,6 +178,7 @@ export async function runEngine(db, { strategies = null } = {}) {
     drawdownPct,
     seq,
     guardTripped,
+    live,
     generatedAt: Date.now(),
   };
 }
