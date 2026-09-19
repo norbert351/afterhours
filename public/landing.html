@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AfterHours · tokenized equities, trading 24/7</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080808; --bg2:#0e0b09; --panel:#131110; --line:#2a231c;
+  --ink:#f7f2ea; --muted:#9b9183; --accent:#f27405; --amber:#f0b23c;
+  --mono:'ui-monospace,SFMono-Regular,Menlo,monospace';
+  --display:'Playfair Display',serif; --body:'Plus Jakarta Sans',system-ui,sans-serif;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;font-family:inherit}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;background:rgba(8,8,8,.82);backdrop-filter:blur(14px);border-bottom:1px solid rgba(42,35,28,.5)}
+nav .wrap{display:flex;align-items:center;gap:28px;height:66px}
+.brand{font-family:var(--display);font-size:1.5rem;letter-spacing:.02em;font-weight:600}
+.brand b{color:var(--accent)}
+.nav-links{display:flex;gap:26px;margin-left:auto}
+.nav-links a{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);transition:color .3s}
+.nav-links a:hover{color:var(--ink)}
+.btn{border-radius:999px;padding:.72rem 1.4rem;font-size:.82rem;font-weight:600;letter-spacing:.02em;transition:transform .25s var(--ease),box-shadow .25s}
+.btn-accent{background:var(--accent);color:#160e04;box-shadow:0 8px 30px -8px rgba(242,116,5,.6)}
+.btn-accent:hover{transform:translateY(-2px)}
+.btn-ghost{border:1px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{background:#1a1512}
+#burger{display:none;background:none;color:var(--ink)}
+@media(max-width:900px){.nav-links{display:none;position:absolute;top:66px;left:0;right:0;background:#0c0a08;border-bottom:1px solid var(--line);flex-direction:column;padding:16px 24px;gap:16px}.nav-links.open{display:flex}#burger{display:block;margin-left:auto}}
+
+/* hero */
+.hero{position:relative;padding:88px 0 70px;overflow:hidden}
+.hero::before{content:"";position:absolute;top:-160px;right:-80px;width:640px;height:640px;background:radial-gradient(circle,#5C3317 0%,transparent 68%);opacity:.55;pointer-events:none}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(242,116,5,.35);border-radius:999px;padding:.4rem .9rem;margin-bottom:26px}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(2.6rem,5.4vw,4.3rem);line-height:1.04;letter-spacing:-.01em}
+h1 em{font-style:italic;color:var(--amber)}
+.hero-sub{margin:26px 0 0;color:var(--muted);font-size:1.05rem;line-height:1.65;max-width:46ch;font-weight:300}
+.hero-ctas{display:flex;gap:16px;flex-wrap:wrap;margin-top:36px}
+.hero-note{margin-top:22px;font-size:.78rem;color:#6f675c;display:flex;gap:8px;align-items:center}
+
+/* live panel = the product's hero image */
+.panel{background:linear-gradient(180deg,#14100c,#0e0b09);border:1px solid var(--line);border-radius:20px;padding:22px;position:relative;box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+.panel::before{content:"";position:absolute;inset:0;border-radius:20px;background:radial-gradient(circle at 20% -10%,rgba(242,116,5,.14),transparent 55%);pointer-events:none}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-title{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:.7rem;color:#69d2a0;letter-spacing:.1em;text-transform:uppercase}
+.live .dot{width:7px;height:7px;border-radius:50%;background:#3ecf8e;box-shadow:0 0 12px #3ecf8e}
+.gap-row{display:flex;align-items:center;justify-content:space-between;padding:13px 2px;border-top:1px solid rgba(42,35,28,.5)}
+.gap-row:first-of-type{border-top:none}
+.gap-sym{font-weight:600;font-size:.95rem}
+.gap-ref{font-size:.72rem;color:#6f675c;letter-spacing:.06em}
+.gap-px{font-family:var(--mono);font-size:.9rem;color:var(--ink)}
+.gap-pct{font-family:var(--mono);font-weight:600;font-size:.9rem}
+.up{color:#69d2a0}.dn{color:#ff7a68}
+.float-card{position:absolute;background:#1b1612;border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:0 18px 50px -18px rgba(0,0,0,.8)}
+.float-card .k{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.float-card .v{font-family:var(--mono);font-size:1.05rem;font-weight:600;margin-top:3px}
+.fc1{top:-20px;right:-14px}.fc2{bottom:-22px;left:-16px}
+
+/* sections */
+section{padding:70px 0}
+.sect-top{display:flex;align-items:baseline;gap:22px;margin-bottom:44px}
+.num{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;color:var(--accent)}
+h2{font-family:var(--display);font-weight:600;font-size:clamp(1.8rem,3.4vw,2.7rem);line-height:1.12}
+
+/* stats band */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.stat{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:26px 22px}
+.stat .n{font-family:var(--mono);font-size:2rem;font-weight:600;color:var(--ink)}
+.stat .n em{color:var(--accent);font-style:normal}
+.stat .l{font-size:.78rem;color:var(--muted);margin-top:8px;letter-spacing:.04em}
+
+/* how it works */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
+.step .s{font-family:var(--mono);font-size:.7rem;color:var(--accent);letter-spacing:.2em;margin-bottom:18px}
+.step h3{font-family:var(--display);font-size:1.3rem;font-weight:600;margin-bottom:10px}
+.step p{color:var(--muted);font-size:.9rem;line-height:1.6;font-weight:300}
+
+/* features */
+.feats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.feat{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
+.feat .ic{width:42px;height:42px;border-radius:12px;background:rgba(242,116,5,.12);display:grid;place-items:center;color:var(--accent);font-size:1.2rem;margin-bottom:20px}
+.feat h3{font-family:var(--display);font-size:1.25rem;font-weight:600;margin-bottom:9px}
+.feat p{color:var(--muted);font-size:.88rem;line-height:1.6;font-weight:300}
+
+/* CTA band */
+.cta{padding:70px 0 90px;position:relative;overflow:hidden}
+.cta .box{background:radial-gradient(120% 140% at 80% 0%,#241507 0%,#0d0b09 55%);border:1px solid var(--line);border-radius:26px;padding:64px 48px;text-align:center;position:relative}
+.cta h2{font-size:clamp(2rem,4vw,3.1rem);max-width:22ch;margin:0 auto}
+.cta p{color:var(--muted);max-width:52ch;margin:18px auto 0;font-size:1rem;line-height:1.6;font-weight:300}
+.cta .btn-accent{margin-top:34px;display:inline-block;font-size:.95rem;padding:.9rem 2rem}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:44px 0}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.foot-links{display:flex;gap:22px}
+.foot-links a{color:var(--muted);font-size:.8rem;letter-spacing:.06em}
+.foot-links a:hover{color:var(--ink)}
+.cr{font-size:.72rem;color:#6f675c}
+
+@media(max-width:900px){
+  .hero .wrap{grid-template-columns:1fr;gap:38px}.hero{padding:56px 0}
+  .stats,.steps,.feats{grid-template-columns:1fr}
+  .fc1{right:0}.fc2{left:0}
+  .cta .box{padding:46px 24px}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <div class="brand">After<b>Hours</b></div>
+    <div class="nav-links" id="navLinks">
+      <a href="#how">How it works</a><a href="#features">Features</a><a href="#live">Live gaps</a>
+    </div>
+    <button class="btn btn-accent" onclick="location.href='/app'">Open app</button>
+    <button id="burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="menu">≡</button>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow"><span class="dot"></span>Tokenized equities · trading 24/7</span>
+      <h1>Markets close.<br>Your equities <em>don’t.</em></h1>
+      <p class="hero-sub">The NYSE freezes at Friday’s bell, but the on-chain tokenized copies of the same stocks keep trading all weekend. AfterHours maps the live on-chain price against the frozen reference — and turns the gap into an edge.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-accent" onclick="location.href='/app'">Open the app</button>
+        <a class="btn btn-ghost" href="#live">See the live gap</a>
+      </div>
+      <p class="hero-note"><span>●</span> Live on Solana mainnet · not a mockup</p>
+    </div>
+    <div style="position:relative">
+      <div class="panel" id="livePanel" style="height:340px;display:flex;flex-direction:column;justify-content:center">
+        <div class="panel-head"><span class="panel-title">Market never sleeps</span><span class="live"><span class="dot"></span>LIVE</span></div>
+        <div id="gapBody">Loading live on-chain prices…</div>
+      </div>
+      <div class="float-card fc1"><div class="k">NVDAx 24h vol</div><div class="v" id="vol1">…</div></div>
+      <div class="float-card fc2"><div class="k">Deepest pool</div><div class="v" id="vol2">…</div></div>
+    </div>
+  </div>
+</header>
+
+<section id="stats">
+  <div class="wrap">
+    <div class="sect-top"><span class="num">01 / LIVE</span><h2>Real liquidity, real volume,<br>real 24/7 trading</h2></div>
+    <div class="stats">
+      <div class="stat"><div class="n" id="stVol">…</div><div class="l">combined 24h on-chain volume</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">tokenized mega-cap equities</div></div>
+      <div class="stat"><div class="n"><em>NVDAx</em></div><div class="l">deepest pool by reserve</div></div>
+      <div class="stat"><div class="n">24/7</div><div class="l">when NYSE is closed</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sect-top"><span class="num">02 / HOW IT WORKS</span><h2>Three steps to the edge</h2></div>
+    <div class="steps">
+      <div class="step"><div class="s">01</div><h3>Track the gap</h3><p>Live on-chain price of every tokenized equity vs its frozen NYSE reference. When they diverge, you see it in seconds.</p></div>
+      <div class="step"><div class="s">02</div><h3>Set a strategy</h3><p>Plain-English rules — “buy GOOGLx when it trades 1% above its reference” — run autonomously over the live feed.</p></div>
+      <div class="step"><div class="s">03</div><h3>Act on-chain</h3><p>Sign with your Solana wallet and let the book execute on the real pools. Every fill carries honest fees and slippage.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sect-top"><span class="num">03 / FEATURES</span><h2>Built for the market that never sleeps</h2></div>
+    <div class="feats">
+      <div class="feat"><div class="ic">◎</div><h3>Live market-hours gaps</h3><p>On-chain tokenized-equity prices vs frozen NYSE references, refreshed live and clearly labelled when the market is closed.</p></div>
+      <div class="feat"><div class="ic">◆</div><h3>Autonomous strategy engine</h3><p>A guarded paper ledger + auto-run loop that rebalances without churn and can never show a phantom profit.</p></div>
+      <div class="feat"><div class="ic">✎</div><h3>Real Solana execution</h3><p>A funded wallet that signs and broadcasts true transactions on mainnet — no mockup, honest to the atom.</p></div>
+      <div class="feat"><div class="ic">⑂</div><h3>Wallets & watchlists</h3><p>Connect your Solana wallet or sign in by handle. Save tickers you care about — your edge, your book.</p></div>
+      <div class="feat"><div class="ic">↳</div><h3>Real-time alerts</h3><p>Fired strategy signals push to a webhook the moment they trigger — not a passive feed.</p></div>
+      <div class="feat"><div class="ic">⚑</div><h3>Provably honest</h3><p>A cost-basis ledger guard makes phantom value structurally impossible; decision logs are committed as witness evidence.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta" id="live">
+  <div class="wrap">
+    <div class="box">
+      <h2>See the market move before it reopens.</h2>
+      <p>Connect your wallet, open the app, and watch the on-chain gaps update in real time. This is a working product on Solana mainnet.</p>
+      <button class="btn btn-accent" onclick="location.href='/app'">Open the app →</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand" style="font-size:1.2rem">After<b>Hours</b></div>
+    <div class="foot-links"><a href="/app">App</a><a href="/api/health">Health</a><a href="#live">Live gaps</a></div>
+    <span class="cr">© 2026 AfterHours · live on Solana</span>
+  </div>
+</footer>
+
+<script>
+const F=(n,d=0)=>Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+async function loadGaps(){
+  try{
+    const d=await (await fetch('/api/markethours/gap')).json();
+    const rows=d.gaps.filter(g=>!g.error).slice(0,5);
+    document.getElementById('gapBody').innerHTML=rows.map(g=>{
+      const gap=typeof g.gapPct==='number'?g.gapPct:0, cls=gap>=0?'up':'dn';
+      return `<div class="gap-row"><div><div class="gap-sym">${g.symbol}</div><div class="gap-ref">${g.ref}</div></div><div class="gap-px">$${g.onChainPriceUsd.toFixed(2)}</div><div class="gap-pct ${cls}">${gap>=0?'+':''}${gap.toFixed(2)}%</div></div>`;
+    }).join('');
+    const vols=Object.values(d.gaps.filter(g=>!g.error)).reduce((a,g)=>a+(g.volumeUsd24h||0),0);
+    document.getElementById('stVol').innerHTML='$'+(vols/1e3).toFixed(0)+'k';
+    document.getElementById('vol1').innerHTML='$'+(rows[0]?.volumeUsd24h/1e3).toFixed(0)+'k';
+    document.getElementById('vol2').innerHTML=rows[0]?.symbol||"—";
+    document.getElementById('livePanel').style.height='auto';
+  }catch(e){document.getElementById('gapBody').innerHTML='<span style="color:var(--muted)">Live feed unavailable here.</span>';}
+}
+loadGaps();setInterval(loadGaps,45000);
+</script>
+</body>
+</html>
