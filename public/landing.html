@@ -333,7 +333,9 @@ async function refreshAuth(){
 async function signOut(){await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});refreshAuth();}
 async function connectWallet(){
   let providers;try{providers=await (await fetch('/api/auth/providers')).json();}catch(e){}
-  if(providers?.privy?.configured){ wb.textContent='Open Privy…'; /* Privy SDK mounts on /app once PRIVY_APP_ID set */ return; }
+  // Privy path — the auth island exposes window.__privyLogin (mounted once App ID set).
+  if(window.__privyLogin){ wb.classList.add('signed'); await window.__privyLogin(); setTimeout(refreshAuth,400); return; }
+  // Native fallback: self-custody Solana sign-in (works immediately).
   const el=window.solana;
   if(!el||!el.isConnected){wb.textContent='Install Phantom';return;}
   try{
@@ -347,5 +349,7 @@ async function connectWallet(){
 }
 refreshAuth();setInterval(refreshAuth,60000);
 </script>
+<script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
+<script src="/privy-auth.js" defer></script>
 </body>
 </html>

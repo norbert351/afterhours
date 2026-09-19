@@ -4,19 +4,22 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · on-chain equity intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0f1a; --panel:#131a2b; --panel2:#0f1524; --line:#222c45;
-    --txt:#e8edf7; --mut:#8b95b0; --acc:#5ad1ff; --up:#3ddb85; --down:#ff5d73;
-    --warn:#ffc857; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --bg:#0a0a0f; --panel:#131318; --panel2:#0e0e15; --line:#26262f;
+    --txt:#f5f3fa; --mut:#9a9aaa; --acc:#5546ff; --up:#69f0ae; --down:#ff7a8a;
+    --warn:#f0b23c; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --display:'Space Grotesk',var(--sans);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
   .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
   header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:center;gap:10px}
-  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0e3a5c,#12437a 55%,#0a2743);border:1px solid #2b4a7a;display:grid;place-items:center;font-weight:800;color:var(--acc);font-size:13px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7a68ff,#5546ff 55%,#2c23a0);border:1px solid #4a3ff0;display:grid;place-items:center;font-weight:800;color:#fff;font-size:13px}
   h1{font-size:19px;margin:0;letter-spacing:.2px}
   .sub{color:var(--mut);font-size:12px;margin-top:2px}
   .badge{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;font-family:var(--mono)}
@@ -75,7 +78,7 @@
           <input id="ahPass" type="password" placeholder="password" style="min-width:100px;flex:0 1 auto" />
           <button id="btnLogin" class="secondary" style="padding:9px 14px">Sign in</button>
           <button id="btnRegister" style="padding:9px 14px">Register</button>
-          <button id="btnWallet" style="padding:9px 14px;background:var(--accent,#f27405);color:#000">Connect wallet</button>
+          <button id="btnWallet" style="padding:9px 14px;background:#5546ff;color:#fff">Connect wallet</button>
           <button id="btnLogout" style="padding:9px 14px;display:none">Log out</button>
           <span id="whoami" class="muted" style="font-size:12px"></span>
         </div>
@@ -156,5 +159,7 @@
     <div class="foot" id="foot">AfterHours · data sources: PreStocks, Tessera (verified), Twelve Data reference (verified), Pyth feed registry (keyed live prices). No fabricated prices.</div>
 </div>
 <script type="module" src="/app.js"></script>
+<script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
+<script src="/privy-auth.js" defer></script>
 </body>
 </html>

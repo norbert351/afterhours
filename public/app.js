@@ -255,6 +255,8 @@ setInterval(renderGaps, 45_000);
 
 // ---- Connect wallet (custom Solana sign-in) ----
 async function connectWallet() {
+  // Privy path (auth island mounted on the page) — else native Solana.
+  if (window.__privyLogin) { await window.__privyLogin(); checkAuth(); return; }
   const el = window.solana;
   if (!el || !el.isConnected) {
     $("#whoami").textContent = "Install a Solana wallet (Phantom) to connect — or use email/handle above.";
