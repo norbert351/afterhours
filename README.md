@@ -55,13 +55,16 @@ src/
   services/
     oracle.js            unified universe, per-source resilience (one flaky issuer never kills the page)
     dislocation.js       gap engine (issuer-premium + cross-issuer spreads)
-    strategies.js        plain-English rule engine → live alerts
-  server.js              Express API + static frontend
+    strategies.js        plain-English rule engine → live alerts (v1)
+    paper.js             v2 paper execution ledger (integer micro-units, fees/slippage, cost basis, NAV, self-funding)
+    v2.js                v2 orchestration: strategy → target book → paper execution → decision log
+  store.js               v2 persistence (node:sqlite WAL): strategies, paper account, positions, decisions, alerts
+  server.js              Express API (v1 detection + v2 strategy/paper) + static frontend
 public/                  mobile-first dashboard (no build step)
+test/                    ledger-invariant unit tests (node --test)
 ```
 
-**Robustness:** per-source `Promise.allSettled` (a Tessera 500 degrades that source,
-never the page), 30s cache TTL, retry-on-5xx, honest error surfaces.
+**Robustness:** per-source `Promise.allSettled` (a flaky issuer degrades that source, never the page), 30s cache TTL, retry-on-5xx, honest error surfaces, WAL persistence, tolerance-based rebalancing (no churn), fees/slippage on every fill.
 
 ---
 
@@ -82,6 +85,17 @@ npm run verify     # proves every adapter returns real data or a labeled gate
 | `GET /api/pyth` | verified feed registry (+ live prices if key set) |
 | `POST /api/strategies` | add a plain-English rule |
 | `GET /api/strategies/evaluate` | fire rules against live dislocations |
+
+### v2 (strategy layer · paper execution)
+| Route | Returns |
+|---|---|
+| `POST /api/v2/strategies` | add a strategy (`type: rotate_to_discount` / `alert`) |
+| `POST /api/v2/run` | run the strategy → paper book executes (buy/sell), logs decision + alert |
+| `GET /api/v2/book` | paper account (seed/cash/peak NAV) + positions |
+| `GET /api/v2/decisions` | decision log (reason, fills, NAV) |
+| `GET /api/v2/alerts` | delivered alert events |
+
+`rotate_to_discount` deploys paper capital (default $10k) into tokenized equities trading **below** their mark price (buy the float-up), rebalanced with a tolerance band (no churn). Every fill carries **10bp fee + 2bp slippage**, cost basis, realized P&L, and high-water drawdown — the same ledger discipline as a real trading agent. **Honest:** NAV is valued at real token price, so a discount to mark shows as opportunity, never as instant phantom profit.
 
 ### Strategy examples (real evaluation)
 - `"SPACEX trades more than 10% above its mark price"` → FIRED (SpaceX cross-issuer gap 178.0%)
