@@ -191,3 +191,42 @@ $("#stratForm").addEventListener("submit", async (ev) => {
 $("#runBtn").addEventListener("click", runStrategy);
 loadV2();
 setInterval(loadV2, 30_000);
+
+// ---- v4 accounts + watchlist ----
+let me = null;
+async function checkAuth() {
+  try {
+    const r = await fetch("/api/auth/me", { credentials: "same-origin" });
+    if (r.ok) { me = await r.json(); $("#whoami").textContent = "@" + me.handle + " · " + me.watchlist.length + " watching"; }
+    else { me = null; $("#whoami").textContent = ""; }
+    $("#btnLogout").style.display = me ? "inline-block" : "none";
+    $("#btnLogin").style.display = me ? "none" : "";
+    $("#btnRegister").style.display = me ? "none" : "";
+    renderWatchlist();
+  } catch (e) { me = null; }
+}
+async function doAuth(path) {
+  const h = $("#ahHandle").value.trim(), p = $("#ahPass").value;
+  if (!h || !p) return;
+  const r = await fetch("/api/auth/" + path, { method: "POST", headers: {"Content-Type":"application/json"}, credentials: "same-origin", body: JSON.stringify({ handle: h, password: p }) });
+  const d = await r.json().catch(()=>({}));
+  $("#whoami").textContent = d.error ? d.error : (path==="register"?"registered ✓":"signed in ✓");
+  if (r.ok) { $("#ahPass").value=""; checkAuth(); }
+}
+async function renderWatchlist() {
+  const w = $("#watchlistWrap");
+  if (!me) { w.innerHTML = ""; return; }
+  try {
+    const r = await fetch("/api/watchlist", { credentials: "same-origin" });
+    if (!r.ok) return;
+    const list = await r.json();
+    w.innerHTML = list.length===0 ? '<span class="muted" style="font-size:12px">No saved tickers yet.</span>'
+      : list.map(x => `<span class="chip" style="margin:2px 4px 2px 0;display:inline-block">${x.symbol} ${x.price?("$"+Number(x.price).toFixed(2)):""} <a href="#" data-rm="${x.symbol}" style="color:var(--down);text-decoration:none">✕</a></span>`).join("");
+    w.querySelectorAll("a[data-rm]").forEach(a => a.addEventListener("click", async (ev)=>{ ev.preventDefault(); const sym=a.getAttribute("data-rm"); await fetch("/api/watchlist/"+sym,{method:"DELETE",credentials:"same-origin"}); checkAuth(); }));
+  } catch (e) {}
+}
+$("#btnLogin").addEventListener("click", () => doAuth("login"));
+$("#btnRegister").addEventListener("click", () => doAuth("register"));
+$("#btnLogout").addEventListener("click", async () => { await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"}); checkAuth(); });
+checkAuth();
+setInterval(checkAuth, 60_000);

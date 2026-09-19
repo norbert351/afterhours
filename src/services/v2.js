@@ -120,8 +120,11 @@ export async function runEngine(db, { strategies = null } = {}) {
   const meaningful = actions.filter((a) => Math.abs(a.notionalMicro) >= Math.floor((1 * store.PRICE_SCALE) * 5)); // ≥ $5
   if (meaningful.length > 0) {
     const top = meaningful.slice(0, 3).map((a) => `${a.action} ${a.symbol} $${fromMicro(a.notionalMicro).toFixed(2)}`).join(" · ");
-    const list = store.insertAlert(db, { channel: "paper-log", payload: { text: `AfterHours: ${top}`, navUsd: fromMicro(navAfter).toFixed(2), fills: meaningful.length } });
+    const payload = { text: `AfterHours: ${top}`, navUsd: fromMicro(navAfter).toFixed(2), fills: meaningful.length };
+    const list = store.insertAlert(db, { channel: "paper-log", payload });
     alert = list[list.length - 1];
+    // best-effort real-time push (never blocks)
+    try { pushAlert(payload).catch(() => {}); } catch {}
   }
 
   const realizedPnlMicro = [...book.positions.values()].reduce((a, p) => a + p.realizedPnlMicro, 0);

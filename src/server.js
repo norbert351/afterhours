@@ -13,6 +13,8 @@ import { runEngine } from "./services/v2.js";
 import { startRunLoop } from "./services/loop.js";
 import { fromMicro } from "./services/paper.js";
 import * as solana from "./services/solana.js";
+import * as auth from "./auth.js";
+import { pushAlert } from "./services/notify.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -20,6 +22,7 @@ app.use(express.json());
 
 // v2 persistent store (node:sqlite, WAL). One DB for the process.
 const db = openStore(process.env.AH_DB_PATH);
+auth.migrateAuth(db);
 
 // Simple error wrapper for async handlers + honest error surfaces.
 const wrap = (fn) => (req, res) =>
@@ -91,6 +94,54 @@ app.post("/api/v3/live/swap", wrap(async (req, res) => {
     return res.status(400).json({ error: "inputMint, outputMint and amount (base-unit atoms) required" });
   }
   res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: Number(amount) }));
+}));
+app.get("/api/notify/test", wrap(async (_req, res) => res.json(await pushAlert({ text: "test alert", navUsd: "—" }))));
+
+// ---- v4 : accounts + watchlist ----
+function currentUser(req) {
+  return auth.userFromToken(db, auth.parseCookies(req)[auth.AUTH_COOKIE]);
+}
+app.post("/api/auth/register", wrap(async (req, res) => {
+  const { handle, password } = req.body || {};
+  const out = auth.registerUser(db, { handle, password });
+  if (out.error) return res.status(out.status || 400).json(out);
+  const sess = auth.loginUser(db, { handle, password });
+  res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=${sess.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
+  res.status(201).json({ handle: sess.handle });
+}));
+app.post("/api/auth/login", wrap(async (req, res) => {
+  const sess = auth.loginUser(db, req.body || {});
+  if (sess.error) return res.status(sess.status || 401).json(sess);
+  res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=${sess.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
+  res.json({ handle: sess.handle });
+}));
+app.post("/api/auth/logout", (req, res) => {
+  auth.logout(db, auth.parseCookies(req)[auth.AUTH_COOKIE]);
+  res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+  res.json({ ok: true });
+});
+app.get("/api/auth/me", (req, res) => {
+  const u = currentUser(req);
+  if (!u) return res.status(401).json({ error: "not signed in" });
+  res.json({ handle: u.handle, watchlist: auth.watchlistFor(db, u.id) });
+});
+app.get("/api/watchlist", wrap(async (req, res) => {
+  const u = currentUser(req);
+  if (!u) return res.status(401).json({ error: "not signed in" });
+  const uni = await buildUniverse();
+  const prices = new Map(uni.instruments.map((i) => [i.symbol, i.markPrice ?? i.tokenPrice]));
+  const list = auth.watchlistFor(db, u.id).map((sym) => ({ symbol: sym, price: prices.get(sym) ?? null }));
+  res.json(list);
+}));
+app.post("/api/watchlist", wrap(async (req, res) => {
+  const u = currentUser(req);
+  if (!u) return res.status(401).json({ error: "not signed in" });
+  res.json(auth.addWatch(db, u.id, String(req.body?.symbol || "")));
+}));
+app.delete("/api/watchlist/:symbol", wrap(async (req, res) => {
+  const u = currentUser(req);
+  if (!u) return res.status(401).json({ error: "not signed in" });
+  res.json(auth.removeWatch(db, u.id, req.params.symbol));
 }));
 
 // Autonomous run loop (enabled unless AH_AUTORUN=0). Kicks the paper strategy
