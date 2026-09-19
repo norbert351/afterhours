@@ -230,3 +230,25 @@ $("#btnRegister").addEventListener("click", () => doAuth("register"));
 $("#btnLogout").addEventListener("click", async () => { await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"}); checkAuth(); });
 checkAuth();
 setInterval(checkAuth, 60_000);
+
+// ---- Market never sleeps: live on-chain gaps ----
+async function renderGaps() {
+  try {
+    const d = await get("/api/markethours/gap");
+    $("#gapOpen").textContent = d.marketOpen ? "● NYSE OPEN" : "● MARKET CLOSED (STALE REF)";
+    $("#gapHint").textContent = d.marketOpen
+      ? "NYSE open — on-chain trades alongside the live reference."
+      : "NYSE closed — tokenized equities still trade 24/7 on-chain; the reference is the frozen close. The gap is the real signal.";
+    $("#gapBody").innerHTML = d.gaps.filter(g=>!g.error).map(g => {
+      const gap = typeof g.gapPct==="number" ? g.gapPct : 0;
+      const cls = gap>=0 ? "up" : "down";
+      return `<tr><td><b>${g.symbol}</b><div class="iss">${g.ref}</div></td>
+        <td>$${Number(g.onChainPriceUsd).toFixed(2)}</td>
+        <td class="muted">${g.referencePriceUsd?("$"+Number(g.referencePriceUsd).toFixed(2)):"—"}</td>
+        <td class="${cls}">${gap>=0?"+":""}${gap.toFixed(2)}%</td>
+        <td class="muted hide-sm">$${(Number(g.volumeUsd24h||0)/1e3).toFixed(0)}k</td></tr>`;
+    }).join("") || '<tr><td colspan="5" class="muted">no live data</td></tr>';
+  } catch (e) {}
+}
+renderGaps();
+setInterval(renderGaps, 45_000);

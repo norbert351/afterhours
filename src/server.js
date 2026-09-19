@@ -15,6 +15,7 @@ import { fromMicro } from "./services/paper.js";
 import * as solana from "./services/solana.js";
 import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
+import { marketHoursGap } from "./services/markethours.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -41,6 +42,7 @@ app.get("/api/pyth", wrap(async (_req, res) => {
   if (reg.apiKeyConfigured) return res.json({ ...reg, live: await latestAaplPrices() });
   return res.json(reg);
 }));
+app.get("/api/markethours/gap", wrap(async (_req, res) => res.json(await marketHoursGap())));
 
 app.post("/api/strategies", wrap(async (req, res) => res.status(201).json(addRule(String(req.body?.text || "")))));
 app.get("/api/strategies", wrap(async (_req, res) => res.json(listRules())));
