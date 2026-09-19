@@ -142,6 +142,14 @@ app.get("/api/auth/providers", (_req, res) => {
   const privyId = String(process.env.PRIVY_APP_ID || "").trim();
   res.json({ privy: { configured: Boolean(privyId), appId: privyId || undefined }, nativeSolana: true, handle: true });
 });
+app.post("/api/auth/privy", wrap(async (req, res) => {
+  const { idToken } = req.body || {};
+  if (!idToken) return res.status(400).json({ error: "idToken required" });
+  const out = await auth.privySignIn(db, { idToken });
+  if (out.error) return res.status(out.status || 500).json(out);
+  res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=${out.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
+  res.json({ handle: out.handle, short: out.short });
+}));
 app.get("/api/auth/me", (req, res) => {
   const u = currentUser(req);
   if (!u) return res.status(401).json({ error: "not signed in" });

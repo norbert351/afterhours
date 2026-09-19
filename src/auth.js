@@ -136,3 +136,32 @@ export function walletSignIn(db, { address, signature }) {
   db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, u.id, Date.now() + 7 * 86400e3);
   return { token, handle: address, userId: u.id, short: address.slice(0, 4) + "…" + address.slice(-4) };
 }
+
+// ---- Privy (managed wallet auth) server-side verification ----
+import { PrivyClient } from "@privy-io/server-auth";
+let _privy = null;
+export function privyClient() {
+  const appId = String(process.env.PRIVY_APP_ID || "").trim();
+  const secret = String(process.env.PRIVY_APP_SECRET || "").trim();
+  if (!appId || !secret) return null;
+  if (!_privy) _privy = new PrivyClient(appId, secret);
+  return _privy;
+}
+// Verify a Privy ID token server-side (App Secret stays on the server) and mint
+// a session for the connected wallet. Returns the same shape as walletSignIn.
+export async function privySignIn(db, { idToken }) {
+  const client = privyClient();
+  if (!client) return { error: "PRIVY not configured", status: 501 };
+  let verified;
+  try { verified = await client.verifyAuthToken(idToken); }
+  catch (e) { return { error: `token verify failed: ${e.message}`, status: 401 }; }
+  const linked = verified.user?.linkedAccounts || [];
+  const wallet = linked.find((a) => a.type === "solana") || linked.find((a) => a.type === "wallet");
+  const address = wallet ? (wallet.address || wallet.solana?.address || null) : null;
+  if (!address) return { error: "no connected Solana wallet on this Privy account", status: 400 };
+  db.prepare("INSERT OR IGNORE INTO users (handle, created_at) VALUES (?, ?)").run(address, Date.now());
+  const u = walletUserByAddress(db, address);
+  const token = "ah_" + randomBytes(32).toString("hex");
+  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, u.id, Date.now() + 7 * 86400e3);
+  return { token, handle: address, short: address.slice(0, 4) + "…" + address.slice(-4) };
+}

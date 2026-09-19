@@ -16,6 +16,7 @@
   "main": "src/index.js",
   "dependencies": {
     "@noble/ed25519": "^3.2.0",
+    "@privy-io/server-auth": "^1.32.5",
     "@raydium-io/raydium-sdk-v2": "^0.2.71-alpha",
     "@solana/web3.js": "^1.99.0",
     "bs58": "^6.0.0",
