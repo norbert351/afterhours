@@ -136,6 +136,12 @@ app.post("/api/auth/wallet/verify", wrap(async (req, res) => {
   res.setHeader("Set-Cookie", `${auth.AUTH_COOKIE}=${out.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`);
   res.json({ handle: out.handle, short: out.short });
 }));
+// Honesty: which sign-in providers are actually configured. Privy activates
+// only once PRIVY_APP_ID is set in the environment.
+app.get("/api/auth/providers", (_req, res) => {
+  const privyId = String(process.env.PRIVY_APP_ID || "").trim();
+  res.json({ privy: { configured: Boolean(privyId), appId: privyId || undefined }, nativeSolana: true, handle: true });
+});
 app.get("/api/auth/me", (req, res) => {
   const u = currentUser(req);
   if (!u) return res.status(401).json({ error: "not signed in" });

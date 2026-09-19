@@ -35,6 +35,9 @@ nav .wrap{display:flex;align-items:center;gap:28px;height:66px}
 .btn-accent:hover{transform:translateY(-2px)}
 .btn-ghost{border:1px solid var(--line);color:var(--ink)}
 .btn-ghost:hover{background:#1a1512}
+.btn-wallet{border:1px solid rgba(242,116,5,.5);color:var(--amber);background:rgba(242,116,5,.07);min-width:150px}
+.btn-wallet:hover{background:rgba(242,116,5,.16)}
+.btn-wallet.signed{border-color:#3ecf8e;color:#69d2a0;background:rgba(62,207,142,.08)}
 #burger{display:none;background:none;color:var(--ink)}
 @media(max-width:900px){.nav-links{display:none;position:absolute;top:66px;left:0;right:0;background:#0c0a08;border-bottom:1px solid var(--line);flex-direction:column;padding:16px 24px;gap:16px}.nav-links.open{display:flex}#burger{display:block;margin-left:auto}}
 
@@ -127,6 +130,7 @@ footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:2
     <div class="nav-links" id="navLinks">
       <a href="#how">How it works</a><a href="#features">Features</a><a href="#live">Live gaps</a>
     </div>
+    <button class="btn btn-wallet" id="navWallet" onclick="connectWallet()">Connect wallet</button>
     <button class="btn btn-accent" onclick="location.href='/app'">Open app</button>
     <button id="burger" onclick="document.getElementById('navLinks').classList.toggle('open')" aria-label="menu">≡</button>
   </div>
@@ -228,6 +232,45 @@ async function loadGaps(){
   }catch(e){document.getElementById('gapBody').innerHTML='<span style="color:var(--muted)">Live feed unavailable here.</span>';}
 }
 loadGaps();setInterval(loadGaps,45000);
+
+// ---- Connect wallet (Privy, falling back to native Solana sign-in) ----
+let walletBtn=document.getElementById('navWallet');
+async function refreshAuth(){
+  try{
+    const r=await fetch('/api/auth/me',{credentials:'same-origin'});
+    if(r.ok){const m=await r.json();walletBtn.textContent='@'+(m.handle&&m.handle.length>12?m.handle.slice(0,4)+'…'+m.handle.slice(-4):m.handle);walletBtn.classList.add('signed');walletBtn.onclick=signOut;}
+    else{walletBtn.textContent='Connect wallet';walletBtn.classList.remove('signed');walletBtn.onclick=connectWallet;}
+  }catch(e){}
+}
+async function signOut(){await fetch('/api/auth/logout',{method:'POST',credentials:'same-origin'});refreshAuth();}
+async function connectWallet(){
+  let providers;
+  try{providers=await (await fetch('/api/auth/providers')).json();}catch(e){}
+  // Privy path — activates once PRIVY_APP_ID is configured on the server.
+  if(providers?.privy?.configured){
+    try{
+      const {PrivyClient}=await import(/* @vite-ignore */'https://auth.privy.io/privy-browser.js');
+      const client=new PrivyClient(providers.privy.appId);
+      const user=await client.loginWithSolana(); // opens Privy's wallet connect modal
+      walletBtn.textContent=user.wallet?.address?.slice(0,4)+'…'+user.wallet?.address?.slice(-4)||'signed in';
+      walletBtn.classList.add('signed');
+      return;
+    }catch(e){ walletBtn.textContent='Privy error — using Solana'; }
+  }
+  // Native fallback: self-custody Solana sign-in (verified, works today).
+  const el=window.solana;
+  if(!el||!el.isConnected){walletBtn.textContent='Install Phantom to connect';return;}
+  try{
+    const resp=await el.connect();
+    const address=(resp?.publicKey||el.publicKey).toString();
+    const ch=await (await fetch('/api/auth/wallet/challenge',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({address})})).json();
+    const sig=await el.signMessage(new TextEncoder().encode(ch.message),'utf8');
+    const sigBytes=(sig.signature??sig);
+    const v=await (await fetch('/api/auth/wallet/verify',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({address,signature:Array.from(sigBytes)})})).json();
+    if(!v.error)refreshAuth(); else walletBtn.textContent='verify failed';
+  }catch(e){walletBtn.textContent='connect error';}
+}
+refreshAuth();setInterval(refreshAuth,60000);
 </script>
 </body>
 </html>
