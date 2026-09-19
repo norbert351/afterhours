@@ -12,6 +12,7 @@ import { openStore, getAccount, listPositions, listStrategies, insertStrategy, l
 import { runEngine } from "./services/v2.js";
 import { startRunLoop } from "./services/loop.js";
 import { fromMicro } from "./services/paper.js";
+import * as solana from "./services/solana.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -77,6 +78,20 @@ app.get("/api/v2/book", wrap(async (_req, res) => {
 app.get("/api/v2/decisions", wrap(async (req, res) => res.json(listDecisions(db, Number(req.query.limit) || 20))));
 app.get("/api/v2/alerts", wrap(async (req, res) => res.json(listAlerts(db, Number(req.query.limit) || 30))));
 app.get("/api/v2/status", wrap(async (_req, res) => res.json(runStatus.status())));
+
+// ---- v3 : live Solana execution rail (mainnet) ----
+app.get("/api/v3/live/info", wrap(async (_req, res) => res.json(await solana.info())));
+app.post("/api/v3/live/probe", wrap(async (req, res) => {
+  const lamports = Number.isFinite(Number(req.body?.lamports)) ? Number(req.body.lamports) : 2000;
+  res.json(await solana.probe({ lamports: Math.min(Math.max(lamports, 0), 5_000) }));
+}));
+app.post("/api/v3/live/swap", wrap(async (req, res) => {
+  const { inputMint, outputMint, amount } = req.body || {};
+  if (!inputMint || !outputMint || !Number.isFinite(Number(amount))) {
+    return res.status(400).json({ error: "inputMint, outputMint and amount (base-unit atoms) required" });
+  }
+  res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: Number(amount) }));
+}));
 
 // Autonomous run loop (enabled unless AH_AUTORUN=0). Kicks the paper strategy
 // on an interval so the book runs itself; guarded against overlap.
