@@ -39,6 +39,7 @@ function migrate(db) {
     cash_micro INTEGER NOT NULL,
     seed_micro INTEGER NOT NULL,
     peak_nav_micro INTEGER NOT NULL,
+    realized_micro INTEGER NOT NULL DEFAULT 0,
     updated_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS paper_positions (
@@ -90,12 +91,12 @@ export function listStrategies(db) {
 export function getAccount(db) {
   const a = db.prepare("SELECT * FROM paper_account WHERE id = 1").get();
   return a
-    ? { cashMicro: a.cash_micro, seedMicro: a.seed_micro, peakNavMicro: a.peak_nav_micro, updatedAt: a.updated_at }
+    ? { cashMicro: a.cash_micro, seedMicro: a.seed_micro, peakNavMicro: a.peak_nav_micro, realizedMicro: a.realized_micro || 0, updatedAt: a.updated_at }
     : null;
 }
-export function setCash(db, cashMicro, navMicro, now = Date.now()) {
-  db.prepare("UPDATE paper_account SET cash_micro = ?, peak_nav_micro = MAX(peak_nav_micro, ?), updated_at = ? WHERE id = 1")
-    .run(cashMicro, navMicro, now);
+export function setCash(db, cashMicro, navMicro, realizedMicro, now = Date.now()) {
+  db.prepare("UPDATE paper_account SET cash_micro = ?, peak_nav_micro = MAX(peak_nav_micro, ?), realized_micro = ?, updated_at = ? WHERE id = 1")
+    .run(cashMicro, navMicro, realizedMicro ?? db.prepare("SELECT realized_micro FROM paper_account WHERE id=1").get().realized_micro, now);
 }
 export function listPositions(db) {
   return db.prepare("SELECT symbol, issuer, qty_micro AS qtyMicro, avg_cost_micro AS avgCostMicro, realized_pnl_micro AS realizedPnlMicro FROM paper_positions").all();

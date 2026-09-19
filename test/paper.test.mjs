@@ -61,3 +61,31 @@ test("repeated full allocations stay within tolerance band", () => {
   const nav = b.navMicro(px);
   assert.ok(nav > SEED * 0.995 && nav < SEED, `NAV in band: ${fromMicro(nav).toFixed(2)}`);
 });
+test("anti-inflation: NAV stays bounded, cash never negative, across 60 rotations with drifting prices", () => {
+  const names = ["A", "B", "C", "D", "E", "F"];
+  let px = new Map([["A", 100], ["B", 200], ["C", 50], ["D", 300], ["E", 150], ["F", 400]].map(([k, v]) => [k, toMicro(v)]));
+  const b = new PaperBook({ positions: new Map(), cashMicro: SEED, seedMicro: SEED, peakNavMicro: SEED });
+  const targetSets = [
+    ["A","B","C","D","E"], ["A","B","C","D","F"], ["A","B","C","F","E"],
+    ["B","C","D","F","E"], ["A","C","D","F","E"], ["A","B","D","F","E"],
+    ["A","B","C","D","E"], ["B","C","D","F","E"], ["A","B","C","D","F"],
+  ];
+  for (let i = 0; i < 60; i++) {
+    const targets = {};
+    for (const s of targetSets[i % targetSets.length]) targets[s] = 0.2;
+    // drift prices like live data (bounded sine drift)
+    for (const k of names) {
+      const p = px.get(k);
+      px.set(k, Math.floor(p * (1 + 0.002 * Math.sin(i + k.length))));
+    }
+    const { actions } = b.rebalance(px, targets, { top: 8 });
+    const nav = b.navMicro(px);
+    // NAV must stay within [seed − fees, seed + 25%] — never explode
+    assert.ok(nav < SEED * 1.25, `NAV inflated to ${fromMicro(nav).toFixed(2)} at step ${i}`);
+    assert.ok(nav > SEED * 0.9, `NAV collapsed to ${fromMicro(nav).toFixed(2)} at step ${i}`);
+    assert.ok(b.cashMicro >= 0, `cash negative at step ${i}: ${fromMicro(b.cashMicro).toFixed(2)}`);
+    assert.ok(b.positions.size <= 6, `too many positions at step ${i}: ${b.positions.size}`);
+  }
+  const finalNav = fromMicro(b.navMicro(px));
+  assert.ok(finalNav < 10500 && finalNav > 9500, `final NAV ${finalNav.toFixed(2)} left the band`);
+});

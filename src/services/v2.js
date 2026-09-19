@@ -69,22 +69,49 @@ export async function runEngine(db, { strategies = null } = {}) {
   const navBefore = book.navMicro(fillPricesMicro);
   const { actions } = book.rebalance(fillPricesMicro, targets, { top: 12 });
   const navAfter = book.navMicro(fillPricesMicro);
-  const peak = Math.max(book.peakNavMicro, navAfter);
+
+  // ── LEDGER GUARD: cost-basis conservation — the hard integrity invariant ──
+  // You can never hold more than you funded. cash plus the total cost basis of
+  // every position must equal the seed (+ cumulative realized cash from sells).
+  // If it exceeds that, money was created → refuse to persist the bad book and
+  // reset to cash (fail-safe). A phantom NAV is structurally impossible.
+  const costBasisMicro = [...book.positions.values()].reduce(
+    (a, p) => a + Math.floor((p.qtyMicro * p.avgCostMicro) / store.QTY_SCALE), 0);
+  const sellRealizedMicro = actions
+    .filter((a) => a.action === "sell")
+    .reduce((a, x) => a + (x.realizedPnlMicro || 0), 0);
+  const nextRealizedMicro = (acc.realizedMicro || 0) + sellRealizedMicro;
+  const invested = book.cashMicro + costBasisMicro;           // what the book is made of
+  const funded = acc.seedMicro + nextRealizedMicro;           // what we actually put in
+  const budget = store.PRICE_SCALE;                            // $1 rounding tolerance
+  let guardTripped = false;
+  if (invested > funded + budget) {
+    guardTripped = true;
+    console.error("[ledger-guard] cost-basis violation:", invested, "invested >", funded, "funded — reset to cash");
+    book.positions.clear();
+    book.cashMicro = acc.seedMicro;   // clean slate
+  }
+
+  const peakRealized = guardTripped ? 0 : nextRealizedMicro;
+  const peak = Math.max(book.peakNavMicro, guardTripped ? acc.seedMicro : navAfter);
   book.peakNavMicro = peak;
   const drawdownPct = peak > 0 ? (peak - navAfter) / peak : 0;
 
-  // Persist book + cash.
+  // Persist book + cash + realized.
+  if (guardTripped) for (const p of [...book.positions.keys()]) store.deletePosition(db, p);
   for (const p of book.positions.values()) store.upsertPosition(db, p);
   // clean zero rows (positions fully sold)
   for (const row of store.listPositions(db)) if (row.qtyMicro === 0) store.deletePosition(db, row.symbol);
-  store.setCash(db, book.cashMicro, navAfter);
+  store.setCash(db, book.cashMicro, guardTripped ? acc.seedMicro : navAfter, peakRealized);
 
   const seq = store.lastSeq(db) + 1;
-  const reason = `run #${seq} · strategy=${strategy.strategyType} · targets=${Object.keys(targets).join(",") || "(cash)"} · ${actions.length} fills · NAV ${fromMicro(navAfter).toFixed(2)}`;
+  const reason = guardTripped
+    ? `run #${seq} · LEDGER GUARD tripped (cost-basis violated) → reset to cash \$${fromMicro(acc.seedMicro).toFixed(2)}`
+    : `run #${seq} · strategy=${strategy.strategyType} · targets=${Object.keys(targets).join(",") || "(cash)"} · ${actions.length} fills · NAV ${fromMicro(navAfter).toFixed(2)}`;
   store.insertDecision(db, {
     seq, ts: Date.now(), reason,
-    actions: actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) })),
-    navMicro: navAfter, cashMicro: book.cashMicro,
+    actions: guardTripped ? [] : actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) })),
+    navMicro: guardTripped ? acc.seedMicro : navAfter, cashMicro: book.cashMicro,
   });
 
   let alert;
@@ -98,20 +125,24 @@ export async function runEngine(db, { strategies = null } = {}) {
   }
 
   const realizedPnlMicro = [...book.positions.values()].reduce((a, p) => a + p.realizedPnlMicro, 0);
+  const finalNavMicro = guardTripped ? acc.seedMicro : navAfter;
+  const shownActions = guardTripped ? [] : actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) }));
+  const shownRealized = guardTripped ? 0 : realizedPnlMicro;
   return {
     strategy: strategy.strategyType,
     targets,
-    fills: actions.length,
-    actions: actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) })),
-    nav: fromMicro(navAfter),
+    fills: guardTripped ? 0 : actions.length,
+    actions: shownActions,
+    nav: fromMicro(finalNavMicro),
     navBefore: fromMicro(navBefore),
     cash: fromMicro(book.cashMicro),
     seed: fromMicro(acc.seedMicro),
-    unrealizedPnl: fromMicro(navAfter - book.cashMicro - realizedPnlMicro),
-    realizedPnl: fromMicro(realizedPnlMicro),
-    pnlTotal: fromMicro(navAfter - acc.seedMicro),
+    unrealizedPnl: fromMicro(finalNavMicro - book.cashMicro - shownRealized),
+    realizedPnl: fromMicro(shownRealized),
+    pnlTotal: fromMicro(finalNavMicro - acc.seedMicro),
     drawdownPct,
     seq,
+    guardTripped,
     generatedAt: Date.now(),
   };
 }
