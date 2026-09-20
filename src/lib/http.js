@@ -22,7 +22,11 @@ export async function cachedFetch(url, { ttlMs = config.cacheTtlMs, headers = {}
     if (!res.ok) {
       let body = "";
       try { body = (await res.text()).slice(0, 140); } catch {}
-      throw Object.assign(new Error(`GET ${url} -> ${res.status} ${body}`), {
+      // NEVER leak credentials: redact query-string API keys from every
+      // surfaced error (they render on the public page).
+      const safeUrl = url.replace(/[?&]apikey=[^&]+/gi, "[key-redacted]");
+      const safeBody = body.replace(/[?&]apikey=[^&]+/gi, "[key-redacted]");
+      throw Object.assign(new Error(`GET ${safeUrl} -> ${res.status} ${safeBody}`), {
         status: res.status,
         url,
       });

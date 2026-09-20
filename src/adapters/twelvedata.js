@@ -24,7 +24,7 @@ export async function getReferencePrice(symbol) {
   const data = await cachedFetch(url, { ttlMs: 600_000 }); // 10min cache: free-tier quotas are ~800 credits/day
   const price = Number(data?.price);
   if (!isFinite(price)) {
-    throw new Error(`TwelveData: no price for ${symbol} (${JSON.stringify(data)})`);
+    throw new Error(`TwelveData: no price for ${symbol} (${JSON.stringify(data).slice(0, 80)})`);
   }
   return {
     symbol,
