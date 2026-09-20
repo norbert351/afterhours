@@ -145,6 +145,12 @@
 
   <section id="vault">
     <h2>Weekend Gap Vault <span class="chip" id="vaultStatus"></span></h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <span class="pill" style="background:rgba(250,178,60,.12);color:var(--warn)">Risk · market-structure</span>
+      <span class="pill" style="background:rgba(85,70,255,.14);color:var(--acc)">Target · frozen-reference gap capture</span>
+      <span class="pill" style="background:rgba(61,219,133,.12);color:var(--up)">Duration · unwind at NYSE open</span>
+      <span class="pill" id="vaultGapStats">gap stats…</span>
+    </div>
     <div class="grid cards" id="vaultCards"></div>
     <div class="card" style="margin-top:10px">
       <div class="rowflex" style="margin-bottom:10px">

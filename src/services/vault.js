@@ -4,6 +4,13 @@
 // discounted xStock while the NYSE reference is frozen, unwinds to SOL at the
 // open. Every real fill is capped (≈$0.25), mint-allowlisted, and recorded
 // with its Solscan signature. Never fabricates a fill; paper mode is explicit.
+//
+// Yield leg (Stretch/xStream pattern, HONEST): xStocks are rebasing assets —
+// dividends arrive as wallet balance growth with no transfer event. The vault
+// snapshots the mint balance at arm time and reconciles it every tick; any
+// growth beyond the vault's own buys is recorded as an "accrual" fill (with a
+// note that it could be a dividend/rebase OR an external top-up — we never
+// overclaim the source).
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path, { dirname } from "node:path";
@@ -41,6 +48,8 @@ export function openVaultStore(dbPath) {
       last_tick_at INTEGER,
       last_error TEXT,
       positions_json TEXT NOT NULL DEFAULT '[]',
+      baseline_json TEXT NOT NULL DEFAULT '{}',
+      baseline_fresh INTEGER NOT NULL DEFAULT 0,
       runs INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS vault_fills (
@@ -59,6 +68,10 @@ export function openVaultStore(dbPath) {
     );
     INSERT OR IGNORE INTO vault_state (id, status) VALUES (1, 'idle');
   `);
+  // idempotent migrations for pre-existing vault DBs (later columns)
+  const cols = db.prepare("PRAGMA table_info(vault_state)").all().map((c) => c.name);
+  if (!cols.includes("baseline_json")) db.exec("ALTER TABLE vault_state ADD COLUMN baseline_json TEXT NOT NULL DEFAULT '{}'");
+  if (!cols.includes("baseline_fresh")) db.exec("ALTER TABLE vault_state ADD COLUMN baseline_fresh INTEGER NOT NULL DEFAULT 0");
   return db;
 }
 
@@ -70,6 +83,8 @@ export function readState(db) {
     lastTickAt: r.last_tick_at,
     lastError: r.last_error,
     positions: safeJson(r.positions_json),
+    baseline: safeJson(r.baseline_json),
+    baselineFresh: Boolean(r.baseline_fresh),
     runs: r.runs,
   };
 }
@@ -85,11 +100,11 @@ function safeJson(s) {
 }
 
 // ── the vault: pure-ish state machine, deps injected for testability ──
-export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, cfg = vaultConfig() }) {
+export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balancesOf, cfg = vaultConfig() }) {
   function persist(state) {
     db.prepare(
-      "UPDATE vault_state SET status = ?, armed_at = ?, last_tick_at = ?, last_error = ?, positions_json = ?, runs = ? WHERE id = 1",
-    ).run(state.status, state.armedAt, state.lastTickAt, state.lastError, JSON.stringify(state.positions), state.runs);
+      "UPDATE vault_state SET status = ?, armed_at = ?, last_tick_at = ?, last_error = ?, positions_json = ?, baseline_json = ?, baseline_fresh = ?, runs = ? WHERE id = 1",
+    ).run(state.status, state.armedAt, state.lastTickAt, state.lastError, JSON.stringify(state.positions), JSON.stringify(state.baseline), state.baselineFresh ? 1 : 0, state.runs);
   }
   function recordFill(f) {
     db.prepare(
@@ -101,8 +116,40 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, cfg =
     const s = readState(db);
     return {
       status: s.status, armedAt: s.armedAt, lastTickAt: s.lastTickAt,
-      lastError: s.lastError, positions: s.positions, runs: s.runs,
+      lastError: s.lastError, positions: s.positions, baseline: s.baseline, baselineFresh: s.baselineFresh, runs: s.runs,
     };
+  }
+
+  // Detect dividend/rebase accrual (Stretch/xStream yield leg, HONEST):
+  // xStocks are rebasing — dividends arrive as balance growth. Any growth
+  // beyond arm-baseline + own buys is recorded as an accrual fill with an
+  // honest note (could be a dividend/rebase OR an external top-up).
+  async function reconcileAccrual(s, now) {
+    const nonPaper = s.positions.filter((p) => p.mode === "real" || p.real);
+    if (!nonPaper.length) return;
+    let bal;
+    try { bal = await balancesOf(); } catch { return; } // never crash a tick on balance read
+    if (!bal) return;
+    for (const p of nonPaper) {
+      const actual = bal[p.mint];
+      if (actual == null) continue;
+      // No fresh arm-time snapshot (e.g. vault upgraded mid-cycle): infer the
+      // baseline as "everything the vault does not own" so pre-existing
+      // holdings are never mislabeled as dividends. A FRESH snapshot means
+      // a mint missing from it was genuinely zero at arm time.
+      if (!s.baselineFresh && s.baseline[p.mint] == null) s.baseline[p.mint] = Math.max(actual - p.qtyAtoms, 0);
+      const expected = (s.baseline[p.mint] || 0) + p.qtyAtoms;
+      const delta = actual - expected;
+      if (delta > 1_000) { // dust threshold
+        p.qtyAtoms += delta;
+        p.qtyUnits = p.qtyAtoms / 10 ** XSTOCK_DECIMALS;
+        p.accruedAtoms = (p.accruedAtoms || 0) + delta;
+        recordFill({
+          ts: now, side: "accrual", symbol: p.symbol, mint: p.mint, outAtoms: delta,
+          mode: "real", note: "balance grew vs vault expectation — dividend/rebase accrual or external top-up",
+        });
+      }
+    }
   }
 
   async function capLamportsUsd() {
@@ -112,8 +159,15 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, cfg =
   }
 
   function pickBest(gaps) {
+    // Honesty guard: only a REAL dislocation is tradeable — a live frozen
+    // reference (not the self-fallback) AND a non-trivial gap (≥50bps).
+    // If the reference feed is down, every gap reads 0 and the vault must
+    // hold cash instead of buying blind.
     const tradeable = (gaps.gaps || []).filter(
-      (g) => !g.error && g.mint && XSTOCKS[g.symbol] && (g.volumeUsd24h || 0) >= cfg.minVolUsd,
+      (g) => !g.error && g.mint && XSTOCKS[g.symbol]
+        && g.referencePriceUsd != null
+        && Math.abs(g.gapPct || 0) >= 0.05
+        && (g.volumeUsd24h || 0) >= cfg.minVolUsd,
     );
     if (!tradeable.length) return null;
     return [...tradeable].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0];
@@ -145,6 +199,7 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, cfg =
       s.lastError = out.length ? null : s.lastError;
       action = "unwound";
     } else if (s.status === "holding") {
+      await reconcileAccrual(s, now);
       action = "hold"; // already positioned; the gap does the work
     } else if (best) {
       // NYSE closed + armed + a tradeable gap exists → deploy capital.
@@ -187,6 +242,8 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, cfg =
     s.lastError = null;
     // fresh cycle: clear any stale positions from a previous interrupted cycle
     s.positions = s.positions.filter((p) => p.tx === null || p.tx === undefined);
+    // snapshot wallet balances as the accrual baseline for this cycle
+    try { s.baseline = (await balancesOf()) || {}; s.baselineFresh = true; } catch { s.baseline = {}; s.baselineFresh = false; }
     persist(s);
     return { state: s };
   }

@@ -8,9 +8,10 @@ function fakeDeps(over = {}) {
   return {
     db: openVaultStore(":memory:"),
     fills,
-    cfg: vaultConfig(),
+    cfg: over.cfg || vaultConfig(),
     getGaps: over.getGaps,
     solPriceUsd: async () => 150,
+    balancesOf: over.balancesOf || (async () => ({})),
     swapBuy: async (symbol, mint, lamports) => {
       fills.buy.push({ symbol, lamports });
       return { signature: "sig-" + symbol, explorer: "https://solscan.io/tx/sig-" + symbol, outAmount: 50_000 };
@@ -22,8 +23,8 @@ function fakeDeps(over = {}) {
   };
 }
 const closed = { marketOpen: false, gaps: [
-  { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", gapPct: -5.2, volumeUsd24h: 1_000_000, onChainPriceUsd: 200 },
-  { symbol: "AAPLx", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", gapPct: -1.1, volumeUsd24h: 900_000, onChainPriceUsd: 220 },
+  { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", gapPct: -5.2, volumeUsd24h: 1_000_000, onChainPriceUsd: 200, referencePriceUsd: 211 },
+  { symbol: "AAPLx", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", gapPct: -1.1, volumeUsd24h: 900_000, onChainPriceUsd: 220, referencePriceUsd: 222.5 },
 ] };
 const open_ = { marketOpen: true, gaps: closed.gaps };
 
@@ -98,6 +99,18 @@ test("cap sizing clamps into the safe lamport band", async () => {
   assert.ok(Math.abs(lamports - 1_666_667) < 50_000, `cap not near $0.25: ${lamports}`);
 });
 
+test("no real dislocation (refs down / gaps ~0) → vault refuses to deploy", async () => {
+  const d = fakeDeps({ getGaps: async () => ({ marketOpen: false, gaps: [
+    { symbol: "NVDAx", mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", gapPct: 0, volumeUsd24h: 1_000_000, onChainPriceUsd: 200, referencePriceUsd: null },
+    { symbol: "AAPLx", mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", gapPct: 0.02, volumeUsd24h: 900_000, onChainPriceUsd: 220, referencePriceUsd: 219.9 },
+  ] }) });
+  const v = createVault(d);
+  await v.arm();
+  const t = await v.tick();
+  assert.equal(t.state.status, "armed", "must NOT buy when the signal is degraded");
+  assert.equal(d.fills.buy.length, 0, "no blind buys without a real dislocation");
+});
+
 test("low-volume gaps are not tradeable (min-vol filter)", async () => {
   const d = fakeDeps({ getGaps: async () => ({ marketOpen: false, gaps: [{ symbol: "GOOGLx", mint: "x", gapPct: -9, volumeUsd24h: 100 }] }) });
   const v = createVault(d);
@@ -107,3 +120,54 @@ test("low-volume gaps are not tradeable (min-vol filter)", async () => {
   assert.match(t.state.lastError, /no tradeable gap/);
   assert.equal(d.fills.buy.length, 0, "must not buy an illiquid gap");
 });
+
+// ── accrual leg (Stretch/xStream yield pattern, HONEST) ──
+
+test("balance growth beyond baseline+own buys is recorded as dividend/rebase accrual", async () => {
+  let bal = {};
+  const d = fakeDeps({
+    cfg: { ...vaultConfig(), execMode: "real" },
+    getGaps: async () => closed,
+    balancesOf: async () => bal,
+  });
+  const v = createVault(d);
+  await v.arm(); // baseline snapshot = {} (empty wallet)
+  await v.tick(); // buy NVDAx, qtyAtoms 50_000 (fake outAmount)
+  const mint = "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh";
+  assert.equal(v.state().positions[0].qtyAtoms, 50_000);
+  // next tick: wallet balance grew by 6,000 atoms (a dividend/rebase)
+  bal = { [mint]: 56_000 };
+  const t2 = await v.tick();
+  assert.equal(t2.state.positions[0].qtyAtoms, 56_000);
+  assert.equal(t2.state.positions[0].accruedAtoms, 6_000);
+  const fills = v.state().positions; // positions carry accruedAtoms
+  assert.ok(fills[0].accruedAtoms > 0, "accrual must be visible on the position");
+  const lastFill = requireFills(d.db);
+  assert.equal(lastFill.side, "accrual");
+  assert.match(lastFill.note, /accrual or external top-up/, "honest label, never overclaims the source");
+});
+
+test("self-calibrating baseline never mislabels pre-existing holdings as dividends (upgraded live vault)", async () => {
+  let readOk = false;
+  let bal = {};
+  const d = fakeDeps({
+    cfg: { ...vaultConfig(), execMode: "real" },
+    getGaps: async () => closed,
+    balancesOf: async () => { if (!readOk) throw new Error("RPC down at arm"); return bal; },
+  });
+  const v = createVault(d);
+  await v.arm(); // snapshot fails -> baselineFresh = false (the live-upgrade case)
+  await v.tick(); // buy +50_000 → position qty 50_000
+  readOk = true;
+  // wallet has 122_754 pre-existing atoms that the vault never bought
+  bal = { Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh: 172_754 };
+  const t2 = await v.tick(); // holding tick reconciles
+  const p = t2.state.positions[0];
+  assert.equal(p.accruedAtoms ?? 0, 0, "no false dividend credit");
+  assert.equal(p.qtyAtoms, 50_000, "qty unchanged — delta was correctly attributed to baseline");
+});
+
+function requireFills(db) {
+  const rows = db.prepare("SELECT side, note FROM vault_fills ORDER BY id DESC LIMIT 1").get();
+  return rows || { side: "none", note: "" };
+}

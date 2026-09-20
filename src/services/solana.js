@@ -8,6 +8,7 @@
 //  • The Jupiter swap path is wired for the deployed host (Jupiter is blocked
 //    from this dev VM, but reachable from Render); never fake a fill.
 import { Keypair, Connection, VersionedTransaction, LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID as SPL_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import bs58 from "bs58";
 import { cachedFetch } from "../lib/http.js";
 
@@ -35,6 +36,30 @@ export async function getBalance(connection = conn()) {
   if (!isConfigured()) return null;
   const lamports = await connection.getBalance(getWallet().publicKey);
   return lamports / LAMPORTS_PER_SOL;
+}
+
+// Raw token balance (atoms) for a mint across Token-2022 + Token-1 programs.
+// Used by the vault to detect dividend/rebase accrual (xStocks are rebasing
+// assets — dividends arrive as balance growth, no transfer events).
+const T22 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+const T1 = SPL_TOKEN_PROGRAM_ID;
+// Wallet token balances (raw atoms) for every mint across Token-2022 + Token-1.
+// Used by the vault to detect dividend/rebase accrual (xStocks are rebasing
+// assets — dividends arrive as balance growth, no transfer events).
+export async function tokenBalancesAtoms(connection = conn()) {
+  if (!isConfigured()) return null;
+  const out = {};
+  for (const programId of [T22, T1]) {
+    try {
+      const accs = await connection.getParsedTokenAccountsByOwner(getWallet().publicKey, { programId });
+      for (const a of accs.value) {
+        const info = a.account.data.parsed.info;
+        const atoms = Number(info.tokenAmount.amount);
+        if (atoms > 0) out[info.mint] = (out[info.mint] || 0) + atoms;
+      }
+    } catch { /* one program failing must not kill accrual detection */ }
+  }
+  return out;
 }
 
 export async function info() {

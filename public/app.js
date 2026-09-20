@@ -127,10 +127,15 @@ async function loadVault() {
 
     const wsol = v.wallet?.balanceSol ?? null;
     const deployed = (v.positions || []).reduce((a, p) => a + (Number(p.qtyUnits) || 0) * (Number(p.avgPriceUsd) || 0), 0);
+    const accrued = (v.positions || []).reduce((a, p) => a + ((Number(p.accruedAtoms) || 0) / 1e8) * (Number(p.avgPriceUsd) || 0), 0);
     const last = [...(v.fills || [])].pop();
+    $("#vaultGapStats").textContent = v.gapStats
+      ? `today: ${v.gapStats.n} gaps · mean |gap| ${v.gapStats.meanAbsGapPct.toFixed(2)}% · largest ${v.gapStats.largestAbsGapPct.toFixed(2)}%`
+      : "gap stats unavailable";
     $("#vaultCards").innerHTML = [
       ["Status", `<span style="color:var(--up)">●</span> ${label}`],
       ["Deployed (at cost)", deployed > 0 ? `$${deployed.toFixed(2)}` : "—"],
+      ["Dividends accrued", accrued > 0 ? `+$${accrued.toFixed(4)}` : "—"],
       ["Wallet SOL", wsol == null ? "—" : wsol.toFixed(4)],
       ["Last fill", last ? (last.explorer ? `<a href="${last.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(last.signature)}</a>` : last.symbol + " " + last.side) : "—"],
     ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${val}</div></div>`).join("");
@@ -150,7 +155,7 @@ async function loadVault() {
     $("#vaultFills").innerHTML = fills.length === 0 ? "" :
       '<div class="muted" style="font-size:11px;margin:6px 0 4px">Recent fills</div>' +
       fills.map((f) => `<div class="rowflex" style="font-size:12px;margin-bottom:4px">
-        <span><span class="${f.side === "buy" ? "up" : "down"}">${f.side.toUpperCase()}</span> ${f.symbol} ${f.mode === "real" ? "" : "· paper"} ${f.note || ""}</span>
+        <span><span class="${f.side === "buy" || f.side === "accrual" ? "up" : "down"}">${f.side.toUpperCase()}</span> ${f.symbol} ${f.mode === "real" ? "" : "· paper"} ${f.note || ""}</span>
         <span>${f.explorer ? `<a href="${f.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(f.signature)}</a>` : ""}<span class="chip">${new Date(f.ts).toLocaleTimeString()}</span></span>
       </div>`).join("");
     let m = v.bestGap

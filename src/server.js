@@ -201,20 +201,26 @@ const vault = createVault({
   swapSell: (symbol, mint, atoms) =>
     solana.jupiterSwap({ inputMint: mint, outputMint: VAULT_SOL_MINT, amount: atoms }),
   solPriceUsd: () => liveSolPriceUsd(),
+  balancesOf: () => solana.tokenBalancesAtoms(),
 });
 const vaultLoop = vault.loop({ intervalMs: Number(process.env.AH_VAULT_INTERVAL_MS || 60_000) });
 if (String(process.env.AH_VAULT_AUTORUN).trim() !== "0") vaultLoop.start();
 
 async function vaultStateView() {
   const s = vault.state();
-  let gaps = { marketOpen: null, best: null };
+  let gaps = { marketOpen: null, best: null, stats: null };
   try {
     const g = await marketHoursGap();
     const tradeable = g.gaps.filter((x) => !x.error);
     const best = [...tradeable].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0] || null;
-    gaps = { marketOpen: g.marketOpen, best: best ? { symbol: best.symbol, gapPct: best.gapPct, volumeUsd24h: best.volumeUsd24h } : null };
+    const abs = tradeable.map((x) => Math.abs(x.gapPct || 0)).filter((n) => n > 0);
+    gaps = {
+      marketOpen: g.marketOpen,
+      best: best ? { symbol: best.symbol, gapPct: best.gapPct, volumeUsd24h: best.volumeUsd24h } : null,
+      stats: abs.length ? { meanAbsGapPct: abs.reduce((a, b) => a + b, 0) / abs.length, largestAbsGapPct: Math.max(...abs), n: abs.length } : null,
+    };
   } catch { /* best-effort preview */ }
-  return { ...s, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, wallet: await solana.info().catch(() => null) };
+  return { ...s, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, wallet: await solana.info().catch(() => null) };
 }
 
 app.get("/api/vault", wrap(async (_req, res) => res.json(await vaultStateView())));
