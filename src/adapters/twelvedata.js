@@ -21,7 +21,7 @@ export async function getReferencePrice(symbol) {
   const url =
     `${config.sources.twelvedata.base}/price?symbol=${encodeURIComponent(symbol)}` +
     `&apikey=${encodeURIComponent(config.sources.twelvedata.apiKey)}`;
-  const data = await cachedFetch(url, { ttlMs: 20_000 });
+  const data = await cachedFetch(url, { ttlMs: 600_000 }); // 10min cache: free-tier quotas are ~800 credits/day
   const price = Number(data?.price);
   if (!isFinite(price)) {
     throw new Error(`TwelveData: no price for ${symbol} (${JSON.stringify(data)})`);

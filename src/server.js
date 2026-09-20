@@ -19,7 +19,7 @@ import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
 import { XSTOCKS } from "./adapters/xstocks.js";
-import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT } from "./services/vault.js";
+import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT, vaultConfig } from "./services/vault.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -220,7 +220,7 @@ async function vaultStateView() {
       stats: abs.length ? { meanAbsGapPct: abs.reduce((a, b) => a + b, 0) / abs.length, largestAbsGapPct: Math.max(...abs), n: abs.length } : null,
     };
   } catch { /* best-effort preview */ }
-  return { ...s, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, wallet: await solana.info().catch(() => null) };
+  return { ...s, execMode: vaultConfig().execMode, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, wallet: await solana.info().catch(() => null) };
 }
 
 app.get("/api/vault", wrap(async (_req, res) => res.json(await vaultStateView())));
