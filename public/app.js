@@ -127,15 +127,20 @@ async function loadV2() {
   try {
     const book = await get("/api/v2/book");
     const a = book.account;
-    const pnl = a.peakNavUsd - a.seedUsd;
+    const pos = book.positions || [];
+    const held = pos.reduce((s,p)=>s+(Number(p.valueUsd)||0),0);
+    const nav = a.cashUsd + held;                 // CURRENT NAV = cash + open positions
+    const pnl = nav - a.seedUsd;                   // live PnL (not the high-water peak)
     $("#acctCards").innerHTML = [
-      [`NAV`, `$${a.peakNavUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
+      [`NAV`, `$${nav.toLocaleString(undefined,{maximumFractionDigits:2})}`],
       [`Seed`, `$${a.seedUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
       [`Cash`, `$${a.cashUsd.toLocaleString(undefined,{maximumFractionDigits:2})}`],
       [`PnL`, `<span class="${pnl>=0?'up':'down'}">${pnl>=0?'+':''}$${pnl.toLocaleString(undefined,{maximumFractionDigits:2})}</span>`],
     ].map(([k,v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    $("#acctCards").classList.toggle("nonzero", pos.length>0);
 
-    const pos = book.positions || [];
+    $("#posEmpty").style.display = pos.length?"none":"";
+    $("#posEmpty").textContent = "No open holdings right now — the strategy is idle because no tokenized equity is trading below its mark in this live snapshot. Watch a live gap, or connect a wallet to execute.";
     $("#posBody").innerHTML = pos.map(p => `<tr>
       <td><b>${p.symbol}</b><div class="iss">${p.issuer||""}</div></td>
       <td>${Number(p.shares).toFixed(6)}</td>
@@ -240,6 +245,7 @@ async function renderWatchlist() {
   } catch(e){ w.hidden=true; }
 }
 $("#btnWallet").addEventListener("click", openAuth);
+const introBtn = document.getElementById("introConnect"); if (introBtn) introBtn.addEventListener("click", openAuth);
 $("#authClose").addEventListener("click", closeAuth);
 $("#authModal").addEventListener("click", (e)=>{ if(e.target.id==="authModal") closeAuth(); });
 $("#btnLogin").addEventListener("click", () => doAuth("login"));

@@ -56,6 +56,18 @@
   .err{color:var(--down)} .ok{color:var(--up)}
   .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut);margin-left:6px}
   .head-right{display:flex;align-items:center;gap:12px}
+  .intro{background:linear-gradient(160deg,#101019,#0a0a0f 65%);border:1px solid var(--line);border-radius:20px;padding:30px 26px;margin:6px 0 24px}
+  .intro-kicker{color:var(--acc);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+  .intro-h{font-family:var(--display);font-size:clamp(1.6rem,3.4vw,2.4rem);line-height:1.12;margin:12px 0 10px;color:#fff}
+  .intro-p{color:var(--mut);max-width:64ch;line-height:1.65;font-size:.98rem}
+  .steps{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0 18px}
+  .step{display:flex;align-items:center;gap:9px;font-size:.9rem;color:var(--txt)}
+  .step b{background:var(--acc);color:#fff;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.8rem}
+  .intro-actions{display:flex;gap:12px;flex-wrap:wrap}
+  details.dev{margin-top:26px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+  details.dev summary{cursor:pointer;padding:12px 16px;color:var(--mut);font-size:.85rem;user-select:none}
+  details.dev[open] summary{border-bottom:1px solid var(--line);color:var(--txt)}
+  details.dev .devbody{padding:4px 16px 16px}
   .nav-connect{border:1px solid var(--acc);color:var(--acc);background:rgba(85,70,255,.08);border-radius:999px;padding:9px 18px;font-weight:600;font-size:13px;white-space:nowrap}
   .nav-connect.signed{border-color:#3ecf8e;color:#69f0ae;background:rgba(62,207,142,.08)}
   .watchstrip{display:flex;gap:8px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:18px}
@@ -95,6 +107,22 @@
 
   <div id="watchStrip" class="watchstrip" hidden></div>
 
+  <!-- Onboarding hero -->
+  <div class="intro">
+    <div class="intro-kicker">Live on Solana mainnet · not a mockup</div>
+    <h1 class="intro-h">Stocks close. Their on-chain copies don't.</h1>
+    <p class="intro-p">While the NYSE is shut, the tokenized versions of the same stocks (AAPLx, NVDAx, MSFTx…) keep trading 24/7. <b>AfterHours</b> shows you exactly where they diverge from the frozen reference — the <b>gap</b> — and runs an honest strategy against it.</p>
+    <div class="steps">
+      <div class="step"><b>1</b><span>Watch the live gaps</span></div>
+      <div class="step"><b>2</b><span>Connect your wallet</span></div>
+      <div class="step"><b>3</b><span>Run a strategy</span></div>
+    </div>
+    <div class="intro-actions">
+      <button onclick="location.href='#live'">See the live gaps ↓</button>
+      <button class="secondary" id="introConnect">Connect wallet</button>
+    </div>
+  </div>
+
   <!-- Auth modal (wallet-style) -->
   <div class="modalveil" id="authModal">
     <div class="modal">
@@ -115,7 +143,7 @@
     <div class="grid cards" id="refCards"></div>
   </section>
 
-  <section>
+  <section id="live">
     <h2>Market never sleeps · live on-chain gaps <span class="chip" id="gapOpen"></span></h2>
     <div class="card" style="overflow-x:auto">
       <table><thead><tr><th>Token</th><th>On-chain (24/7)</th><th>NYSE ref</th><th>Gap</th><th class="hide-sm">24h vol</th></tr></thead><tbody id="gapBody"></tbody></table>
@@ -123,6 +151,7 @@
     </div>
   </section>
 
+  <details class="dev"><summary>🔬 Developer data — full universe · dislocations · rules</summary><div class="devbody">
   <section>
     <h2>Tokenized equity universe <span class="chip" id="univCount"></span></h2>
     <div class="card" style="overflow-x:auto">
@@ -150,6 +179,7 @@
         <div id="rulesWrap" style="margin-top:12px"></div>
       </div>
     </section>
+  </div></details>
 
     <section>
       <h2>Strategy engine · paper account <span class="chip" id="runStatus"></span></h2>
