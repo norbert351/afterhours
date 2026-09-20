@@ -1,0 +1,13 @@
+import * as orca from "@orca-so/whirlpools-sdk";
+const keys = Object.keys(orca).sort();
+console.log("EXPORTS ("+keys.length+"):\n" + keys.join(", "));
+console.log("\n--- WhirlpoolContext ---");
+console.log("keys:", Object.getOwnPropertyNames(orca.WhirlpoolContext||{}));
+console.log("\n--- buildWhirlpoolClient ---");
+if (orca.buildWhirlpoolClient) console.log("sig:", orca.buildWhirlpoolClient.toString().slice(0,300));
+console.log("\n--- createProgram / Whirlpool program helpers? ---");
+["createProgram","WhirlpoolProgram","generatePdaHelper"].forEach(k=>{ if(orca[k]) console.log(k,"exists"); });
+console.log("\n--- ORCA_WHIRLPOOL_PROGRAM_ID ---");
+console.log(orca.ORCA_WHIRLPOOL_PROGRAM_ID?.toString());
+console.log("\n--- swapQuoteByInputToken ---");
+if (orca.swapQuoteByInputToken) console.log("sig:", orca.swapQuoteByInputToken.toString().slice(0,250));

@@ -1,0 +1,21 @@
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddress, getAccount, TOKEN_PROGRAM_ID, NATIVE_MINT } from "@solana/spl-token";
+import anchor from "@coral-xyz/anchor";
+import BN from "bn.js";
+import bs58 from "bs58";
+import { readFileSync } from "node:fs";
+import { WhirlpoolContext, buildWhirlpoolClient, swapQuoteByInputToken, ORCA_WHIRLPOOL_PROGRAM_ID } from "@orca-so/whirlpools-sdk";
+const env=readFileSync(new URL("../.env",import.meta.url),"utf8");
+const keypair=Keypair.fromSecretKey(bs58.decode(env.match(/^SOLANA_PRIVATE_KEY=(.*)$/m)[1].trim()));
+const wallet=new anchor.Wallet(keypair);
+const POOL=new PublicKey("5VgwxAPD37EHPqtW6v6gWq2bznPDqvpaGDuJoyGm6aJG");
+const conn=new Connection("https://api.mainnet-beta.solana.com","confirmed");
+const ctx=WhirlpoolContext.from(conn,wallet,undefined,undefined,undefined,ORCA_WHIRLPOOL_PROGRAM_ID);
+const pool=await buildWhirlpoolClient(ctx).getPool(POOL);
+const wSolAta=await getAssociatedTokenAddress(NATIVE_MINT,keypair.publicKey,false,TOKEN_PROGRAM_ID);
+const wSolBal=(await getAccount(conn,wSolAta)).amount;
+const quote=await swapQuoteByInputToken(pool,NATIVE_MINT,new BN(wSolBal.toString()),{numerator:new BN(5000),denominator:new BN(10000)},ORCA_WHIRLPOOL_PROGRAM_ID,ctx.fetcher);
+const tx=await pool.swap(quote);
+const br=await tx.build();
+console.log("buildResult keys:",Object.keys(br||{}).join(","));
+for(const k of Object.keys(br||{})){const v=br[k]; console.log(` ${k}:`, Array.isArray(v)?`Array(${v.length})`: (v && typeof v==='object'&&v.constructor?`${v.constructor.name}`:typeof v), (k==='instructions'||k==='ixs')&&Array.isArray(v)?`first=${JSON.stringify(v[0])?.slice(0,80)}`:'');}
