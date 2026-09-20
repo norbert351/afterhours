@@ -17,6 +17,7 @@ import bs58 from "bs58";
 import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
+import { XSTOCKS } from "./adapters/xstocks.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -96,7 +97,15 @@ app.post("/api/v3/live/swap", wrap(async (req, res) => {
   if (!inputMint || !outputMint || !Number.isFinite(Number(amount))) {
     return res.status(400).json({ error: "inputMint, outputMint and amount (base-unit atoms) required" });
   }
-  res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: Number(amount) }));
+  // HARD GUARDRAILS: cap the value at ~$0.50 and only allow SOL -> known
+  // xStock mints, so a public caller can never drain the project wallet.
+  const SOL = "So11111111111111111111111111111111111111112";
+  const allowedOut = new Set(Object.values(XSTOCKS).map((c) => c.mint));
+  if (inputMint !== SOL) return res.status(400).json({ error: "inputMint must be SOL" });
+  if (!allowedOut.has(outputMint)) return res.status(400).json({ error: "outputMint not in curated xStock set" });
+  const atoms = Number(amount);
+  if (atoms <= 0 || atoms > 4_000_000) return res.status(400).json({ error: "amount outside 1..4,000,000 lamports (~$0.60 max)" });
+  res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: atoms }));
 }));
 app.get("/api/notify/test", wrap(async (_req, res) => res.json(await pushAlert({ text: "test alert", navUsd: "—" }))));
 

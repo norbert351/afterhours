@@ -107,6 +107,15 @@ npm run verify     # proves every adapter returns real data or a labeled gate
 ## Notes / next increments
 - `PYTH_API_KEY` unlocks the real weekend-gap live comparison (the Stocklana Pyth bounty).
 - A real Twelve Data key unlocks additional anchor symbols beyond `demo`.
-- **Scope honesty:** the strategy engine *detects & alerts*. On-chain order *execution*
-  (funded wallet + slippage + verified DEX routing) is the next build increment — never fake-ordered.
+- **✅ LIVE EXECUTION IS REAL (2026-09-21):** the wallet (`7JL8s63F…`) has settled real
+  mainnet fills through this app — `POST /api/v3/live/swap` (SOL→xStock, hard-capped
+  ≈$0.60/order, curated mint allowlist) routes via Jupiter `/swap/v1` (`api.jup.ag` —
+  `quote-api.jup.ag` was retired from DNS, that was the old "blocked from VM" ghost).
+  Proof: tx `62HV8t3F…` (0.0016 SOL→AAPLx, FINALIZED) and tx `2gh4uPpC…` (0.0015 SOL→AAPLx
+  via the app API, confirmed). Never a fabricated fill — every response carries the
+  real signature + Solscan link.
+- Earlier DEX-SDK attempts (Orca Whirlpool, Raydium route) are recorded honestly in
+  `scripts/` as experiments: quotes + broadcasts happened, but those txs were dropped by
+  the network — Jupiter `/swap/v1` is the live-proven path; `scripts/micro-swap.mjs` is
+  the reusable "little-by-little" tester.
 - BNB port: swap adapters to bStocks/Ondo/xStocks on the Market/Trading/RWA API + Agentic Wallet.

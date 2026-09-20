@@ -56,20 +56,24 @@ export async function probe({ lamports = 2000, connection = conn() } = {}) {
   return { signature: sig, from: from.toBase58(), lamports, explorer: `https://solscan.io/tx/${sig}` };
 }
 
-// Jupiter swap (for the deployed host where Jupiter is reachable). Returns the
-// broadcast signature; never fabricates. Requires QTY token mint + USDC in.
+// Jupiter swap (SOL or SPL input; USDC etc). Returns the broadcast
+// signature; never fabricates. Base URL note: quote-api.jup.ag was retired
+// from DNS (2026); api.jup.ag/swap/v1 is the live surface (verified from
+// this VM 2026-09-21 — real SOL->AAPLx fill FINALIZED).
+const JUP_BASE = "https://api.jup.ag/swap/v1";
+
 export async function jupiterSwap({
-  inputMint, outputMint, amount, slippageBps = 100, connection = conn(),
+  inputMint, outputMint, amount, slippageBps = 300, connection = conn(),
 } = {}) {
   if (!isConfigured()) throw Object.assign(new Error("not configured"), { code: "SOL_NOT_CONFIGURED", status: 501 });
   const wallet = getWallet();
   const quote = await cachedFetch(
-    `https://quote-api.jup.ag/v6/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`,
+    `${JUP_BASE}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`,
     { ttlMs: 0, retries: 3 },
   );
-  if (!quote?.routes?.length) throw new Error("no route found");
+  if (!quote?.routePlan?.length) throw new Error("no route found");
   // Get a signed-able swap transaction
-  const swapRes = await fetch("https://quote-api.jup.ag/v6/swap", {
+  const swapRes = await fetch(`${JUP_BASE}/swap`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ quoteResponse: quote, userPublicKey: wallet.publicKey.toBase58(), wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true }),
@@ -78,7 +82,8 @@ export async function jupiterSwap({
   const { swapTransaction } = await swapRes.json();
   const tx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, "base64"));
   tx.sign([wallet]);
-  const sig = await connection.sendRawTransaction(await tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
-  return { signature: sig, explorer: `https://solscan.io/tx/${sig}`, outAmount: quote.outAmount, routes: quote.routes.length };
+  const sig = await connection.sendRawTransaction(await tx.serialize(), { skipPreflight: true, maxRetries: 8 });
+  let confirmed = true;
+  try { await connection.confirmTransaction(sig, "confirmed"); } catch { confirmed = false; } // never let a slow block kill the response
+  return { signature: sig, explorer: `https://solscan.io/tx/${sig}`, outAmount: quote.outAmount, routes: quote.routePlan?.length ?? 0, confirmed };
 }
