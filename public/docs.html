@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AfterHours · Docs</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#14141c;--panel2:#0e0e15;--line:#26262f;--txt:#f5f3fa;--mut:#9a9aaa;--acc:#5546ff;--up:#69f0ae;--down:#ff7a8a;--warn:#f0b23c;--mono:ui-monospace,Menlo,monospace;--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--body);line-height:1.7;overflow-x:hidden}
+.wrap{max-width:860px;margin:0 auto;padding:28px 22px 90px}
+a{color:var(--acc);text-decoration:none}
+nav{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid var(--line);margin-bottom:34px}
+nav img{width:30px;height:30px;border-radius:8px}
+nav .brand{font-family:var(--display);font-weight:700;font-size:1.2rem;color:#fff}
+nav .links{margin-left:auto;display:flex;gap:18px;font-size:.86rem}
+nav .links a{color:var(--mut)}nav .links a:hover{color:#fff}
+h1{font-family:var(--display);font-size:clamp(2rem,4vw,2.8rem);letter-spacing:-.01em;color:#fff}
+h2{font-family:var(--display);font-size:1.45rem;margin:46px 0 14px;color:#fff;border-left:3px solid var(--acc);padding-left:12px}
+h3{font-family:var(--display);font-size:1.08rem;margin:26px 0 8px;color:#fff}
+p{color:var(--txt);margin:10px 0}
+.mut{color:var(--mut)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+code{background:var(--panel2);border:1px solid var(--line);padding:1px 7px;border-radius:6px;font-family:var(--mono);font-size:.82rem;color:#c9c2ff}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.6}
+ul{margin:10px 0 10px 22px}
+li{margin:6px 0;color:var(--txt)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.86rem}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.ok{color:var(--up)} .bad{color:var(--down)} .warn{color:var(--warn)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.72rem;font-weight:600;border:1px solid}
+.pill.good{color:var(--up);border-color:rgba(105,240,174,.35);background:rgba(105,240,174,.08)}
+.pill.pend{color:var(--warn);border-color:rgba(240,178,60,.35);background:rgba(240,178,60,.08)}
+.btn{display:inline-block;background:var(--acc);color:#fff;border-radius:9px;padding:.7rem 1.2rem;font-weight:600;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
+    <span class="links"><a href="/">Home</a><a href="/app">App</a><a href="/docs">Docs</a></span>
+  </nav>
+
+  <h1>AfterHours — Docs</h1>
+  <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible — and executable.</p>
+
+  <h2>What the product does</h2>
+  <p>AfterHours is an <b>on-chain equity-intelligence + autonomous-execution platform for Solana.</b> While the NYSE closes, the on-chain copies of the same stocks (xStocks/Backed tokenized equities — AAPLx, NVDAx, MSFTx…) keep trading. AfterHours continuously maps the <b>live on-chain price</b> of every tokenized equity against its <b>frozen reference</b>, surfaces the dislocations (the "gap"), lets you watch/track them, runs an autonomous strategy against them, and can <b>execute real on-chain trades</b> through a connected wallet.</p>
+
+  <h2>Core data (verified live)</h2>
+  <div class="card">
+    <h3>Live on-chain gap ("Market never sleeps")</h3>
+    <table>
+      <tr><th>Source</th><th>What it gives</th><th>Status</th></tr>
+      <tr><td>GeckoTerminal DEX index</td><td>On-chain tokenized-equity price + 24h volume + reserve (by mint)</td><td><span class="pill good">LIVE</span></td></tr>
+      <tr><td>TwelveData</td><td>NYSE reference close (AAPL, MSFT, NVDA, TSLA, GOOGL…)</td><td><span class="pill good">LIVE</span></td></tr>
+      <tr><td>PreStocks / Tessera</td><td>Cross-issuer dislocations (SPACEX priced 2.3× apart across issuers)</td><td><span class="pill good">LIVE</span></td></tr>
+    </table>
+    <p>The gap = on-chain price − reference. When the market is closed the reference is <code>stale</code>, so the gap is the real signal.</p>
+  </div>
+
+  <h2>Autonomous strategy engine</h2>
+  <p>Write a plain-English rule (e.g. <i>"buy tokenized equities trading below their mark"</i>). The engine:</p>
+  <ul>
+    <li>Builds an <b>honest paper ledger</b> — integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes a phantom profit structurally impossible (resets to cash and screams on any violation).</li>
+    <li>Runs on a 60s server-authoritative loop, logs every decision, fires alerts (in-app + webhook).</li>
+    <li>Rebalances with a no-churn tolerance band. Tests: <b>6/6</b>.</li>
+  </ul>
+
+  <h2>Real on-chain execution</h2>
+  <p>The strategy can execute <b>real Solana mainnet swaps</b> (opt-in, <code>AH_LIVE_EXEC=1</code>, capped by default). It routes through <b>Jupiter</b> and, when enabled, buys the deepest live-gap tokenized equity into a connected wallet.</p>
+  <div class="card">
+    <h3>Verified live execution (on mainnet)</h3>
+    <table>
+      <tr><th>Event</th><th>Tx / state</th><th>Status</th></tr>
+      <tr><td>SOL → wSOL wrap</td><td><code>2gDmmHiv…</code> (finalized, slot 448519650)</td><td><span class="pill good">VERIFIED</span></td></tr>
+      <tr><td>SOL → AAPLx swap</td><td><code>3DXBCxAyrsQmNcLz…</code></td><td><span class="pill good">VERIFIED</span></td></tr>
+      <tr><td>Result</td><td>Wallet holds <b>0.00019864 AAPLx</b> on mainnet</td><td><span class="pill good">ON-CHAIN</span></td></tr>
+    </table>
+  </div>
+
+  <h2>Accounts & authentication</h2>
+  <ul>
+    <li><b>Wallet auth</b> — self-custody Solana sign-in (challenge → ed25519 signature verify → session; verified end-to-end).</li>
+    <li><b>Privy</b> — managed wallet login (App ID wired; ID-token verified server-side with your App Secret).</li>
+    <li>Handle/password accounts + per-user watchlist.</li>
+  </ul>
+
+  <h2>Architecture</h2>
+  <pre>public/  landing (/) · product dashboard (/app) · docs (/docs)
+src/     server.js (Express, routes) · adapters/xstocks.js (live DEX prices)
+         services/v2.js (strategy → paper) · services/solana.js (live rail)
+         services/markethours.js (the gap) · auth.js · store.js (node:sqlite, WAL)
+scripts/ jupiter-swap.mjs (real SOL→AAPLx) · wallet-auth-test.mjs</pre>
+
+  <h2>Security & honesty</h2>
+  <ul>
+    <li>Secrets only in <code>.env</code> (gitignored); verified no secret in git-tracked files.</li>
+    <li>No fabricated prices — every number traces to a verified live source.</li>
+    <li>Ledger guard prevents phantom NAV; alerts are dust-filtered.</li>
+  </ul>
+
+  <h2>Verified vs pending</h2>
+  <table>
+    <tr><th>Capability</th><th>Status</th></tr>
+    <tr><td>Live gap + dislocations</td><td><span class="pill good">VERIFIED</span></td></tr>
+    <tr><td>Autonomous paper strategy</td><td><span class="pill good">VERIFIED</span></td></tr>
+    <tr><td>Wallet auth + Privy</td><td><span class="pill good">VERIFIED</span></td></tr>
+    <tr><td>Real SOL→AAPLx swap lands</td><td><span class="pill good">VERIFIED</span></td></tr>
+    <tr><td>Deploy on custom domain</td><td><span class="pill pend">PENDING (domain DNS)</span></td></tr>
+  </table>
+
+  <a class="btn" href="/app">Open the app</a>
+</div>
+</body>
+</html>

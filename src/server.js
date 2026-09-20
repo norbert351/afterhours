@@ -183,6 +183,7 @@ const runStatus = { status: () => runLoop.status() };
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
 app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
+app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 export function start() {

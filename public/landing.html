@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · Unleash tokenized equities' full potential</title>
+<link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -24,9 +25,9 @@ button{cursor:pointer;border:none;font-family:inherit}
 
 /* ============ NAV (dark) ============ */
 nav{position:sticky;top:0;z-index:50;background:rgba(10,10,15,.85);backdrop-filter:blur(16px)}
-nav.wrap{display:flex;align-items:center;gap:30px;height:70px}
-.brand{font-family:var(--display);font-weight:600;color:#fff;font-size:1.25rem}
-.brand .b{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--purple);margin-right:8px;transform:rotate(45deg)}
+nav.wrap{display:flex;align-items:center;gap:22px;height:70px}
+.brand{font-family:var(--display);font-weight:600;color:#fff;font-size:1.25rem;display:flex;align-items:center;gap:10px}
+.brand img{width:30px;height:30px;border-radius:9px;object-fit:cover;box-shadow:0 0 18px var(--purple-glow)}
 .nav-links{display:flex;gap:24px;margin-left:auto}
 .nav-links a{color:rgba(255,255,255,.6);font-size:.82rem;letter-spacing:.02em}
 .nav-links a:hover{color:#fff}
@@ -152,13 +153,15 @@ footer h3{font-family:var(--display);font-weight:700;font-size:1.7rem;color:#fff
   .phone{margin:0 auto}
   .hero{padding:70px 0 50px}
 }
+.card{background:#fff;border:1px solid #e8e8ee;border-radius:16px;padding:22px;box-shadow:0 10px 30px -18px rgba(85,70,255,.25)}
+pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px;padding:14px;font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:.8rem;overflow-x:auto;margin-top:8px}
 </style>
 </head>
 <body>
 <nav class="wrap">
-  <div class="brand"><span class="b"></span>AfterHours</div>
+  <div class="brand"><img src="/logo.png" alt="AfterHours">AfterHours</div>
   <div class="nav-links" id="navLinks">
-    <a href="#stats">How it works</a><a href="#features">Features</a><a href="#dev">Build</a><a href="#community">Community</a>
+    <a href="#stats">How it works</a><a href="#features">Features</a><a href="#dev">Build</a><a href="/docs">Docs</a><a href="#community">Community</a>
   </div>
   <button class="btn btn-wallet nav-wallet-hide" id="navWallet" onclick="connectWallet()">Connect wallet</button>
   <button class="btn btn-purple" onclick="location.href='/app'">Open app</button>
@@ -292,6 +295,22 @@ footer h3{font-family:var(--display);font-weight:700;font-size:1.7rem;color:#fff
   </div>
 </section>
 
+<!-- VERIFIED ON MAINNET (reference proof pattern) -->
+<section class="statsec" style="padding-top:0;background:var(--paper)">
+  <div class="wrap" style="grid-template-columns:1fr">
+    <div class="card proof">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+        <h3 style="margin:0;font-family:var(--display);font-size:1.2rem">Verified on Solana mainnet</h3>
+        <span style="color:#3ecf8e;font-size:.85rem;font-weight:600">● not a mockup</span>
+      </div>
+      <p class="mut" style="margin-top:10px">A real SOL → <b>AAPLx</b> swap executed and finalized on-chain; the wallet holds the tokenized Apple position.</p>
+      <pre style="font-size:.78rem">SWAP  tx  3DXBCxAyrsQmNcLzXxeYz1obA4kPzep41ZiJhCSMm5hFDxBFi5AfyLYJfGkno3VFbF4SpVLKb5HXYw3KZoqChD9P
+HOLD  AAPLx  0.00019864   ·   https://solscan.io/tx/3DXBCxAyrsQmNcLzXxeYz1obA4kPzep41ZiJhCSMm5hFDxBFi5AfyLYJfGkno3VFbF4SpVLKb5HXYw3KZoqChD9P</pre>
+      <a class="btn btn-purple" onclick="location.href='/docs'" style="margin-top:14px">Read the docs</a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <h3>Explore AfterHours.</h3>
@@ -299,7 +318,7 @@ footer h3{font-family:var(--display);font-weight:700;font-size:1.7rem;color:#fff
       <a href="/app">App</a><a href="/app">Dashboard</a><a href="#stats">Docs</a><a href="#features">Features</a><a href="#community">Community</a><a href="/api/health">Status</a>
     </div>
     <div class="f-bot">
-      <span class="brand"><span class="b"></span>AfterHours</span>
+      <span class="brand"><img src="/logo.png" alt="AfterHours">AfterHours</span>
       <span>© 2026 AfterHours · live on Solana mainnet</span>
     </div>
   </div>

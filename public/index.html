@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · on-chain equity intelligence</title>
+<link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -19,7 +20,8 @@
   .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
   header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:8px 0 18px;border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:center;gap:10px}
-  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#7a68ff,#5546ff 55%,#2c23a0);border:1px solid #4a3ff0;display:grid;place-items:center;font-weight:800;color:#fff;font-size:13px}
+  .logo{width:34px;height:34px;border-radius:9px;object-fit:cover;border:1px solid rgba(85,70,255,.5);display:block;box-shadow:0 0 14px rgba(85,70,255,.25)}
+  .brand img.logo{width:34px;height:34px;border-radius:9px;object-fit:cover;border:1px solid rgba(85,70,255,.5);box-shadow:0 0 14px rgba(85,70,255,.25)}
   h1{font-size:19px;margin:0;letter-spacing:.2px}
   .sub{color:var(--mut);font-size:12px;margin-top:2px}
   .badge{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;font-family:var(--mono)}
@@ -79,7 +81,7 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <div class="logo">AH</div>
+      <img src="/logo.png" class="logo" alt="AfterHours">
       <div>
         <h1>AfterHours</h1>
         <div class="sub">On-chain equity intelligence · verified live data</div>
