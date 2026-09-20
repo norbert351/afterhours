@@ -104,6 +104,19 @@ npm run verify     # proves every adapter returns real data or a labeled gate
 
 ---
 
+## Weekend Gap Vault (real capital, tiny size)
+
+The winner-shaped capital-utilization product (xPrime/Stretch/xStream pattern): deposit SOL →
+**arm the vault** → while the NYSE reference is frozen (weekend/after-hours) it buys the deepest
+discounted xStock; at the open it unwinds to SOL. Every fill is real, hard-capped (≈$0.25),
+mint-allowlisted, and recorded with its Solscan signature in `vault_fills`.
+
+- `GET  /api/vault` — status, positions, fills, live best-gap preview, wallet
+- `POST /api/vault/arm` · `POST /api/vault/stop` (kill-switch) · `POST /api/vault/unwind` · `POST /api/vault/tick`
+- Env: `AH_VAULT_EXEC=1` (real; 0/blank = honest paper mode) · `AH_VAULT_CAP_USD=0.25`
+  · `AH_VAULT_MAX_POSITIONS=1` · `AH_VAULT_MIN_VOL_USD=5000`
+- Proven 2026-09-21: real AAPLx buy finalized — tx `8g18g7V3…` (`https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt`)
+
 ## Notes / next increments
 - `PYTH_API_KEY` unlocks the real weekend-gap live comparison (the Stocklana Pyth bounty).
 - A real Twelve Data key unlocks additional anchor symbols beyond `demo`.

@@ -116,6 +116,72 @@ $("#ruleForm").addEventListener("submit", async (ev) => {
 load();
 renderRules();
 setInterval(load, 30_000);
+// ---- Weekend Gap Vault ----
+const VAULT_STATES = { idle: ["IDLE", ""], armed: ["ARMED", "warn"], holding: ["HOLDING", "token_discount"] };
+async function loadVault() {
+  try {
+    const v = await get("/api/vault");
+    const [label, cls] = VAULT_STATES[v.status] || [v.status, ""];
+    $("#vaultStatus").textContent = `${label} · ${v.execMode ?? v.mode ?? "?"} · capped $${v.capUsd ?? "?"}`;
+    $("#vaultStatus").className = "chip " + cls;
+
+    const wsol = v.wallet?.balanceSol ?? null;
+    const deployed = (v.positions || []).reduce((a, p) => a + (Number(p.qtyUnits) || 0) * (Number(p.avgPriceUsd) || 0), 0);
+    const last = [...(v.fills || [])].pop();
+    $("#vaultCards").innerHTML = [
+      ["Status", `<span style="color:var(--up)">●</span> ${label}`],
+      ["Deployed (at cost)", deployed > 0 ? `$${deployed.toFixed(2)}` : "—"],
+      ["Wallet SOL", wsol == null ? "—" : wsol.toFixed(4)],
+      ["Last fill", last ? (last.explorer ? `<a href="${last.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(last.signature)}</a>` : last.symbol + " " + last.side) : "—"],
+    ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${val}</div></div>`).join("");
+
+    const pos = v.positions || [];
+    $("#vaultPosEmpty").style.display = pos.length ? "none" : "";
+    $("#vaultPosEmpty").textContent = v.status === "holding" ? "" : "No position — arm the vault while the market is closed and it deploys into the deepest live gap.";
+    $("#vaultPos").innerHTML = pos.map((p) => `<tr>
+      <td><b>${p.symbol}</b><div class="iss">gap ${p.gapPctAtBuy == null ? "—" : p.gapPctAtBuy.toFixed(2) + "%"}</div></td>
+      <td>${fmt(p.qtyUnits, 6)}</td>
+      <td>${p.gapPctAtBuy == null ? "—" : p.gapPctAtBuy.toFixed(2) + "%"}</td>
+      <td class="hide-sm">${p.mode}</td>
+      <td>${p.explorer ? `<a href="${p.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(p.tx)}</a>` : "—"}</td>
+    </tr>`).join("");
+
+    const fills = (v.fills || []).slice(-8).reverse();
+    $("#vaultFills").innerHTML = fills.length === 0 ? "" :
+      '<div class="muted" style="font-size:11px;margin:6px 0 4px">Recent fills</div>' +
+      fills.map((f) => `<div class="rowflex" style="font-size:12px;margin-bottom:4px">
+        <span><span class="${f.side === "buy" ? "up" : "down"}">${f.side.toUpperCase()}</span> ${f.symbol} ${f.mode === "real" ? "" : "· paper"} ${f.note || ""}</span>
+        <span>${f.explorer ? `<a href="${f.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(f.signature)}</a>` : ""}<span class="chip">${new Date(f.ts).toLocaleTimeString()}</span></span>
+      </div>`).join("");
+    let m = v.bestGap
+      ? "Market " + (v.marketOpen ? "OPEN — vault will unwind at the open" : "CLOSED — deepest live gap: " + v.bestGap.symbol + " " + (v.bestGap.gapPct >= 0 ? "+" : "") + v.bestGap.gapPct.toFixed(2) + "%") + "."
+      : (v.marketOpen == null ? "" : "No tradeable gap right now.");
+    if (v.lastError) m += " · " + v.lastError;
+    $("#vaultMsg").textContent = m;
+  } catch (e) {
+    $("#vaultStatus").textContent = "offline";
+    $("#vaultMsg").textContent = "vault error: " + e.message;
+  }
+}
+async function vaultAction(path, verb) {
+  if (verb && !confirm(verb)) return;
+  const btn = document.activeElement; if (btn) btn.disabled = true;
+  try {
+    const r = await fetch("/api/vault/" + path, { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    $("#vaultMsg").textContent = d.action ? `→ ${d.action}` : "";
+    if (d.error) $("#vaultMsg").textContent = d.error;
+  } catch (e) { $("#vaultMsg").textContent = "vault error: " + e.message; }
+  if (btn) btn.disabled = false;
+  loadVault();
+}
+$("#vaultArm").addEventListener("click", () => vaultAction("arm", "Arm the vault? It will buy the deepest live gap with real SOL (capped ≈$0.25/fill)."));
+$("#vaultStop").addEventListener("click", () => vaultAction("stop", "Stop the vault?"));
+$("#vaultUnwind").addEventListener("click", () => vaultAction("unwind", "Unwind all positions to SOL now?"));
+loadVault();
+setInterval(loadVault, 30_000);
+
 // ---- v2 strategy / paper section ----
 async function loadV2() {
   try {

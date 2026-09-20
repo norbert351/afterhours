@@ -143,6 +143,25 @@
     <div class="grid cards" id="refCards"></div>
   </section>
 
+  <section id="vault">
+    <h2>Weekend Gap Vault <span class="chip" id="vaultStatus"></span></h2>
+    <div class="grid cards" id="vaultCards"></div>
+    <div class="card" style="margin-top:10px">
+      <div class="rowflex" style="margin-bottom:10px">
+        <span class="muted" style="font-size:12px;max-width:56ch">Deposit SOL → <b>Arm</b> → the vault buys the deepest discounted xStock while the NYSE reference is frozen, and unwinds to SOL at the open. Real execution, hard-capped per fill, every fill signed on mainnet.</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="vaultArm">▶ Arm vault</button>
+          <button id="vaultStop" class="secondary">Stop</button>
+          <button id="vaultUnwind" class="secondary" style="color:var(--down);border-color:var(--down)">Unwind now</button>
+        </div>
+      </div>
+      <div id="vaultMsg" class="muted" style="font-size:12px"></div>
+      <table style="margin-top:8px"><thead><tr><th>Position</th><th>Qty</th><th>Gap @ buy</th><th class="hide-sm">Mode</th><th>TX</th></tr></thead><tbody id="vaultPos"></tbody></table>
+      <p class="muted" id="vaultPosEmpty" style="margin:8px 0 0;font-size:12px"></p>
+      <div id="vaultFills" style="margin-top:10px"></div>
+    </div>
+  </section>
+
   <section id="live">
     <h2>Market never sleeps · live on-chain gaps <span class="chip" id="gapOpen"></span></h2>
     <div class="card" style="overflow-x:auto">

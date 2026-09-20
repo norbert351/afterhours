@@ -10,6 +10,7 @@ import { listReferencePrices } from "./adapters/twelvedata.js";
 import { feedRegistry, latestAaplPrices } from "./adapters/pyth.js";
 import { openStore, getAccount, listPositions, listStrategies, insertStrategy, listDecisions, listAlerts } from "./store.js";
 import { runEngine } from "./services/v2.js";
+import { listFills } from "./services/vault.js";
 import { startRunLoop } from "./services/loop.js";
 import { fromMicro } from "./services/paper.js";
 import * as solana from "./services/solana.js";
@@ -18,6 +19,7 @@ import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
 import { XSTOCKS } from "./adapters/xstocks.js";
+import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT } from "./services/vault.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -188,6 +190,38 @@ app.delete("/api/watchlist/:symbol", wrap(async (req, res) => {
 const runLoop = startRunLoop(db, { intervalMs: Number(process.env.AH_RUN_INTERVAL_MS || 60_000) });
 if (String(process.env.AH_AUTORUN).trim() !== "0") runLoop.start();
 const runStatus = { status: () => runLoop.status() };
+
+// ---- Weekend Gap Vault: real capital-utilization product (winner-shaped) ----
+const vaultDb = openVaultStore(process.env.AH_VAULT_DB_PATH);
+const vault = createVault({
+  db: vaultDb,
+  getGaps: () => marketHoursGap(),
+  swapBuy: (symbol, mint, lamports) =>
+    solana.jupiterSwap({ inputMint: VAULT_SOL_MINT, outputMint: mint, amount: lamports }),
+  swapSell: (symbol, mint, atoms) =>
+    solana.jupiterSwap({ inputMint: mint, outputMint: VAULT_SOL_MINT, amount: atoms }),
+  solPriceUsd: () => liveSolPriceUsd(),
+});
+const vaultLoop = vault.loop({ intervalMs: Number(process.env.AH_VAULT_INTERVAL_MS || 60_000) });
+if (String(process.env.AH_VAULT_AUTORUN).trim() !== "0") vaultLoop.start();
+
+async function vaultStateView() {
+  const s = vault.state();
+  let gaps = { marketOpen: null, best: null };
+  try {
+    const g = await marketHoursGap();
+    const tradeable = g.gaps.filter((x) => !x.error);
+    const best = [...tradeable].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0] || null;
+    gaps = { marketOpen: g.marketOpen, best: best ? { symbol: best.symbol, gapPct: best.gapPct, volumeUsd24h: best.volumeUsd24h } : null };
+  } catch { /* best-effort preview */ }
+  return { ...s, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, wallet: await solana.info().catch(() => null) };
+}
+
+app.get("/api/vault", wrap(async (_req, res) => res.json(await vaultStateView())));
+app.post("/api/vault/arm", wrap(async (_req, res) => res.json(await vault.arm())));
+app.post("/api/vault/stop", wrap(async (_req, res) => res.json(vault.stop())));
+app.post("/api/vault/unwind", wrap(async (_req, res) => res.json(await vault.unwind())));
+app.post("/api/vault/tick", wrap(async (_req, res) => res.json(await vault.tick())));
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
