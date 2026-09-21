@@ -129,6 +129,9 @@ async function loadVault() {
     const deployed = (v.positions || []).reduce((a, p) => a + (Number(p.qtyUnits) || 0) * (Number(p.avgPriceUsd) || 0), 0);
     const accrued = (v.positions || []).reduce((a, p) => a + ((Number(p.accruedAtoms) || 0) / 1e8) * (Number(p.avgPriceUsd) || 0), 0);
     const last = [...(v.fills || [])].pop();
+    const posSym = v.positions?.[0]?.symbol;
+    const rb = posSym ? v.rebase?.[posSym] : null;
+    const rebaseCard = rb ? `${Number(rb.multiplier).toFixed(4)}× → ${Number(rb.nextMultiplier || 0).toFixed(4)}× <span style="font-size:11px;color:var(--mut)">${rb.nextMultiplierAt ? "eff " + new Date(rb.nextMultiplierAt).toLocaleDateString() : ""}</span>` : "—";
     $("#vaultGapStats").textContent = v.gapStats
       ? `today: ${v.gapStats.n} gaps · mean |gap| ${v.gapStats.meanAbsGapPct.toFixed(2)}% · largest ${v.gapStats.largestAbsGapPct.toFixed(2)}%`
       : "gap stats unavailable";
@@ -136,6 +139,7 @@ async function loadVault() {
       ["Status", `<span style="color:var(--up)">●</span> ${label}`],
       ["Deployed (at cost)", deployed > 0 ? `$${deployed.toFixed(2)}` : "—"],
       ["Dividends accrued", accrued > 0 ? `+$${accrued.toFixed(4)}` : "—"],
+      [posSym ? `${posSym} rebase` : "Rebase", rebaseCard],
       ["Wallet SOL", wsol == null ? "—" : wsol.toFixed(4)],
       ["Last fill", last ? (last.explorer ? `<a href="${last.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(last.signature)}</a>` : last.symbol + " " + last.side) : "—"],
     ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${val}</div></div>`).join("");

@@ -12,6 +12,7 @@ function fakeDeps(over = {}) {
     getGaps: over.getGaps,
     solPriceUsd: async () => 150,
     balancesOf: over.balancesOf || (async () => ({})),
+    rebaseFor: over.rebaseFor || (async () => null),
     swapBuy: async (symbol, mint, lamports) => {
       fills.buy.push({ symbol, lamports });
       return { signature: "sig-" + symbol, explorer: "https://solscan.io/tx/sig-" + symbol, outAmount: 50_000 };
@@ -166,6 +167,53 @@ test("self-calibrating baseline never mislabels pre-existing holdings as dividen
   assert.equal(p.accruedAtoms ?? 0, 0, "no false dividend credit");
   assert.equal(p.qtyAtoms, 50_000, "qty unchanged — delta was correctly attributed to baseline");
 });
+
+// ── official-rebase labeling (Jupiter Price v3 multiplier schedule) ──
+
+test("balance growth matching the official xStocks multiplier is labeled as an OFFICIAL rebase", async () => {
+  let bal = {};
+  const d = fakeDeps({
+    cfg: { ...vaultConfig(), execMode: "real" },
+    getGaps: async () => closed,
+    balancesOf: async () => bal,
+    rebaseFor: async () => ({ multiplier: 1.03 }), // official schedule says +3%
+  });
+  const v = createVault(d);
+  await v.arm();
+  await v.tick(); // qty 50_000
+  const mint = "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh";
+  bal = { [mint]: 51_500 }; // exactly +3% of 50_000 = 1_500
+  const t2 = await v.tick();
+  assert.equal(t2.state.positions[0].accruedAtoms, 1_500);
+  const fill = dbLastFill(d.db);
+  assert.equal(fill.side, "accrual");
+  assert.match(fill.note, /official xStocks rebase ×1\.03000000/, "notes the OFFICIAL multiplier");
+  assert.match(fill.note, /3\.0000%/, "dividend rate stated");
+});
+
+test("balance growth NOT explained by the multiplier keeps the honest generic note", async () => {
+  let bal = {};
+  const d = fakeDeps({
+    cfg: { ...vaultConfig(), execMode: "real" },
+    getGaps: async () => closed,
+    balancesOf: async () => bal,
+    rebaseFor: async () => ({ multiplier: 1.005 }), // official schedule says +0.5% (250 atoms)
+  });
+  const v = createVault(d);
+  await v.arm();
+  await v.tick(); // qty 50_000
+  const mint = "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh";
+  bal = { [mint]: 51_500 }; // +1_500 — does NOT match 250 → external top-up, honest
+  const t2 = await v.tick();
+  assert.equal(t2.state.positions[0].accruedAtoms, 1_500);
+  const fill = dbLastFill(d.db);
+  assert.doesNotMatch(fill.note, /official/);
+  assert.match(fill.note, /external top-up/, "never overclaims the source");
+});
+
+function dbLastFill(db) {
+  return db.prepare("SELECT side, note FROM vault_fills ORDER BY id DESC LIMIT 1").get() || {};
+}
 
 function requireFills(db) {
   const rows = db.prepare("SELECT side, note FROM vault_fills ORDER BY id DESC LIMIT 1").get();

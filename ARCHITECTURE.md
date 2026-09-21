@@ -59,9 +59,9 @@ closed-market window, and unwinds at the open — every step signed on Solana.*
 
 | Sponsor stack | Where it sits | After removing it |
 |---|---|---|
-| **GeckoTerminal DEX index** (no key) | On-chain xStock price feed — the entire gap signal | No live on-chain price → vault can't compute gaps → refuses to trade (holds cash) |
+| **GeckoTerminal DEX index** (fallback, no key) | Fallback on-chain xStock price + volume — the gap signal's safety net | Vault falls back to GeckoTerminal pricing; if BOTH feeds die, no live price → refuses to trade (holds cash) |
 | **TwelveData** (NYSE reference) | Frozen-reference anchor (market-hours aware) | Gap reads 0/unknown everywhere → vault's ≥50bps guard blocks every buy (no blind trades, but the edge vanishes) |
-| **Jupiter `/swap/v1`** (execution venue) | Every real fill (SOL→xStock, xStock→SOL) | No signed swap transactions → the product becomes a monitor; no capital moves. (Orca/Raydium SDKs exist as documented attempts but are not the production rail) |
+| **Jupiter `/swap/v1` + Price v3** (execution + official data) | Every real fill (SOL→xStock, xStock→SOL); **official xStocks print + rebase multiplier** feed the vault's dividend labeling | No signed swap transactions → the product becomes a monitor; without the official print/multiplier, accrual falls back to *inference* instead of official labels |
 | **Solana RPC + wallet** | Identity + settlement + accrual reconciliation | No mainnet proof `7JL8s…` / txs `62HV8t3F…` `2gh4uPpC…` `8g18g7V3…` — no "verified on mainnet" claim |
 | **PreStocks / Tessera** (no key) | Cross-issuer dislocations + universe depth (v2 paper engine) | Paper strategy loses its pre-IPO universe; dislocations table empties |
 | **Pyth feed registry** | 5 verified AAPL feeds; live prices honest-gated on key | **No change in behavior** — the gate already reports openly (feed metadata served, prices labeled "key required") |

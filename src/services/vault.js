@@ -100,7 +100,7 @@ function safeJson(s) {
 }
 
 // ── the vault: pure-ish state machine, deps injected for testability ──
-export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balancesOf, cfg = vaultConfig() }) {
+export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balancesOf, rebaseFor, cfg = vaultConfig() }) {
   function persist(state) {
     db.prepare(
       "UPDATE vault_state SET status = ?, armed_at = ?, last_tick_at = ?, last_error = ?, positions_json = ?, baseline_json = ?, baseline_fresh = ?, runs = ? WHERE id = 1",
@@ -144,9 +144,27 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
         p.qtyAtoms += delta;
         p.qtyUnits = p.qtyAtoms / 10 ** XSTOCK_DECIMALS;
         p.accruedAtoms = (p.accruedAtoms || 0) + delta;
+        // Official-rebase matching: if the xStocks multiplier schedule (via
+        // Jupiter Price v3) explains the growth within tolerance, label it as
+        // an official rebase — this is the dividend, precisely. Otherwise the
+        // HONEST generic note stands (could be an external top-up).
+        let note = "balance grew vs vault expectation — dividend/rebase accrual or external top-up";
+        if (rebaseFor) {
+          try {
+            const rb = await rebaseFor(p.symbol);
+            if (rb?.multiplier) {
+              const oldQty = p.qtyAtoms - delta; // atoms BEFORE this growth
+              const expectedRebase = Math.round(oldQty * (rb.multiplier - 1));
+              const tol = Math.max(1_000, expectedRebase * 0.5);
+              if (expectedRebase > 0 && Math.abs(delta - expectedRebase) <= tol) {
+                note = `official xStocks rebase ×${Number(rb.multiplier).toFixed(8)} (dividend ≈${Number((rb.multiplier - 1) * 100).toFixed(4)}% of ${oldQty} atoms)`;
+              }
+            }
+          } catch { /* keep honest generic note */ }
+        }
         recordFill({
           ts: now, side: "accrual", symbol: p.symbol, mint: p.mint, outAtoms: delta,
-          mode: "real", note: "balance grew vs vault expectation — dividend/rebase accrual or external top-up",
+          mode: "real", note,
         });
       }
     }
