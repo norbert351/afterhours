@@ -49,7 +49,7 @@ Real execution needs a funded wallet (`SOLANA_PRIVATE_KEY`, `AH_VAULT_EXEC=1`,
 |---|---|---|
 | Live site on custom domain | ✅ | https://afterhourequity.xyz (200 on `/`, `/app`, `/docs`) |
 | Real mainnet fills | ✅ | 3 txs (above), wallet holds 0.00197113 AAPLx on-chain |
-| Vault buys the deepest gap, holds, unwinds | ✅ buy+hold proven (awaiting Monday-open sell) | tx 8g18g7V3…; watchdog armed to capture the unwind |
+| Vault buys the deepest gap, holds, unwinds | ✅ **round trip VERIFIED** — bought at gap −0.16% (8g18g7V3…), sold exactly 0.00074359 at the 13:30 UTC open (4UX9k6o7…, slot 449069399), vault idle | tx links on landing + vault DB |
 | Honest ledger (phantom-NAV impossible) | ✅ | 16/16 tests incl. cost-basis guard |
 | No blind trades when data degrades | ✅ | ≥50bps + live-reference guard, tested |
 | Pyth live prices | ⚠️ key-gated (Pro grant is the bounty prize) | `/api/pyth` reports the gate honestly |
