@@ -168,6 +168,18 @@
     </div>
   </section>
 
+  <section id="rail">
+    <h2>Live Solana rail <span class="chip" id="railStatus"></span></h2>
+    <div class="grid cards" id="railCards"></div>
+    <div class="card" style="margin-top:10px">
+      <div class="rowflex">
+        <span class="muted" style="font-size:12px">Wallet <code id="railAddr"></code> — hard-capped ≈$0.60/order, mint-allowlist, rate-limited. Never a fabricated fill.</span>
+        <button id="railProbe" class="secondary" style="white-space:nowrap">Prove rail · real 2,000-lamport tx</button>
+      </div>
+      <div id="railMsg" class="muted" style="font-size:12px;margin-top:6px"></div>
+    </div>
+  </section>
+
   <section id="live">
     <h2>Market never sleeps · live on-chain gaps <span class="chip" id="gapOpen"></span></h2>
     <div class="card" style="overflow-x:auto">

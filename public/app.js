@@ -187,6 +187,38 @@ $("#vaultUnwind").addEventListener("click", () => vaultAction("unwind", "Unwind 
 loadVault();
 setInterval(loadVault, 30_000);
 
+// ---- Live Solana rail ----
+async function loadRail() {
+  try {
+    const r = await get("/api/v3/live/info");
+    $("#railStatus").textContent = r.configured ? "● CONFIGURED" : "NOT CONFIGURED";
+    $("#railAddr").textContent = r.address || "—";
+    $("#railCards").innerHTML = [
+      ["Address", r.address ? `<a href="https://solscan.io/account/${r.address}" target="_blank" style="color:var(--acc)">${r.address.slice(0, 10)}…${r.address.slice(-6)}</a>` : "—"],
+      ["SOL balance", r.balanceSol == null ? "—" : r.balanceSol.toFixed(4)],
+      ["RPC", (r.rpc || "").replace("https://", "").slice(0, 28) || "—"],
+      ["Safety", "cap $0.60 · allowlist · rate-limited"],
+    ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:14px">${val}</div></div>`).join("");
+    $("#railMsg").textContent = "";
+  } catch (e) {
+    $("#railStatus").textContent = "offline";
+    $("#railMsg").textContent = "rail error: " + e.message;
+  }
+}
+$("#railProbe").addEventListener("click", async () => {
+  if (!confirm("Broadcast a REAL 2,000-lamport self-transfer to prove the rail? (costs ~0.000002 SOL)")) return;
+  const btn = $("#railProbe"); btn.disabled = true; btn.textContent = "Broadcasting…";
+  try {
+    const r = await fetch("/api/v3/live/probe", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const d = await r.json();
+    $("#railMsg").innerHTML = r.ok
+      ? `✓ Real rail proof: <a href="${d.explorer}" target="_blank" style="color:var(--acc)">${d.signature.slice(0, 14)}…</a>`
+      : "✗ " + (d.error || r.status);
+  } catch (e) { $("#railMsg").textContent = "probe error: " + e.message; }
+  btn.disabled = false; btn.textContent = "Prove rail · real 2,000-lamport tx";
+});
+loadRail();
+
 // ---- v2 strategy / paper section ----
 async function loadV2() {
   try {

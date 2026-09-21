@@ -46,10 +46,10 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
   </nav>
 
   <h1>AfterHours — Docs</h1>
-  <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible — and executable.</p>
+  <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible — and executable. <span class="pill good">LIVE on afterhourequity.xyz</span></p>
 
   <h2>What the product does</h2>
-  <p>AfterHours is an <b>on-chain equity-intelligence + autonomous-execution platform for Solana.</b> While the NYSE closes, the on-chain copies of the same stocks (xStocks/Backed tokenized equities — AAPLx, NVDAx, MSFTx…) keep trading. AfterHours continuously maps the <b>live on-chain price</b> of every tokenized equity against its <b>frozen reference</b>, surfaces the dislocations (the "gap"), lets you watch/track them, runs an autonomous strategy against them, and can <b>execute real on-chain trades</b> through a connected wallet.</p>
+  <p>AfterHours is an <b>on-chain equity-intelligence + autonomous-execution platform for Solana.</b> While the NYSE closes, the on-chain copies of the same stocks (xStocks/Backed tokenized equities — AAPLx, NVDAx, MSFTx…) keep trading. AfterHours continuously maps the <b>live on-chain price</b> of every tokenized equity against its <b>frozen reference</b>, surfaces the dislocations (the "gap"), and runs the <b>Weekend Gap Vault</b> — real capital that buys the deepest gap while the reference is frozen and unwinds at the open. Every real fill is signed, capped, and visible with its Solscan link.</p>
 
   <h2>Core data (verified live)</h2>
   <div class="card">
@@ -57,61 +57,70 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
     <table>
       <tr><th>Source</th><th>What it gives</th><th>Status</th></tr>
       <tr><td>GeckoTerminal DEX index</td><td>On-chain tokenized-equity price + 24h volume + reserve (by mint)</td><td><span class="pill good">LIVE</span></td></tr>
-      <tr><td>TwelveData</td><td>NYSE reference close (AAPL, MSFT, NVDA, TSLA, GOOGL…)</td><td><span class="pill good">LIVE</span></td></tr>
-      <tr><td>PreStocks / Tessera</td><td>Cross-issuer dislocations (SPACEX priced 2.3× apart across issuers)</td><td><span class="pill good">LIVE</span></td></tr>
+      <tr><td>TwelveData</td><td>NYSE reference close (AAPL by quota-safe config; more with a bigger key)</td><td><span class="pill good">LIVE</span></td></tr>
+      <tr><td>PreStocks / Tessera</td><td>Cross-issuer dislocations (SPACEX priced 178% apart across issuers, verified)</td><td><span class="pill good">LIVE</span></td></tr>
     </table>
     <p>The gap = on-chain price − reference. When the market is closed the reference is <code>stale</code>, so the gap is the real signal.</p>
   </div>
 
-  <h2>Autonomous strategy engine</h2>
-  <p>Write a plain-English rule (e.g. <i>"buy tokenized equities trading below their mark"</i>). The engine:</p>
-  <ul>
-    <li>Builds an <b>honest paper ledger</b> — integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes a phantom profit structurally impossible (resets to cash and screams on any violation).</li>
-    <li>Runs on a 60s server-authoritative loop, logs every decision, fires alerts (in-app + webhook).</li>
-    <li>Rebalances with a no-churn tolerance band. Tests: <b>6/6</b>.</li>
-  </ul>
-
-  <h2>Real on-chain execution</h2>
-  <p>The strategy can execute <b>real Solana mainnet swaps</b> (opt-in, <code>AH_LIVE_EXEC=1</code>, capped by default). It routes through <b>Jupiter</b> and, when enabled, buys the deepest live-gap tokenized equity into a connected wallet.</p>
+  <h2>Weekend Gap Vault (real capital, tiny size)</h2>
+  <p>The winner-shaped capital-utilization product: deposit SOL → <b>arm</b> → while the NYSE reference is frozen the vault buys the deepest discounted xStock (hard-capped ≈$0.25/fill, curated mint allowlist, ≥50bps real gap required — it refuses to buy blind if references are down) → at the open it unwinds to SOL. A 60s keeper runs the state machine (<code>idle → armed → holding → unwind</code>) with no-churn, kill-switch, and min-volume guards.</p>
   <div class="card">
-    <h3>Verified live execution (on mainnet)</h3>
+    <h3>Verified on mainnet (2026-09-21)</h3>
     <table>
-      <tr><th>Event</th><th>Tx / state</th><th>Status</th></tr>
-      <tr><td>SOL → wSOL wrap</td><td><code>2gDmmHiv…</code> (finalized, slot 448519650)</td><td><span class="pill good">VERIFIED</span></td></tr>
-      <tr><td>SOL → AAPLx swap</td><td><code>3DXBCxAyrsQmNcLz…</code></td><td><span class="pill good">VERIFIED</span></td></tr>
-      <tr><td>Result</td><td>Wallet holds <b>0.00019864 AAPLx</b> on mainnet</td><td><span class="pill good">ON-CHAIN</span></td></tr>
+      <tr><th>Event</th><th>Tx</th><th>Status</th></tr>
+      <tr><td>Test fill #1 · 0.0016 SOL → AAPLx</td><td><code>62HV8t3F…</code></td><td><span class="pill good">FINALIZED</span></td></tr>
+      <tr><td>Test fill #2 · through the app API</td><td><code>2gh4uPpC…</code></td><td><span class="pill good">CONFIRMED</span></td></tr>
+      <tr><td><b>Vault buy</b> · AAPLx @ gap −0.16%</td><td><code>8g18g7V3…</code></td><td><span class="pill good">FINALIZED</span></td></tr>
+      <tr><td>Wallet</td><td><code>7JL8s63F5WPXMWmbPFKN7Wn2VrsyitA4GHCWxqb4RLYg</code> — holds <b>0.00197113 AAPLx</b></td><td><span class="pill good">ON-CHAIN</span></td></tr>
+      <tr><td>Dividend/rebase accrual</td><td>Detected on-chain (xStocks are rebasing assets) — honest label, never overclaims source</td><td><span class="pill good">WIRED</span></td></tr>
+      <tr><td>Buy → sell round trip</td><td>Auto-unwind at NYSE open (Mon 13:30 UTC)</td><td><span class="pill pend">PROVES AT OPEN</span></td></tr>
     </table>
   </div>
 
-  <h2>Accounts & authentication</h2>
+  <h2>Autonomous strategy engine (paper)</h2>
+  <p>Plain-English rules (e.g. <i>"rotate to discounted tokenized equities"</i>) drive an <b>honest paper ledger</b> — integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes phantom profit structurally impossible. 60s server-authoritative loop, every decision logged, dust-filtered alerts.</p>
+
+  <h2>Live Solana rail</h2>
   <ul>
-    <li><b>Wallet auth</b> — self-custody Solana sign-in (challenge → ed25519 signature verify → session; verified end-to-end).</li>
-    <li><b>Privy</b> — managed wallet login (App ID wired; ID-token verified server-side with your App Secret).</li>
+    <li><code>GET /api/v3/live/info</code> — wallet address + SOL balance + RPC (honest <code>configured:false</code> when no key).</li>
+    <li><code>POST /api/v3/live/probe</code> — signs + broadcasts a real 2,000-lamport self-transfer to prove the rail (returns the tx).</li>
+    <li><code>POST /api/v3/live/swap</code> — SOL → curated xStock, <b>hard-capped ≈$0.60/order + mint allowlist + rate-limited</b>; routes via Jupiter <code>/swap/v1</code> on <code>api.jup.ag</code>. Never a fabricated fill.</li>
+  </ul>
+
+  <h2>Authentication</h2>
+  <ul>
+    <li><b>Wallet auth</b> — self-custody Solana sign-in (challenge → ed25519 verify → session; verified E2E).</li>
+    <li><b>Privy</b> — managed wallet login, ID-token verified server-side (App Secret never leaves the server).</li>
     <li>Handle/password accounts + per-user watchlist.</li>
   </ul>
 
   <h2>Architecture</h2>
   <pre>public/  landing (/) · product dashboard (/app) · docs (/docs)
-src/     server.js (Express, routes) · adapters/xstocks.js (live DEX prices)
-         services/v2.js (strategy → paper) · services/solana.js (live rail)
-         services/markethours.js (the gap) · auth.js · store.js (node:sqlite, WAL)
-scripts/ jupiter-swap.mjs (real SOL→AAPLx) · wallet-auth-test.mjs</pre>
+src/     server.js (Express · 34 routes) · adapters/ (xstocks, twelvedata, prestocks, tessera, pyth)
+         services/vault.js (state machine + keeper + accrual) · v2.js (paper engine)
+         services/solana.js (live rail) · markethours.js (the gap) · auth.js · store.js + vault.db
+scripts/ micro-swap.mjs (reusable "little-by-little" tester) · jupiter-swap.mjs · wallet-auth-test.mjs</pre>
 
   <h2>Security & honesty</h2>
   <ul>
-    <li>Secrets only in <code>.env</code> (gitignored); verified no secret in git-tracked files.</li>
-    <li>No fabricated prices — every number traces to a verified live source.</li>
-    <li>Ledger guard prevents phantom NAV; alerts are dust-filtered.</li>
+    <li>Secrets only in <code>.env</code> (gitignored); <b>API keys redacted from every surfaced error</b> (a leak was caught live and fixed — keys were appearing in public 429 messages).</li>
+    <li>Swap endpoints: mint allowlist + hard value cap + rate limit — a public caller cannot drain the wallet.</li>
+    <li>No fabricated prices or fills — every number traces to a verified live source; paper/real modes are explicit.</li>
+    <li>Ledger guard prevents phantom NAV; vault accrual uses a self-calibrating baseline so pre-existing holdings are never mislabeled as dividends.</li>
   </ul>
 
-  <h2>Verified vs pending</h2>
+  <h2>Verified vs pending (honest)</h2>
   <table>
     <tr><th>Capability</th><th>Status</th></tr>
+    <tr><td>Live site on custom domain</td><td><span class="pill good">LIVE</span></td></tr>
     <tr><td>Live gap + dislocations</td><td><span class="pill good">VERIFIED</span></td></tr>
-    <tr><td>Autonomous paper strategy</td><td><span class="pill good">VERIFIED</span></td></tr>
+    <tr><td>Autonomous paper strategy</td><td><span class="pill good">VERIFIED (16/16 tests)</span></td></tr>
     <tr><td>Wallet auth + Privy</td><td><span class="pill good">VERIFIED</span></td></tr>
-    <tr><td>Real SOL→AAPLx swap lands</td><td><span class="pill good">VERIFIED</span></td></tr>
-    <tr><td>Deploy on custom domain</td><td><span class="pill pend">PENDING (domain DNS)</span></td></tr>
+    <tr><td>Real swaps land on mainnet</td><td><span class="pill good">VERIFIED (3 fills)</span></td></tr>
+    <tr><td>Vault buy → sell round trip</td><td><span class="pill pend">PROVES AT MONDAY OPEN (13:30 UTC)</span></td></tr>
+    <tr><td>Pyth live prices</td><td><span class="pill pend">KEYED (Pyth bounty key)</span></td></tr>
+    <tr><td>Demo video</td><td><span class="pill pend">NOT YET</span></td></tr>
   </table>
 
   <a class="btn" href="/app">Open the app</a>

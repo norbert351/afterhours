@@ -35,6 +35,16 @@ const wrap = (fn) => (req, res) =>
     res.status(e.status || 500).json({ error: e.message, code: e.code || "INTERNAL" }),
   );
 
+// Tiny in-memory rate limiter — protects real-money endpoints from public spam.
+const hitCounts = new Map(); // key -> { at, n }
+function rateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const rec = hitCounts.get(key);
+  if (!rec || now - rec.at > windowMs) { hitCounts.set(key, { at: now, n: 1 }); return false; }
+  rec.n += 1;
+  return rec.n > max;
+}
+
 app.get("/api/health", (_req, res) => res.json({ ok: true, at: Date.now(), service: "afterhours" }));
 
 app.get("/api/universe", wrap(async (_req, res) => res.json(await buildUniverse())));
@@ -91,10 +101,14 @@ app.get("/api/v2/status", wrap(async (_req, res) => res.json(runStatus.status())
 // ---- v3 : live Solana execution rail (mainnet) ----
 app.get("/api/v3/live/info", wrap(async (_req, res) => res.json(await solana.info())));
 app.post("/api/v3/live/probe", wrap(async (req, res) => {
+  const ip = req.ip || "anon";
+  if (rateLimit("probe:" + ip, 2, 60_000)) return res.status(429).json({ error: "rate limited (2 probes/min)" });
   const lamports = Number.isFinite(Number(req.body?.lamports)) ? Number(req.body.lamports) : 2000;
   res.json(await solana.probe({ lamports: Math.min(Math.max(lamports, 0), 5_000) }));
 }));
 app.post("/api/v3/live/swap", wrap(async (req, res) => {
+  const ip = req.ip || "anon";
+  if (rateLimit("swap:" + ip, 3, 60_000)) return res.status(429).json({ error: "rate limited (3 swaps/min max)" });
   const { inputMint, outputMint, amount } = req.body || {};
   if (!inputMint || !outputMint || !Number.isFinite(Number(amount))) {
     return res.status(400).json({ error: "inputMint, outputMint and amount (base-unit atoms) required" });
@@ -109,7 +123,11 @@ app.post("/api/v3/live/swap", wrap(async (req, res) => {
   if (atoms <= 0 || atoms > 4_000_000) return res.status(400).json({ error: "amount outside 1..4,000,000 lamports (~$0.60 max)" });
   res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: atoms }));
 }));
-app.get("/api/notify/test", wrap(async (_req, res) => res.json(await pushAlert({ text: "test alert", navUsd: "—" }))));
+app.get("/api/notify/test", wrap(async (_req, res) => {
+  const ip = _req.ip || "anon";
+  if (rateLimit("notify:" + ip, 1, 60_000)) return res.status(429).json({ error: "rate limited" });
+  return res.json(await pushAlert({ text: "test alert", navUsd: "—" }));
+}));
 
 // ---- v4 : accounts + watchlist ----
 function currentUser(req) {

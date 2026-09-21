@@ -131,4 +131,8 @@ mint-allowlisted, and recorded with its Solscan signature in `vault_fills`.
   `scripts/` as experiments: quotes + broadcasts happened, but those txs were dropped by
   the network — Jupiter `/swap/v1` is the live-proven path; `scripts/micro-swap.mjs` is
   the reusable "little-by-little" tester.
+- `@meteora-ag/dynamic-bonding-curve-sdk` is INSTALLED but unwired: evaluated as the
+  Stocklana DBC-bounty surface; the xStocks gap vault trades CLMM/whirlpool liquidity
+  via Jupiter (the AAPLx family has no DBC pools). Kept in deps as the bounty hook,
+  never claimed as load-bearing.
 - BNB port: swap adapters to bStocks/Ondo/xStocks on the Market/Trading/RWA API + Agentic Wallet.
