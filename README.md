@@ -10,6 +10,22 @@ Built against **verified** sponsor data, no fabricated prices.
 
 ---
 
+## 🔗 Stocklana submission (Sep 25, 4pm ET)
+
+- **Live demo:** https://afterhourequity.xyz · **Product:** https://afterhourequity.xyz/app · **Docs:** https://afterhourequity.xyz/docs
+- **Submission pack:** `docs/SUBMISSION.md` (paste-ready form answers) · `docs/rubric.md` (judge-verification map)
+- **Mainnet proof:** wallet `7JL8s63F…` holds **0.00197113 AAPLx** — fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjPG), [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN), [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt)
+
+## Tech stack
+
+Node 22 · Express (no build step) · `node:sqlite` (WAL) · `@solana/web3.js` +
+`@solana/spl-token` + `@noble/ed25519` · Jupiter `/swap/v1` execution ·
+GeckoTerminal (no-key xStock prices) · TwelveData refs · PreStocks / Tessera
+(no-key dislocations) · Pyth feed registry (keyed live) · Privy + native wallet
+auth · vanilla JS frontend · deployed on an own VM behind Caddy (auto-TLS).
+
+---
+
 ## The problem it solves (evidence-backed)
 
 > "The closing bell rings and every stock price freezes until Monday. On-chain, nothing stops."
