@@ -36,14 +36,27 @@ trajectory a judge can read to see this keeping growing after the hackathon.
 
 ## Path to a real user base (demo → product)
 
-- **Needs capital**: the vault is capped at cents by design. A "pools" model —
-  multiple users fund positions (still honestly labeled, per-cap), vault
-  manages them, fees/splits tracked in the ledger — turns the demo into
-  something people fund.
-- **Needs data trust**: Pyth Pro grant + TwelveData paid tier remove the
-  key-gates; the feed-quality story (frozen vs 24/7) is the product's edge.
-- **Needs distribution**: the recurring-buy + watchlist rails already exist;
-  productize them as a mobile-first "set-and-forget weekend gap capture".
+**The monetization decision — explicit, decided 2026-09-21 (judges: this is our
+"does it exist after the hackathon" answer, written down):**
+
+| Surface | Purpose | Revenue model |
+|---|---|---|
+| **Weekend Gap Vault** | Proof artifact — real execution on the builder's OWN capital ("your wallet, your automation"). No third-party funds, no custody surface. | No user fees — the trust builder |
+| **PreStocks Desk** | The first real product: live screener + history + rules + sim for pre-IPO dual-price dislocations. | **Subscription** ($5–15/mo) — SaaS analytics; no custody, no securities rails |
+| **Pools model** (user deposits) | The long-term vision: user SOL funds the vault, fee % on deployed capital. | Fee % on AUM |
+
+**The go/no-go gate for user deposits (never crossed by vibes):** the pools
+model ships ONLY when all three hold:
+1. **A licensed operator or regulated custody partner exists** — taking
+   deposits for equity-like tokens without that is unlicensed fund management;
+2. **The strategy shows net-of-fee edge over ≥2 tracked quarters** (the real
+   fills + paper book give us the honest record to measure);
+3. **Attention to spare** — this product competes with the rest of the
+   portfolio; a half-maintained money product is worse than none.
+
+Until then the vault stays self-funded (it already is — $0.25 caps, one
+wallet), and growth means *Desk subscribers*, not deposited capital. The
+signal to invest: 10+ strangers willing to pay for the Desk.
 
 ## What would need to change (honest)
 

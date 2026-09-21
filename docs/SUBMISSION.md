@@ -14,6 +14,11 @@ AfterHours is an autonomous weekend-gap capture agent for tokenized equities on 
 
 The app is live: connect, watch the gaps, arm the vault — real execution, transparent ledger, no fabricated numbers anywhere.
 
+**Life after the hackathon (written into `docs/ROADMAP.md`):** the vault stays a
+self-funded proof on the builder's own capital; the PreStocks Desk is the first
+revenue surface (subscription analytics — no custody); user deposits are gated
+on a licensed operator + verified net-of-fee edge, never crossed by vibes.
+
 ## Links
 
 - **Live demo:** https://afterhourequity.xyz (landing) · https://afterhourequity.xyz/app (product) · https://afterhourequity.xyz/docs (docs)
