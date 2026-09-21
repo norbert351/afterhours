@@ -120,7 +120,7 @@ app.post("/api/v3/live/swap", wrap(async (req, res) => {
   if (inputMint !== SOL) return res.status(400).json({ error: "inputMint must be SOL" });
   if (!allowedOut.has(outputMint)) return res.status(400).json({ error: "outputMint not in curated xStock set" });
   const atoms = Number(amount);
-  if (atoms <= 0 || atoms > 4_000_000) return res.status(400).json({ error: "amount outside 1..4,000,000 lamports (~$0.60 max)" });
+  if (atoms < 200_000 || atoms > 4_000_000) return res.status(400).json({ error: "amount outside 200,000..4,000,000 lamports (~$0.03–$0.60)" });
   res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: atoms }));
 }));
 app.get("/api/notify/test", wrap(async (_req, res) => {
