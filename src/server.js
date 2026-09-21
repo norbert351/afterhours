@@ -8,7 +8,7 @@ import { findDislocations } from "./services/dislocation.js";
 import { addRule, listRules, evaluateAll } from "./services/strategies.js";
 import { listReferencePrices } from "./adapters/twelvedata.js";
 import { feedRegistry, latestAaplPrices } from "./adapters/pyth.js";
-import { openStore, getAccount, listPositions, listStrategies, insertStrategy, listDecisions, listAlerts } from "./store.js";
+import { openStore, getAccount, listPositions, listStrategies, insertStrategy, listDecisions, listAlerts, listPrestocksRules, insertPrestocksRule } from "./store.js";
 import { runEngine } from "./services/v2.js";
 import { listFills } from "./services/vault.js";
 import { startRunLoop } from "./services/loop.js";
@@ -20,6 +20,7 @@ import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
 import { XSTOCKS } from "./adapters/xstocks.js";
 import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT, vaultConfig } from "./services/vault.js";
+import * as desk from "./services/prestocks-desk.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -247,9 +248,44 @@ app.post("/api/vault/stop", wrap(async (_req, res) => res.json(vault.stop())));
 app.post("/api/vault/unwind", wrap(async (_req, res) => res.json(await vault.unwind())));
 app.post("/api/vault/tick", wrap(async (_req, res) => res.json(await vault.tick())));
 
+// ---- PreStocks Desk (bounty surface: PreStocks data ONLY) ----
+const deskLoop = desk.startDeskLoop(db);
+if (String(process.env.AH_DESK_AUTORUN).trim() !== "0") deskLoop.start();
+
+app.get("/api/prestocks/desk", wrap(async (_req, res) => res.json(await desk.buildDesk(db))));
+app.get("/api/prestocks/history", wrap(async (req, res) => {
+  const symbol = String(req.query?.symbol || "").toUpperCase();
+  const d = await desk.buildDesk(db);
+  const known = d.tokens.some((t) => t.symbol === symbol);
+  if (!known) return res.status(400).json({ error: "unknown symbol (expected e.g. SPACEX)" });
+  res.json({ symbol, points: desk.deskHistory(db, symbol, Number(req.query?.limit) || 40) });
+}));
+app.get("/api/prestocks/rules", wrap(async (_req, res) => res.json(listPrestocksRules(db))));
+app.post("/api/prestocks/rules", wrap(async (req, res) => {
+  const text = String(req.body?.text || "").trim();
+  if (!text) return res.status(400).json({ error: "rule text required" });
+  const p = desk.parsePrestocksRule(text);
+  if (!p.symbol && p.type !== "largest") return res.status(400).json({ error: "name a PreStocks symbol (SPACEX, OPENAI, NEURALINK…) or use 'biggest dislocation'" });
+  res.status(201).json(insertPrestocksRule(db, text));
+}));
+app.post("/api/prestocks/rules/evaluate", wrap(async (_req, res) => {
+  const d = await desk.buildDesk(db);
+  res.json(desk.evaluatePrestocksRules(db, d));
+}));
+app.post("/api/prestocks/sim", wrap(async (req, res) => {
+  const symbol = String(req.body?.symbol || "").toUpperCase();
+  const qty = Number(req.body?.qty);
+  const d = await desk.buildDesk(db);
+  const t = d.tokens.find((x) => x.symbol === symbol);
+  if (!t) return res.status(400).json({ error: "unknown symbol" });
+  if (!Number.isFinite(qty) || qty <= 0) return res.status(400).json({ error: "qty (integer tokens) required" });
+  res.json(desk.holdSim({ ...t, qty }));
+}));
+
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
 app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
+app.get("/prestocks", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "prestocks.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.use(express.static(path.join(__dirname, "..", "public")));
 

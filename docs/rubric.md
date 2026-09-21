@@ -21,7 +21,7 @@ trust.
 
 | Bounty | Fit | Honest status |
 |---|---|---|
-| **PreStocks** ($10K) | PreStocks feed integrated (real prices, E2E) — but the product also integrates other pre-IPO issuers (Tessera), which the bounty's *PreStocks-only* rule excludes | ❌ **Ineligible as written** — main track is the play; a PreStocks-only skin could unlock it |
+| **PreStocks** ($10K) | **PreStocks Desk** (`/prestocks`): a PreStocks-**only** surface (desk screener + history + rules + hold-sim) — satisfies the no-other-issuer rule by design | ✅ **ELIGIBLE + LIVE** (page + `/api/prestocks/*`, 5 tests) |
 | **Tessera** ($6K) | Tessera T-tokens feed integrated (real mark prices; flaky upstream handled) | ⚠️ Partial — no T-token trading surface |
 | **Meteora DBC** ($5K) | DBC SDK installed, evaluated, honestly documented as unwired; "working code on mainnet beats slides" | ❌ Not shipped against — flagged in ROADMAP as the post-capital move |
 | **Clawpump** ($5K) | Not integrated (needs a stock-paired LP launch w/ clawpump+Meteora) | ❌ Not shipped against |

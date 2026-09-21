@@ -65,6 +65,22 @@ function migrate(db) {
     payload TEXT NOT NULL,
     delivered INTEGER NOT NULL DEFAULT 0
   );
+  -- PreStocks Desk (bounty-eligible PreStocks-only surface)
+  CREATE TABLE IF NOT EXISTS prestocks_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    mark_price REAL NOT NULL,
+    token_price REAL NOT NULL,
+    mark_valuation REAL,
+    implied_valuation REAL,
+    supply REAL
+  );
+  CREATE TABLE IF NOT EXISTS prestocks_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
   `);
   // Seed the singleton paper account with a default demo book.
   const acc = db.prepare("SELECT id FROM paper_account WHERE id = 1").get();
@@ -149,4 +165,30 @@ export function listAlerts(db, limit = 30) {
 
 export function safeJson(s) {
   try { return JSON.parse(s); } catch { return {}; }
+}
+
+// ---- PreStocks Desk (bounty surface: PreStocks data ONLY) ----
+export function insertPrestocksSnapshot(db, row) {
+  db.prepare(
+    "INSERT INTO prestocks_snapshots (ts, symbol, mark_price, token_price, mark_valuation, implied_valuation, supply) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(row.ts, row.symbol, row.markPrice, row.tokenPrice, row.markValuation ?? null, row.impliedValuation ?? null, row.supply ?? null);
+}
+export function latestPrestocksSnapshot(db, symbol) {
+  return db.prepare("SELECT * FROM prestocks_snapshots WHERE symbol = ? ORDER BY id DESC LIMIT 1").get(symbol) || null;
+}
+export function prestocksHistory(db, symbol, limit = 40) {
+  return db.prepare(
+    "SELECT ts, mark_price AS markPrice, token_price AS tokenPrice FROM prestocks_snapshots WHERE symbol = ? ORDER BY id ASC LIMIT ?",
+  ).all(symbol, limit);
+}
+export function latestPrestocksTs(db) {
+  const r = db.prepare("SELECT MAX(ts) AS ts FROM prestocks_snapshots").get();
+  return r?.ts ?? null;
+}
+export function insertPrestocksRule(db, text) {
+  db.prepare("INSERT INTO prestocks_rules (text, created_at) VALUES (?, ?)").run(text, Date.now());
+  return listPrestocksRules(db);
+}
+export function listPrestocksRules(db) {
+  return db.prepare("SELECT id, text, created_at AS createdAt FROM prestocks_rules ORDER BY id").all();
 }

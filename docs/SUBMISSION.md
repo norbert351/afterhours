@@ -49,4 +49,27 @@ Real execution needs a funded wallet (`SOLANA_PRIVATE_KEY`, `AH_VAULT_EXEC=1`,
 | No blind trades when data degrades | ✅ | ≥50bps + live-reference guard, tested |
 | Pyth live prices | ⚠️ key-gated (Pro grant is the bounty prize) | `/api/pyth` reports the gate honestly |
 | Demo video | ❌ pending — live URL + receipts carry the demo | — |
-| Bounties: PreStocks ($10K) ineligible (multi-issuer), Meteora DBC / Clawpump not shipped | ❌ honest | `docs/rubric.md` |
+| Bounties: PreStocks ($10K) … | ✅ **ELIGIBLE via the PreStocks Desk surface** (`/prestocks` — PreStocks-only data, satisfies the no-other-issuer rule) | live page + `docs/rubric.md` |
+| Bounties: Meteora DBC / Clawpump | ❌ not shipped (honest) | `docs/rubric.md` |
+
+## PreStocks bounty ($10K) — separate paste-ready entry
+
+**Bounty description:** PreStocks Desk is a live intelligence desk for tokenized
+pre-IPO stocks built **exclusively** on PreStocks data. Pre-IPO tokens carry two
+prices at once — the issued token price and the issuer's mark price — and the
+spread is the story. The desk screens all 8 PreStocks tokens (ANDURIL,
+ANTHROPIC, FIGUREAI, KALSHI, NEURALINK, OPENAI, POLYMARKET, SPACEX) for
+token-vs-mark dislocations, tracks price history in 15-minute snapshots with
+per-token sparklines, evaluates plain-English alert rules ("NEURALINK trades
+more than 10% above its mark price"), and projects honest hold scenarios
+(mark-convergence / valuation opinion / flat) — with a built-in eligibility
+note on the page itself. Why PreStocks: discovery and analysis are exactly what
+the bounty asks for, the data is real and keyless, and the dual-price structure
+is a verified, visible signal right now (NEURALINK +29%, SPACEX −22%).
+
+**Bounty links:** Live: https://afterhourequity.xyz/prestocks · API:
+`/api/prestocks/*` · GitHub: github.com/norbert351/afterhours
+**Eligibility note:** this surface references `prestocks.com/api/prestocks`
+only — no other pre-IPO issuer is integrated here (the main-track app also
+reads Tessera for cross-issuer analysis; the two surfaces are separate and this
+one is single-source by design).

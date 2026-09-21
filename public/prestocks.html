@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PreStocks Desk · AfterHours</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#131318;--panel2:#0e0e15;--line:#26262f;--txt:#f5f3fa;--mut:#9a9aaa;--acc:#5546ff;--up:#69f0ae;--down:#ff7a8a;--warn:#f0b23c;--mono:ui-monospace,Menlo,monospace;--sans:'Inter',sans-serif;--display:'Space Grotesk',var(--sans)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
+header{display:flex;align-items:center;gap:14px;padding:8px 0 18px;border-bottom:1px solid var(--line)}
+header img{width:30px;height:30px;border-radius:8px}
+.brand{font-family:var(--display);font-weight:700;font-size:1.15rem;color:#fff}
+.nav{margin-left:auto;display:flex;gap:16px;font-size:.85rem}
+.nav a{color:var(--mut);text-decoration:none}.nav a:hover{color:#fff}
+h1{font-family:var(--display);font-size:clamp(1.7rem,4vw,2.5rem);margin:26px 0 6px;color:#fff}
+.elig{background:rgba(105,240,174,.08);border:1px solid rgba(105,240,174,.3);border-radius:12px;padding:10px 14px;font-size:.8rem;color:#b8f5d4;margin:14px 0}
+.elig b{color:var(--up)}
+section{margin-top:26px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:0 0 12px;font-weight:700}
+.grid{display:grid;gap:10px}.cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.card,.row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.k{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:5px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-family:var(--sans)}
+.up{color:var(--up)}.down{color:var(--down)}.warn{color:var(--warn)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.pill.big{background:rgba(255,122,138,.13);color:var(--down)}
+.pill.small{background:rgba(240,178,60,.13);color:var(--warn)}
+.muted{color:var(--mut)}
+form{display:flex;gap:8px;flex-wrap:wrap}
+input,select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:10px 13px;border-radius:9px;font-size:14px;font-family:var(--sans)}
+input:focus,select:focus{outline:none;border-color:var(--acc)}
+button{background:var(--acc);color:#fff;border:0;padding:10px 16px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer}
+button.secondary{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.rowflex{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
+.spark{width:120px;height:34px}
+.foot{color:var(--mut);font-size:11px;margin-top:30px;padding-top:14px;border-top:1px solid var(--line)}
+@media(max-width:640px){.hide-sm{display:none}table{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
+    <span class="nav"><a href="/">Home</a><a href="/app">App</a><a href="/prestocks" style="color:#fff">PreStocks Desk</a><a href="/docs">Docs</a></span>
+  </header>
+
+  <h1>PreStocks Desk</h1>
+  <p class="muted">Tokenized pre-IPO stocks carry <b style="color:var(--txt)">two prices at once</b> — the issued <b>token price</b> and the issuer's <b>mark price</b>. The spread between them is the tradeable story. The desk turns it into a live screener with history, plain-English rules, and honest scenarios.</p>
+  <div class="elig">✅ <b>Bounty-eligible surface</b> — this desk integrates <b>only PreStocks data</b> (<code>prestocks.com/api/prestocks</code>, no key). No other pre-IPO issuer is read here. ("Projects that integrate any non-PreStocks pre-IPO tokens are ineligible" — so this page deliberately stays single-source.)</div>
+
+  <section>
+    <h2>Live desk · token vs mark <span class="chip" id="deskTs"></span></h2>
+    <div class="grid cards" id="statCards"></div>
+    <div class="card" style="margin-top:10px;overflow-x:auto">
+      <table><thead><tr><th>Token</th><th>Mark $</th><th>Token $</th><th>Premium</th><th class="hide-sm">Val. spread</th><th class="hide-sm">Δ token</th><th id="sparkTh" class="hide-sm">12h</th></tr></thead><tbody id="deskBody"></tbody></table>
+      <p class="muted" style="margin:8px 0 0;font-size:12px" id="deskHint"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plain-English rules</h2>
+    <div class="card">
+      <form id="ruleForm">
+        <input id="ruleInput" type="text" placeholder='e.g. "NEURALINK trades more than 10% above its mark price" or "biggest dislocation"' style="flex:1;min-width:240px" />
+        <button type="submit">Add rule</button>
+      </form>
+      <div id="ruleRes" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Hold-sim (honest scenarios)</h2>
+    <div class="card">
+      <form id="simForm">
+        <select id="simSym" style="min-width:160px"></select>
+        <input id="simQty" type="number" placeholder="token qty, e.g. 10" min="1" step="1" style="width:150px" />
+        <button type="submit" class="secondary">Project</button>
+      </form>
+      <div id="simRes" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <div class="foot">PreStocks Desk · data: prestocks.com/api/prestocks (verified, no key) · snapshots every 15 min · rules + history are live, prices are never fabricated.</div>
+</div>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const fmt = (n, d = 2) => (n == null || !Number.isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d }));
+const sign = (n) => (n >= 0 ? "+" : "");
+
+function sparkSVG(points, color) {
+  const mark = points.map((p) => p.markPrice), tok = points.map((p) => p.tokenPrice);
+  const all = [...mark, ...tok].filter((n) => Number.isFinite(n));
+  if (!all.length) return "";
+  const min = Math.min(...all), max = Math.max(...all), span = max - min || 1;
+  const w = 120, h = 34, pad = 2;
+  const path = (arr) => arr.map((v, i) => (i ? "L" : "M") + (pad + (i / Math.max(arr.length - 1, 1)) * (w - 2 * pad)).toFixed(1) + " " + (h - pad - ((v - min) / span) * (h - 2 * pad)).toFixed(1)).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}"><path d="${path(tok)}" fill="none" stroke="${color}" stroke-width="1.4"/><path d="${path(mark)}" fill="none" stroke="#9a9aaa" stroke-width="1" stroke-dasharray="3 2"/></svg>`;
+}
+
+async function get(p) { const r = await fetch(p); if (!r.ok) throw new Error((await r.json()).error || r.status); return r.json(); }
+
+async function loadDesk() {
+  const d = await get("/api/prestocks/desk");
+  $("#deskTs").textContent = new Date(d.generatedAt).toLocaleTimeString();
+  const n = d.tokens.length;
+  const biggest = d.tokens[0];
+  const dislocated = d.tokens.filter((t) => Math.abs(t.premiumPct || 0) >= 1).length;
+  $("#statCards").innerHTML = [
+    ["Tokens", n], ["Live dislocations ≥1%", dislocated],
+    ["Biggest", `${biggest.symbol} ${sign(biggest.premiumPct)}${fmt(biggest.premiumPct, 2)}%`],
+    ["Source", "prestocks.com (no key)"],
+  ].map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${v}</div></div>`).join("");
+
+  const rows = await Promise.all(d.tokens.map(async (t) => {
+    let spark = "";
+    try { const h = await get(`/api/prestocks/history?symbol=${t.symbol}&limit=48`); spark = h.points.length > 1 ? sparkSVG(h.points, t.premiumPct >= 0 ? "var(--up)" : "var(--down)") : ""; } catch {}
+    return `<tr>
+      <td><b>${t.symbol}</b><div class="iss muted" style="font-size:11px">${t.name || ""}</div></td>
+      <td>$${fmt(t.markPrice)}</td>
+      <td>$${fmt(t.tokenPrice)}</td>
+      <td class="${t.premiumPct >= 0 ? "up" : "down"}">${sign(t.premiumPct)}${fmt(t.premiumPct, 2)}% ${Math.abs(t.premiumPct) >= 5 ? `<span class="pill big">big</span>` : Math.abs(t.premiumPct) >= 1 ? `<span class="pill small">moved</span>` : ""}</td>
+      <td class="hide-sm muted">${t.valuationSpreadPct == null ? "—" : sign(t.valuationSpreadPct) + fmt(t.valuationSpreadPct, 2) + "%"}</td>
+      <td class="hide-sm ${t.deltaToken == null ? "muted" : t.deltaToken >= 0 ? "up" : "down"}">${t.deltaToken == null ? "—" : sign(t.deltaToken) + fmt(t.deltaToken, 2) + "%"}</td>
+      <td class="hide-sm">${spark}</td>
+    </tr>`;
+  }));
+  $("#deskBody").innerHTML = rows.join("");
+  $("#deskHint").textContent = "Premium = (token price − mark price) / mark. Positive = the token trades ABOVE the issuer's mark (froth); negative = BELOW (discount). Valuation spread = implied vs mark company valuation — the reprice view. Δ = change vs the previous snapshot.";
+}
+
+async function loadRules() {
+  const rules = await get("/api/prestocks/rules");
+  const ev = await fetch("/api/prestocks/rules/evaluate", { method: "POST" }).then((r) => r.json());
+  const seen = new Map(ev.fired.map((f) => [f.rule.id, f]));
+  $("#ruleRes").innerHTML = rules.length === 0
+    ? '<p class="muted" style="font-size:12px">No rules yet — add one above. Example: "SPACEX trades more than 5% below its mark price".</p>'
+    : rules.map((r) => {
+        const f = seen.get(r.id);
+        const badge = f && f.result === "fired"
+          ? `<span class="pill" style="background:rgba(105,240,174,.14);color:var(--up)">FIRED · ${(f.matches || []).map((m) => `${m.symbol} ${sign(m.premiumPct)}${fmt(m.premiumPct, 2)}%`).join(", ")}</span>`
+          : `<span class="pill" style="background:rgba(139,149,176,.14);color:var(--mut)">no match</span>`;
+        return `<div class="rowflex" style="margin-bottom:8px"><span>${r.text}</span>${badge}</div>`;
+      }).join("");
+}
+$("#ruleForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = $("#ruleInput").value.trim(); if (!text) return;
+  const r = await fetch("/api/prestocks/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $("#ruleRes").innerHTML = `<p class="err" style="color:var(--down);font-size:12px">${d.error || r.status}</p>`; return; }
+  $("#ruleInput").value = ""; loadRules();
+});
+
+async function loadSimOptions() {
+  const d = await get("/api/prestocks/desk");
+  $("#simSym").innerHTML = d.tokens.map((t) => `<option value="${t.symbol}">${t.symbol}</option>`).join("");
+}
+$("#simForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const symbol = $("#simSym").value, qty = Number($("#simQty").value);
+  if (!qty || qty <= 0) { $("#simRes").innerHTML = '<p class="muted" style="font-size:12px">Enter a token quantity.</p>'; return; }
+  const r = await fetch("/api/prestocks/sim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, qty }) });
+  const s = await r.json();
+  if (!r.ok) { $("#simRes").innerHTML = `<p class="err" style="color:var(--down);font-size:12px">${s.error}</p>`; return; }
+  $("#simRes").innerHTML = `<div class="muted" style="font-size:12px;margin-bottom:8px">${s.symbol} · ${s.qty} tokens · entry $${fmt(s.entryUsd)}</div>` +
+    `<table><thead><tr><th>Scenario</th><th>Price</th><th>Value</th><th>Move</th></tr></thead><tbody>` +
+    s.scenarios.map((x) => `<tr><td>${x.label}</td><td>$${fmt(x.price)}</td><td>$${fmt(x.value)}</td><td class="${(x.movePct||0) >= 0 ? "up" : "down"}">${x.movePct == null ? "—" : sign(x.movePct) + fmt(x.movePct, 0) + "%"}</td></tr>`).join("") +
+    `</tbody></table><p class="muted" style="font-size:11px;margin-top:6px">${s.honest}</p>`;
+});
+
+loadDesk(); loadRules(); loadSimOptions();
+setInterval(loadDesk, 60_000);
+</script>
+</body>
+</html>

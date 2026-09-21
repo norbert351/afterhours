@@ -133,6 +133,26 @@ mint-allowlisted, and recorded with its Solscan signature in `vault_fills`.
   · `AH_VAULT_MAX_POSITIONS=1` · `AH_VAULT_MIN_VOL_USD=5000`
 - Proven 2026-09-21: real AAPLx buy finalized — tx `8g18g7V3…` (`https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt`)
 
+## PreStocks Desk (bounty-eligible surface — $10K PreStocks track)
+
+A PreStocks-**only** surface at **`/prestocks`** — this page reads *only*
+`prestocks.com/api/prestocks` (no key), so it satisfies the bounty rule
+("projects that integrate any non-PreStocks pre-IPO tokens are ineligible").
+It turns the dual-price structure of pre-IPO tokens into a live desk:
+
+- **Dislocation screener** — token price vs issuer mark price per token (live
+  signal: NEURALINK +29% above mark, SPACEX −22% below, OPENAI +13% …), plus
+  the mark-vs-implied valuation spread (the reprice view).
+- **History** — snapshots every 15 min (sqlite) → per-token sparklines and
+  deltas vs the previous snapshot.
+- **Plain-English rules** — "NEURALINK trades more than 10% above its mark
+  price" → live fired/non-fired evaluation against the current desk.
+- **Hold-sim** — honest scenario projections (mark converges / valuation
+  opinion / flat), labeled "not a promise".
+- API: `GET /api/prestocks/desk` · `GET /api/prestocks/history?symbol=X` ·
+  `GET|POST /api/prestocks/rules` · `POST /api/prestocks/rules/evaluate` ·
+  `POST /api/prestocks/sim`.
+
 ## Notes / next increments
 - `PYTH_API_KEY` unlocks the real weekend-gap live comparison (the Stocklana Pyth bounty).
 - A real Twelve Data key unlocks additional anchor symbols beyond `demo`.
