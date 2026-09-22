@@ -15,7 +15,7 @@ function fakeDeps(over = {}) {
     rebaseFor: over.rebaseFor || (async () => null),
     swapBuy: async (symbol, mint, lamports) => {
       fills.buy.push({ symbol, lamports });
-      return { signature: "sig-" + symbol, explorer: "https://solscan.io/tx/sig-" + symbol, outAmount: 50_000 };
+      return { signature: "sig-" + symbol, explorer: "https://solscan.io/tx/sig-" + symbol, outAmount: 50_000, confirmed: true };
     },
     swapSell: async (symbol, mint, atoms) => {
       fills.sell.push({ symbol, atoms });

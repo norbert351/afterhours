@@ -108,7 +108,27 @@ export async function jupiterSwap({
   const tx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, "base64"));
   tx.sign([wallet]);
   const sig = await connection.sendRawTransaction(await tx.serialize(), { skipPreflight: true, maxRetries: 8 });
-  let confirmed = true;
-  try { await connection.confirmTransaction(sig, "confirmed"); } catch { confirmed = false; } // never let a slow block kill the response
-  return { signature: sig, explorer: `https://solscan.io/tx/${sig}`, outAmount: quote.outAmount, routes: quote.routePlan?.length ?? 0, confirmed };
+  // HONESTY FIX: confirmTransaction only proves the tx was INCLUDED, not that it
+  // SUCCEEDED. A swap whose instructions errored on-chain (e.g. insufficient
+  // DEX liquidity -> TransferChecked Custom:1) still "confirms". Verify the final
+  // status has no err before reporting success, so a failed fill can never be
+  // dressed up as a real purchase (the "never a fabricated fill" guarantee).
+  let confirmed = false;
+  let error = null;
+  try {
+    const resp = await connection.confirmTransaction(sig, "confirmed");
+    const status = resp?.value;
+    if (status && status.err) { confirmed = false; error = String(JSON.stringify(status.err)); }
+    else { confirmed = true; }
+  } catch {
+    // re-read the status directly as a fallback
+    try {
+      const st = await connection.getSignatureStatuses([sig]);
+      const v = st?.value?.[0];
+      if (v && v.err) { confirmed = false; error = String(JSON.stringify(v.err)); }
+      else if (v && v.confirmationStatus && v.confirmationStatus !== "processed") { confirmed = true; }
+      else { confirmed = false; error = "unconfirmed"; }
+    } catch { confirmed = false; error = "confirm timeout"; }
+  }
+  return { signature: sig, explorer: `https://solscan.io/tx/${sig}`, outAmount: quote.outAmount, routes: quote.routePlan?.length ?? 0, confirmed, error };
 }

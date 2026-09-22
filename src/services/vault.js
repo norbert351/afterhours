@@ -224,6 +224,10 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
       const lamports = await capLamportsUsd();
       try {
         const r = await swapBuy(best.symbol, best.mint, lamports);
+        if (!(r && r.confirmed === true)) {
+          // HONESTY FIX: never record a fill the chain did not actually settle.
+          throw new Error("swap not confirmed on-chain" + (r?.error ? `: ${r.error}` : ""));
+        }
         const qtyAtoms = r?.outAmount ? Number(r.outAmount) : Math.round((cfg.capUsd / best.onChainPriceUsd) * 10 ** XSTOCK_DECIMALS);
         const p = {
           symbol: best.symbol, mint: best.mint,
