@@ -14,7 +14,8 @@ Built against **verified** sponsor data, no fabricated prices.
 
 - **Live demo:** https://afterhourequity.xyz · **Product:** https://afterhourequity.xyz/app · **Docs:** https://afterhourequity.xyz/docs
 - **Submission pack:** `docs/SUBMISSION.md` (paste-ready form answers) · `docs/rubric.md` (judge-verification map)
-- **Mainnet proof:** wallet `7JL8s63F…` holds **0.00197113 AAPLx** — fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2), [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN), [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt)
+- **Demo video (verified real-buy take):** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4
+- **Mainnet proof:** wallet `7JL8s63F…` holds **0.00260421 AAPLx** — verified fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2), [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN), vault round-trip [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt) → [4UX9k6o7…](https://solscan.io/tx/4UX9k6o7vcVGdfcsdvvpYcxXAPp34ogRPLmdGv4yEvfzcvW4xifsoLwHQcJecqSoVomxbb1DgtvMA2fPuRw8pHnH), swap-verification buys [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik), [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG), and the on-camera demo buy [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV) — all finalized `err=null`
 
 ## Tech stack
 
@@ -160,9 +161,18 @@ It turns the dual-price structure of pre-IPO tokens into a live desk:
   mainnet fills through this app — `POST /api/v3/live/swap` (SOL→xStock, hard-capped
   ≈$0.60/order, curated mint allowlist) routes via Jupiter `/swap/v1` (`api.jup.ag` —
   `quote-api.jup.ag` was retired from DNS, that was the old "blocked from VM" ghost).
-  Proof: tx `62HV8t3F…` (0.0016 SOL→AAPLx, FINALIZED) and tx `2gh4uPpC…` (0.0015 SOL→AAPLx
-  via the app API, confirmed). Never a fabricated fill — every response carries the
-  real signature + Solscan link.
+  Verified fills: `62HV8t3F…`, `2gh4uPpC…`, vault round-trip `8g18g7V3…`→`4UX9k6o7…`,
+  and the swap-verification buys `7YHRhMtz…`, `2t5Lmh1Tg…`, `3AqwHQu7k…` — the last is
+  the on-camera buy in the demo video. Wallet holds **0.00260421 AAPLx** on-chain.
+  Never a fabricated fill — every response carries the real signature + Solscan link.
+- **✅ SWAP-VERIFICATION + PHANTOM RECONCILE (2026-09-22/23):** a real gap was found and
+  closed — a signature-confirmed tx whose instructions errored on-chain was previously
+  recorded as a successful fill (phantom position). Now `jupiterSwap` verifies
+  `getSignatureStatuses err===null` before confirming, `vault.tick` records `BUY FAILED`
+  honestly, and a startup reconcile drops/labels any phantom against live wallet
+  balances. The one historical phantom is annotated `BUY FAILED ON-CHAIN` in the ledger.
+- Known honest limitation: thin DEX liquidity can error an xStock swap on-chain; the app
+  surfaces it truthfully (`BUY FAILED` + retry) and never disguises it as a purchase.
 - Earlier DEX-SDK attempts (Orca Whirlpool, Raydium route) are recorded honestly in
   `scripts/` as experiments: quotes + broadcasts happened, but those txs were dropped by
   the network — Jupiter `/swap/v1` is the live-proven path; `scripts/micro-swap.mjs` is

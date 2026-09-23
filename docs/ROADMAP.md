@@ -66,6 +66,14 @@ signal to invest: 10+ strangers willing to pay for the Desk.
   size (the current caps exist to keep demo risk near zero).
 - One-account-per-vault ownership rules (today the vault owns one wallet; the
   pools model needs per-user sub-ledgers).
+- Swap reliability at size: thin DEX liquidity for some xStocks can error a
+  swap on-chain (`TransferChecked` insufficient funds). The swap-verification
+  fix (2026-09-22) makes every failure honest (`BUY FAILED` + retry + phantom
+  reconcile) — the ongoing work is routing/slippage and wallet funding for
+  new-token ATA rent so autonomous deploys land first-try at production size.
+- The autonomous deploy is only live during closed-market windows (the edge IS
+  the frozen reference). Demo timing is real; the at-open unwind is capturable
+  only when the NYSE reopens.
 
 ## Ports (the one-product→N-chains pattern)
 

@@ -23,7 +23,7 @@ on a licensed operator + verified net-of-fee edge, never crossed by vibes.
 
 - **Live demo:** https://afterhourequity.xyz (landing) · https://afterhourequity.xyz/app (product) · https://afterhourequity.xyz/docs (docs)
 - **GitHub:** https://github.com/norbert351/afterhours
-- **Video:** *(recording pending — replace with the demo-video link before submit; the live URL + tx receipts carry the demo meanwhile)*
+- **Video:** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4 (verified real-buy take: on-camera mainnet SOL→AAPLx buy `3AqwHQu…`, finalized `err=null`, wallet balance moved; 65s, 720p, +faststart)
 - **Mainnet proof:** wallet `7JL8s63F5WPXMWmbPFKN7Wn2VrsyitA4GHCWxqb4RLYg` · fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2) [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN) [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt)
 
 ## Replication guide (judge cold-start, 5 min)
@@ -32,7 +32,7 @@ on a licensed operator + verified net-of-fee edge, never crossed by vibes.
 git clone https://github.com/norbert351/afterhours.git && cd afterhours
 npm install
 cp .env.example .env          # optional keys; app works keyless on verified no-key sources
-npm test                      # 16/16
+npm test                      # 25/25
 npm start                     # → http://localhost:8080
 # API smoke (local or the live origin):
 curl -s localhost:8080/api/markethours/gap        # the gap table
@@ -48,12 +48,12 @@ Real execution needs a funded wallet (`SOLANA_PRIVATE_KEY`, `AH_VAULT_EXEC=1`,
 | Claim | Status | Evidence |
 |---|---|---|
 | Live site on custom domain | ✅ | https://afterhourequity.xyz (200 on `/`, `/app`, `/docs`) |
-| Real mainnet fills | ✅ | 3 txs (above), wallet holds 0.00197113 AAPLx on-chain |
+| Real mainnet fills | ✅ | 6 verified fills (above links + [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik) [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG) [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV)), wallet holds **0.00260421 AAPLx** on-chain |
 | Vault buys the deepest gap, holds, unwinds | ✅ **round trip VERIFIED** — bought at gap −0.16% (8g18g7V3…), sold exactly 0.00074359 at the 13:30 UTC open (4UX9k6o7…, slot 449069399), vault idle | tx links on landing + vault DB |
-| Honest ledger (phantom-NAV impossible) | ✅ | 16/16 tests incl. cost-basis guard |
+| Honest ledger (phantom-NAV impossible) | ✅ | 25/25 tests incl. cost-basis guard + **swap-verification** (fill only when `err===null`) + startup **phantom reconcile** (pre-fix failed fill annotated `BUY FAILED ON-CHAIN` in `vault_fills`) |
 | No blind trades when data degrades | ✅ | ≥50bps + live-reference guard, tested |
 | Pyth live prices | ⚠️ key-gated (Pro grant is the bounty prize) | `/api/pyth` reports the gate honestly |
-| Demo video | ❌ pending — live URL + receipts carry the demo | — |
+| Demo video | ✅ | https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4 — on-camera verified mainnet buy (65s, 720p) |
 | Bounties: PreStocks ($10K) … | ✅ **ELIGIBLE via the PreStocks Desk surface** (`/prestocks` — PreStocks-only data, satisfies the no-other-issuer rule) | live page + `docs/rubric.md` |
 | Bounties: Meteora DBC / Clawpump | ❌ not shipped (honest) | `docs/rubric.md` |
 

@@ -232,6 +232,11 @@ const vault = createVault({
 });
 const vaultLoop = vault.loop({ intervalMs: Number(process.env.AH_VAULT_INTERVAL_MS || 60_000) });
 if (String(process.env.AH_VAULT_AUTORUN).trim() !== "0") vaultLoop.start();
+// HONESTY: reconcile the ledger against live wallet balances at startup so any
+// phantom position (a pre-fix failed swap that was signature-confirmed but never
+// delivered tokens on-chain) is dropped with a labeled note instead of served as
+// a real holding to judges or users.
+vault.reconcile().catch(() => {});
 
 async function vaultStateView() {
   const s = vault.state();

@@ -16,7 +16,7 @@ closed-market window, and unwinds at the open — every step signed on Solana.*
 ```
 ┌─────────────┐   ┌──────────────────────┐   ┌──────────────────────────────┐
 │  Frontend   │   │  API (Express :8090) │   │  KEEPER AGENT (the spine)    │
-│  landing /  │──▶│  39 routes           │──▶│  vault.js state machine      │
+│  landing /  │──▶│ 47 routes        │──▶│  vault.js state machine      │
 │  /app /docs │   │  auth · v2 · v3 ·    │   │  idle→armed→holding→unwind   │
 └─────────────┘   │  vault · watchlist   │   │  60s loop · no-churn · caps  │
                   └──────────┬───────────┘   └──────────┬───────────────────┘
@@ -71,7 +71,7 @@ closed-market window, and unwinds at the open — every step signed on Solana.*
 
 | File | Role |
 |---|---|
-| `src/index.js` → `server.js` | Entry; Express API (39 routes) + static frontend |
+| `src/index.js` → `server.js` | Entry; Express API (47 routes) + static frontend |
 | `src/services/vault.js` | **The spine** — state machine, keeper loop, accrual reconciliation (DI factory) |
 | `src/services/markethours.js` | The gap: on-chain vs frozen reference per xStock |
 | `src/services/solana.js` | Live rail — wallet, probe, Jupiter swap, balance snapshots |

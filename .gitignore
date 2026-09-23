@@ -3,3 +3,8 @@ node_modules/
 *.log
 .DS_Store
 data/
+demo/
+public/demo/
+*.db
+*.db-wal
+*.db-shm

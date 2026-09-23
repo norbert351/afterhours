@@ -170,6 +170,37 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
     }
   }
 
+  // HONESTY RECONCILE: drop REAL positions the wallet does not actually hold
+  // on-chain. The pre-fix swap path could record a "buy" whose tx errored after
+  // being signature-confirmed (e.g. TransferChecked insufficient-funds on
+  // insufficient DEX liquidity), leaving a phantom position with 0 tokens in the
+  // wallet. Cross-check every real position against the wallet's live mint
+  // balances and remove the ones that were never delivered, with an honest note.
+  // Also annotate real buy fills whose mint is not held (unless later sold).
+  async function reconcilePhantom(s, now) {
+    const realPos = s.positions.filter((p) => p.mode === "real" || p.real);
+    if (!realPos.length) return false;
+    let bal;
+    try { bal = await balancesOf(); } catch { return false; } // never crash a reconcile on balance read
+    if (!bal) return false;
+    const before = s.positions.length;
+    const kept = [];
+    for (const p of s.positions) {
+      const isReal = p.mode === "real" || p.real;
+      const actual = isReal ? Number(bal[p.mint] || 0) : Number.MAX_SAFE_INTEGER;
+      if (isReal && actual === 0 && (p.qtyAtoms || 0) > 100) {
+        recordFill({
+          ts: now, side: "reconcile", symbol: p.symbol, mint: p.mint, mode: "real",
+          note: "position removed: wallet holds 0 of this mint on-chain (prior swap never settled)",
+        });
+        continue; // drop the phantom position
+      }
+      kept.push(p);
+    }
+    s.positions = kept;
+    return s.positions.length !== before;
+  }
+
   async function capLamportsUsd() {
     const price = await solPriceUsd(); // SOL/USD
     if (!price || price <= 0) throw new Error("no SOL price for cap sizing");
@@ -303,7 +334,12 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
     };
   }
 
-  return { tick, arm, stop, unwind, loop, state: load };
+  return { tick, arm, stop, unwind, loop, state: load, reconcile: async () => {
+    const s = load();
+    const changed = await reconcilePhantom(s, Date.now());
+    if (changed) persist(s);
+    return { state: s, reconciled: changed };
+  } };
 }
 
 // Live SOL price for CAP SIZING ONLY (never a valuation). Resilient chain:

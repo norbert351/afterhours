@@ -30,9 +30,12 @@ gapPct = (onChainPriceUsd − referencePriceUsd) / referencePriceUsd × 100
 |---|---|---|---|
 | 1 | SOL→AAPLx (0.0016 SOL) | [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2) | FINALIZED |
 | 2 | SOL→AAPLx via app API | [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN) | CONFIRMED |
-| 3 | **Vault buy** AAPLx @ gap −0.16% | [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt) | FINALIZED |
+| 3 | Vault round-trip: **buy** AAPLx @ gap −0.16% → **sell** at open | [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt) · [4UX9k6o7…](https://solscan.io/tx/4UX9k6o7vcVGdfcsdvvpYcxXAPp34ogRPLmdGv4yEvfzcvW4xifsoLwHQcJecqSoVomxbb1DgtvMA2fPuRw8pHnH) | FINALIZED round trip |
+| 4 | SOL→AAPLx rail buy (after swap-verification fix) | [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik) | FINALIZED · err=null |
+| 5 | SOL→AAPLx rail buy | [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG) | FINALIZED · err=null |
+| 6 | SOL→AAPLx rail buy (the on-camera demo buy) | [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV) | FINALIZED · err=null |
 
-Ledger currently: **0.00197113 AAPLx** on-chain (atom-exact vs the sum of the three fills).
+Ledger currently: **0.00260421 AAPLx** on-chain — the live wallet balance, atom-consistent with the sum of every delivered fill.
 
 > `quote-api.jup.ag` was **retired from DNS** — the old "Jupiter is blocked from this VM" ghost across earlier builds. The live surface is `api.jup.ag/swap/v1` (verified reachable from this VM).
 
@@ -47,6 +50,14 @@ holding ──stop()/unwind()──▶ idle (kill-switch; honest fill/error logg
 Guards (all tested): per-fill cap `AH_VAULT_CAP_USD=0.25` → clamp [~$0.08, ~$0.60] lamports; `AH_VAULT_MAX_POSITIONS=1`; `AH_VAULT_MIN_VOL_USD=5000`; no-churn (holding ticks never double-buy); ≥50bps + live-reference requirement (no blind buys); in-flight lock in the loop; idempotent accrual reconciliation with a self-calibrating baseline.
 
 **Accrual (dividend) leg** — xStocks are *rebasing* assets (dividends arrive as balance growth). Every tick the wallet token balance is snapshotted; growth beyond `arm-baseline + own buys` is logged as an `accrual` fill with the honest note *"dividend/rebase accrual or external top-up"*. A fresh arm-time snapshot means missing mints were genuinely zero; a mid-cycle upgrade infers the baseline from non-vault holdings — pre-existing tokens can never be mislabeled as dividends.
+
+**On-chain swap verification (the "never a fabricated fill" guarantee)** — the execution rail previously treated *any* signature-confirmed transaction as a success, even when the transaction's instructions errored on-chain (e.g. a `TransferChecked` insufficient-funds on thin DEX liquidity), which could record a "buy" that never delivered a token. Fixes shipped 2026-09-22:
+1. `solana.jupiterSwap` now verifies `getSignatureStatuses` shows `err === null` before reporting `confirmed` (and returns the real error otherwise).
+2. `vault.tick()` throws on an unconfirmed swap → the ledger records `BUY FAILED` honestly and the vault stays armed/retryable instead of holding a phantom position.
+3. A startup **reconcile** cross-checks every real position against the wallet's live mint balances and drops + labels any phantom with a `reconcile` ledger event (the one pre-fix phantom on record is annotated `BUY FAILED ON-CHAIN` in `vault_fills`).
+Both behaviors are covered by tests.
+
+A known honest limitation: Solana DEX liquidity for some xStocks is thin, so a swap can occasionally error on-chain; the app now surfaces that truthfully and retries, and never disguises a failed fill as a purchase.
 
 ## Auth
 
@@ -73,7 +84,7 @@ vault_fills(id, ts, side [buy|sell|accrual], symbol, mint, in_lamports,
 
 ## Tests
 
-`npm test` → **16/16** (paper-ledger invariants; vault state machine: arm→buy→hold no-churn→open unwind→stop→cap clamp→failed-buy honesty→min-vol filter→**no-blind-buy**→accrual detection→self-calibrating baseline).
+`npm test` → **25/25** (jupiter price ship; paper-ledger invariants; PreStocks desk; vault state machine: arm→buy→hold no-churn→open unwind→stop→cap clamp→failed-buy honesty→min-vol filter→**no-blind-buy**→accrual detection with official-rebase matching→self-calibrating baseline→**phantom reconcile**).
 
 ## Chain facts
 

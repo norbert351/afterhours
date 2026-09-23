@@ -211,6 +211,24 @@ test("balance growth NOT explained by the multiplier keeps the honest generic no
   assert.match(fill.note, /external top-up/, "never overclaims the source");
 });
 
+test("reconcile drops a real position the wallet does not hold on-chain (phantom, honest)", async () => {
+  const bal = {}; // wallet reports zero for every mint
+  const d = fakeDeps({
+    cfg: { ...vaultConfig(), execMode: "real" },
+    getGaps: async () => closed,
+    balancesOf: async () => bal,
+  });
+  const v = createVault(d);
+  await v.arm();
+  await v.tick(); // buys NVDAx (mode real, qty 50_000)
+  assert.equal(v.state().positions.length, 1);
+  const r = await v.reconcile();
+  assert.equal(r.reconciled, true, "reconcile detected the phantom");
+  assert.equal(v.state().positions.length, 0, "phantom position removed");
+  const fill = dbLastFill(d.db);
+  assert.equal(fill.side, "reconcile", "removal is an honest, labeled ledger event");
+});
+
 function dbLastFill(db) {
   return db.prepare("SELECT side, note FROM vault_fills ORDER BY id DESC LIMIT 1").get() || {};
 }
