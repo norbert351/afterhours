@@ -1,9 +1,11 @@
 // AfterHours — Weekend Gap Vault.
 // The winner-shaped capital-utilization product: deposit SOL, arm the vault,
 // and it puts the capital to work across the weekend gap — buys the deepest
-// discounted xStock while the NYSE reference is frozen, unwinds to SOL at the
-// open. Every real fill is capped (≈$0.25), mint-allowlisted, and recorded
-// with its Solscan signature. Never fabricates a fill; paper mode is explicit.
+// discounted xStock while the NYSE reference is frozen. Positions HOLD through
+// the open by default (no auto-unwind unless AH_VAULT_AUTO_UNWIND=1); exits
+// happen only via the explicit /api/vault/unwind endpoint. Every real fill is
+// capped (≈$0.25), mint-allowlisted, and recorded with its Solscan signature.
+// Never fabricates a fill; paper mode is explicit.
 //
 // Yield leg (Stretch/xStream pattern, HONEST): xStocks are rebasing assets —
 // dividends arrive as wallet balance growth with no transfer event. The vault
@@ -30,6 +32,10 @@ export function vaultConfig() {
     minVolUsd: Number(process.env.AH_VAULT_MIN_VOL_USD || 5000),
     minCapLamports: Number(process.env.AH_VAULT_MIN_CAP_LAMPORTS || 500_000),   // ~$0.08
     maxCapLamports: Number(process.env.AH_VAULT_MAX_CAP_LAMPORTS || 4_000_000),  // ~$0.60
+    // NEVER auto-unwind by default. Selling at the NYSE open is opt-in via
+    // AH_VAULT_AUTO_UNWIND=1; otherwise positions hold through the open and
+    // only exit through the explicit /api/vault/unwind endpoint.
+    autoUnwind: String(process.env.AH_VAULT_AUTO_UNWIND || "").trim() === "1",
   };
 }
 
@@ -222,6 +228,31 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
     return [...tradeable].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0];
   }
 
+  // Sell every held position — used by auto-unwind (opt-in) and the explicit
+  // /api/vault/unwind endpoint. Returns { sold, failed } counts.
+  async function sellAll(s, now) {
+    const out = [];
+    for (const p of s.positions) {
+      try {
+        const r = await swapSell(p.symbol, p.mint, p.qtyAtoms);
+        recordFill({ ts: now, side: "sell", symbol: p.symbol, mint: p.mint, outAtoms: p.qtyAtoms, signature: r?.signature, explorer: r?.explorer, mode: cfg.execMode, note: "manual unwind" });
+        out.push({ ...p, soldAt: now, tx: r?.signature || null });
+      } catch (e) {
+        recordFill({ ts: now, side: "sell", symbol: p.symbol, mint: p.mint, outAtoms: p.qtyAtoms, mode: cfg.execMode, note: "SELL FAILED: " + (e.message || "").slice(0, 120) });
+      }
+    }
+    if (out.length === s.positions.length) {
+      s.positions = [];
+      s.status = "idle";
+      s.lastError = null;
+      return { action: "unwound", sold: out.length, failed: 0 };
+    }
+    // partial/none sold — keep the survivors, surface the failure
+    s.positions = s.positions.filter((p) => !out.some((o) => o.mint === p.mint && o.tx));
+    s.lastError = "partial unwind: some sells failed";
+    return { action: "unwound_partial", sold: out.length, failed: s.positions.length };
+  }
+
   // One keeper step: decides buy/hold/unwind from market state.
   async function tick() {
     const s = load();
@@ -232,21 +263,16 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
     let action = "none";
 
     if (gaps.marketOpen) {
-      // NYSE open → the edge window is over → unwind to SOL (honest).
-      const out = [];
-      for (const p of s.positions) {
-        try {
-          const r = await swapSell(p.symbol, p.mint, p.qtyAtoms);
-          recordFill({ ts: now, side: "sell", symbol: p.symbol, mint: p.mint, outAtoms: p.qtyAtoms, signature: r?.signature, explorer: r?.explorer, mode: cfg.execMode, note: "unwind at open" });
-          out.push({ ...p, soldAt: now, tx: r?.signature || null });
-        } catch (e) {
-          recordFill({ ts: now, side: "sell", symbol: p.symbol, mint: p.mint, outAtoms: p.qtyAtoms, mode: cfg.execMode, note: "SELL FAILED: " + (e.message || "").slice(0, 120) });
-        }
+      if (!cfg.autoUnwind) {
+        // NEVER auto-unwind: hold positions through the open. The vault only
+        // exits via the explicit /api/vault/unwind endpoint. Accrual still
+        // reconciles; the position rides the open.
+        await reconcileAccrual(s, now);
+        action = "hold-through-open";
+      } else {
+        // NYSE open → the edge window is over → unwind to SOL (honest).
+        action = (await sellAll(s, now)).action;
       }
-      s.positions = [];
-      s.status = "idle";
-      s.lastError = out.length ? null : s.lastError;
-      action = "unwound";
     } else if (s.status === "holding") {
       await reconcileAccrual(s, now);
       action = "hold"; // already positioned; the gap does the work
@@ -311,7 +337,11 @@ export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balan
 
   async function unwind() {
     const s = load();
-    if (s.status === "holding") { await tick(); return { state: load(), action: "unwound" }; }
+    if (s.status === "holding") {
+      const res = await sellAll(s, Date.now());
+      persist(s);
+      return { state: load(), ...res };
+    }
     s.status = "idle";
     persist(s);
     return { state: s, action: "nothing to unwind" };

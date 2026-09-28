@@ -256,7 +256,7 @@ async function vaultStateView() {
   } catch { /* best-effort preview */ }
   const rebase = {};
   for (const g of rawRows) if (g.multiplier) rebase[g.symbol] = { multiplier: g.multiplier, nextMultiplier: g.nextMultiplier, nextMultiplierAt: g.nextMultiplierAt, officialPriceUsd: g.officialPriceUsd };
-  return { ...s, execMode: vaultConfig().execMode, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, rebase, wallet: await solana.info().catch(() => null) };
+  return { ...s, execMode: vaultConfig().execMode, autoUnwind: vaultConfig().autoUnwind, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, rebase, wallet: await solana.info().catch(() => null) };
 }
 
 app.get("/api/vault", wrap(async (_req, res) => res.json(await vaultStateView())));

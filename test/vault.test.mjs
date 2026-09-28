@@ -54,18 +54,45 @@ test("holding tick does NOT double-buy (no churn)", async () => {
   assert.equal(d.fills.buy.length, before, "must not buy twice");
 });
 
-test("market open -> auto-unwind to SOL, back to idle, sell recorded", async () => {
-  const d = fakeDeps({ getGaps: async () => closed });
+test("market open + autoUnwind=1 -> auto-unwind to SOL, back to idle, sell recorded", async () => {
+  const d = fakeDeps({ getGaps: async () => closed, cfg: { ...vaultConfig(), autoUnwind: true } });
   const v = createVault(d);
   await v.arm();
   await v.tick();
-  const g2 = fakeDeps({ getGaps: async () => open_ });
+  const g2 = fakeDeps({ getGaps: async () => open_, cfg: { ...vaultConfig(), autoUnwind: true } });
   const v2 = createVault({ ...g2, db: d.db, fills: d.fills }); // same db — same vault state
   const t = await v2.tick();
   assert.equal(t.state.status, "idle");
   assert.equal(t.state.positions.length, 0);
   assert.equal(g2.fills.sell.length, 1);
   assert.equal(g2.fills.sell[0].symbol, "NVDAx");
+});
+
+test("market open + autoUnwind=0 (default) -> HOLD through open, no sell", async () => {
+  const d = fakeDeps({ getGaps: async () => closed }); // default cfg: autoUnwind=false
+  const v = createVault(d);
+  await v.arm();
+  await v.tick(); // buy at close -> holding
+  const g2 = fakeDeps({ getGaps: async () => open_ });
+  const v2 = createVault({ ...g2, db: d.db, fills: d.fills });
+  const t = await v2.tick(); // market opens -> must NOT sell
+  assert.equal(t.action, "hold-through-open");
+  assert.equal(t.state.status, "holding");
+  assert.equal(t.state.positions.length, 1, "position must survive the open");
+  assert.equal(g2.fills.sell.length, 0, "never auto-unwind when disabled");
+});
+
+test("manual unwind() force-sells even with autoUnwind=0", async () => {
+  const d = fakeDeps({ getGaps: async () => closed });
+  const v = createVault(d);
+  await v.arm();
+  await v.tick(); // holding NVDAx
+  const g2 = fakeDeps({ getGaps: async () => open_ });
+  const v2 = createVault({ ...g2, db: d.db, fills: d.fills });
+  const r = await v2.unwind(); // explicit endpoint — must sell regardless of gate
+  assert.equal(r.action, "unwound");
+  assert.equal(r.state.status, "idle");
+  assert.equal(g2.fills.sell.length, 1);
 });
 
 test("stop is a kill-switch from armed", async () => {
