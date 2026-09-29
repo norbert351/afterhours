@@ -61,26 +61,66 @@ app.get("/api/pyth", wrap(async (_req, res) => {
 }));
 app.get("/api/markethours/gap", wrap(async (_req, res) => res.json(await marketHoursGap())));
 
-app.post("/api/strategies", wrap(async (req, res) => res.status(201).json(addRule(String(req.body?.text || "")))));
-app.get("/api/strategies", wrap(async (_req, res) => res.json(listRules())));
-app.get("/api/strategies/evaluate", wrap(async (_req, res) => res.json(await evaluateAll())));
+app.post("/api/strategies", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.status(201).json(addRule(String(req.body?.text || "")));
+}));
+app.get("/api/strategies", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(listRules());
+}));
+app.get("/api/strategies/evaluate", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await evaluateAll());
+}));
 
-// ---- v2 : strategy layer + paper execution ledger ----
-app.get("/api/v2/strategies", wrap(async (_req, res) => res.json(listStrategies(db))));
+// ---- v2 : strategy layer + paper execution ledger (AUTH-GATED, per-user) ----
+app.get("/api/v2/strategies", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(listStrategies(db, user.id));
+}));
+app.post("/api/v2/strategies/challenge", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  // Add Strategy is a wallet-confirmed action: prove a real ed25519 signature
+  // from the authenticated wallet before we persist the rule.
+  const text = String(req.body?.text || "").trim();
+  if (!text) return res.status(400).json({ error: "strategy text required" });
+  const { params } = parseStrategyInstruction(text);
+  const intent = `strategy:${user.id}:${JSON.stringify(params)}`;
+  res.json({ ...auth.createActionChallenge(user.handle, intent), intent, params });
+}));
 app.post("/api/v2/strategies", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const type = ["rotate_to_discount", "alert"].includes(req.body?.type) ? req.body.type : "rotate_to_discount";
   const text = String(req.body?.text || "").trim() || `rotate_to_discount`;
-  // Parse the plain-English instruction into load-bearing params so the
-  // autonomous loop actually honors what the user typed (not decorative).
   const { params } = parseStrategyInstruction(text);
-  const list = insertStrategy(db, { text, strategyType: type, params });
-  res.status(201).json({ strategies: list, parsed: parseStrategyInstruction(text).parsed });
+  const intent = `strategy:${user.id}:${JSON.stringify(params)}`;
+  const address = String(req.body?.address || "").trim();
+  const signature = req.body?.signature;
+  if (!address || !signature) return res.status(400).json({ error: "wallet confirmation required — sign the challenge in your wallet" });
+  if (address !== user.handle) return res.status(401).json({ error: "confirming wallet must match your signed-in account" });
+  const ok = auth.verifyActionSignature({ address, intent, signature });
+  if (ok.error) return res.status(ok.status || 401).json(ok);
+  const list = insertStrategy(db, { userId: user.id, text, strategyType: type, params, authorAddress: address, confirmed: 1 });
+  res.status(201).json({ strategies: list, parsed: parseStrategyInstruction(text).parsed, confirmed: true });
 }));
-// Run the strategy engine once: deploys the current strategy to the paper book.
-app.post("/api/v2/run", wrap(async (_req, res) => res.json(await runEngine(db))));
-// Paper book snapshot (account + positions), decisions, alerts.
-app.get("/api/v2/book", wrap(async (_req, res) => {
-  const acc = getAccount(db);
+// Run the strategy engine once for the current user.
+app.post("/api/v2/run", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await runEngine(db, { userId: user.id }));
+}));
+// Paper book snapshot (account + positions) for the current user.
+app.get("/api/v2/book", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  const acc = getAccount(db, user.id);
   const uni = await buildUniverse();
   // current token price + issuer per instrument (what a valuation uses)
   const px = new Map();
@@ -90,7 +130,7 @@ app.get("/api/v2/book", wrap(async (_req, res) => {
     if (typeof t === "number") px.set(i.symbol, t);
     issuer.set(i.symbol, i.issuer);
   }
-  const positions = listPositions(db).map((p) => {
+  const positions = listPositions(db, user.id).map((p) => {
     const price = px.get(p.symbol) ?? (p.avgCostMicro / 1_000_000);
     return {
       symbol: p.symbol, issuer: issuer.get(p.symbol) || p.issuer, shares: p.qtyMicro / 1_000_000,
@@ -101,19 +141,39 @@ app.get("/api/v2/book", wrap(async (_req, res) => {
   });
   res.json({ account: { seedUsd: fromMicro(acc.seedMicro), cashUsd: fromMicro(acc.cashMicro), peakNavUsd: fromMicro(acc.peakNavMicro) }, positions });
 }));
-app.get("/api/v2/decisions", wrap(async (req, res) => res.json(listDecisions(db, Number(req.query.limit) || 20))));
-app.get("/api/v2/alerts", wrap(async (req, res) => res.json(listAlerts(db, Number(req.query.limit) || 30))));
-app.get("/api/v2/status", wrap(async (_req, res) => res.json(runStatus.status())));
+app.get("/api/v2/decisions", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(listDecisions(db, user.id, Number(req.query.limit) || 20));
+}));
+app.get("/api/v2/alerts", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(listAlerts(db, user.id, Number(req.query.limit) || 30));
+}));
+app.get("/api/v2/status", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(runStatus.status());
+}));
 
-// ---- v3 : live Solana execution rail (mainnet) ----
-app.get("/api/v3/live/info", wrap(async (_req, res) => res.json(await solana.info())));
+// ---- v3 : live Solana execution rail (mainnet, AUTH-GATED) ----
+app.get("/api/v3/live/info", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await solana.info());
+}));
 app.post("/api/v3/live/probe", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const ip = req.ip || "anon";
   if (rateLimit("probe:" + ip, 2, 60_000)) return res.status(429).json({ error: "rate limited (2 probes/min)" });
   const lamports = Number.isFinite(Number(req.body?.lamports)) ? Number(req.body.lamports) : 2000;
   res.json(await solana.probe({ lamports: Math.min(Math.max(lamports, 0), 5_000) }));
 }));
 app.post("/api/v3/live/swap", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const ip = req.ip || "anon";
   if (rateLimit("swap:" + ip, 3, 60_000)) return res.status(429).json({ error: "rate limited (3 swaps/min max)" });
   const { inputMint, outputMint, amount } = req.body || {};
@@ -130,8 +190,10 @@ app.post("/api/v3/live/swap", wrap(async (req, res) => {
   if (atoms < 200_000 || atoms > 4_000_000) return res.status(400).json({ error: "amount outside 200,000..4,000,000 lamports (~$0.03–$0.60)" });
   res.json(await solana.jupiterSwap({ inputMint, outputMint, amount: atoms }));
 }));
-app.get("/api/notify/test", wrap(async (_req, res) => {
-  const ip = _req.ip || "anon";
+app.get("/api/notify/test", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  const ip = req.ip || "anon";
   if (rateLimit("notify:" + ip, 1, 60_000)) return res.status(429).json({ error: "rate limited" });
   return res.json(await pushAlert({ text: "test alert", navUsd: "—" }));
 }));
@@ -264,11 +326,31 @@ async function vaultStateView() {
   return { ...s, execMode: vaultConfig().execMode, autoUnwind: vaultConfig().autoUnwind, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, rebase, wallet: await solana.info().catch(() => null) };
 }
 
-app.get("/api/vault", wrap(async (_req, res) => res.json(await vaultStateView())));
-app.post("/api/vault/arm", wrap(async (_req, res) => res.json(await vault.arm())));
-app.post("/api/vault/stop", wrap(async (_req, res) => res.json(vault.stop())));
-app.post("/api/vault/unwind", wrap(async (_req, res) => res.json(await vault.unwind())));
-app.post("/api/vault/tick", wrap(async (_req, res) => res.json(await vault.tick())));
+app.get("/api/vault", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await vaultStateView());
+}));
+app.post("/api/vault/arm", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await vault.arm());
+}));
+app.post("/api/vault/stop", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(vault.stop());
+}));
+app.post("/api/vault/unwind", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await vault.unwind());
+}));
+app.post("/api/vault/tick", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(await vault.tick());
+}));
 
 // ---- PreStocks Desk (bounty surface: PreStocks data ONLY) ----
 const deskLoop = desk.startDeskLoop(db);
@@ -282,19 +364,29 @@ app.get("/api/prestocks/history", wrap(async (req, res) => {
   if (!known) return res.status(400).json({ error: "unknown symbol (expected e.g. SPACEX)" });
   res.json({ symbol, points: desk.deskHistory(db, symbol, Number(req.query?.limit) || 40) });
 }));
-app.get("/api/prestocks/rules", wrap(async (_req, res) => res.json(listPrestocksRules(db))));
+app.get("/api/prestocks/rules", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  res.json(listPrestocksRules(db));
+}));
 app.post("/api/prestocks/rules", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const text = String(req.body?.text || "").trim();
   if (!text) return res.status(400).json({ error: "rule text required" });
   const p = desk.parsePrestocksRule(text);
   if (!p.symbol && p.type !== "largest") return res.status(400).json({ error: "name a PreStocks symbol (SPACEX, OPENAI, NEURALINK…) or use 'biggest dislocation'" });
   res.status(201).json(insertPrestocksRule(db, text));
 }));
-app.post("/api/prestocks/rules/evaluate", wrap(async (_req, res) => {
+app.post("/api/prestocks/rules/evaluate", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const d = await desk.buildDesk(db);
   res.json(desk.evaluatePrestocksRules(db, d));
 }));
 app.post("/api/prestocks/sim", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
   const symbol = String(req.body?.symbol || "").toUpperCase();
   const qty = Number(req.body?.qty);
   const d = await desk.buildDesk(db);

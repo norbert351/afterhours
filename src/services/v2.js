@@ -62,12 +62,12 @@ function targetsFor(strategy, dislocations, universe, topN = 6) {
 }
 
 // Run the engine once: snapshot live state, build targets, rebalance the paper
-// book, persist, log a decision + alert.
-export async function runEngine(db, { strategies = null } = {}) {
+// book for a SINGLE user, persist, log a decision + alert.
+export async function runEngine(db, { userId = 0, strategies = null } = {}) {
   const universe = await buildUniverse();
   const disl = await findDislocations();
 
-  const stratList = strategies || store.listStrategies(db);
+  const stratList = strategies || store.listStrategies(db, userId);
   const active = stratList.filter((s) => s.enabled && s.strategyType !== "alert");
   // The user's LATEST instruction drives the loop (newest strategy wins), not
   // the oldest. If none given, fall back to the default rotate-to-discount.
@@ -76,10 +76,10 @@ export async function runEngine(db, { strategies = null } = {}) {
   const { fillPricesMicro, markPricesMicro } = currentPrices(universe);
   const targets = targetsFor(strategy, disl.dislocations, universe);
 
-  // Load the paper book from the store.
-  const acc = store.getAccount(db);
+  // Load the paper book from the store (per-user).
+  const acc = store.getAccount(db, userId);
   const positions = new Map(
-    store.listPositions(db).map((p) => [p.symbol, {
+    store.listPositions(db, userId).map((p) => [p.symbol, {
       symbol: p.symbol, issuer: p.issuer, qtyMicro: p.qtyMicro,
       avgCostMicro: p.avgCostMicro, realizedPnlMicro: p.realizedPnlMicro,
     }]),
@@ -113,7 +113,7 @@ export async function runEngine(db, { strategies = null } = {}) {
   if (invested > funded + budget) {
     guardTripped = true;
     console.error("[ledger-guard] cost-basis violation:", invested, "invested >", funded, "funded — reset to cash");
-    store.clearAllPositions(db);   // hard-delete EVERY persisted position
+    store.clearAllPositions(db, userId);   // hard-delete EVERY persisted position
     book.positions.clear();
     book.cashMicro = acc.seedMicro; // clean slate
   }
@@ -124,17 +124,17 @@ export async function runEngine(db, { strategies = null } = {}) {
   const drawdownPct = peak > 0 ? (peak - navAfter) / peak : 0;
 
   // Persist book + cash + realized.
-  if (guardTripped) for (const p of [...book.positions.keys()]) store.deletePosition(db, p);
-  for (const p of book.positions.values()) store.upsertPosition(db, p);
+  if (guardTripped) for (const p of [...book.positions.keys()]) store.deletePosition(db, userId, p);
+  for (const p of book.positions.values()) store.upsertPosition(db, userId, p);
   // clean zero rows (positions fully sold)
-  for (const row of store.listPositions(db)) if (row.qtyMicro === 0) store.deletePosition(db, row.symbol);
-  store.setCash(db, book.cashMicro, guardTripped ? acc.seedMicro : navAfter, peakRealized);
+  for (const row of store.listPositions(db, userId)) if (row.qtyMicro === 0) store.deletePosition(db, userId, row.symbol);
+  store.setCash(db, userId, book.cashMicro, guardTripped ? acc.seedMicro : navAfter, peakRealized);
 
-  const seq = store.lastSeq(db) + 1;
+  const seq = store.lastSeq(db, userId) + 1;
   const reason = guardTripped
-    ? `run #${seq} · LEDGER GUARD tripped (cost-basis violated) → reset to cash \$${fromMicro(acc.seedMicro).toFixed(2)}`
+    ? `run #${seq} · LEDGER GUARD tripped (cost-basis violated) → reset to cash \\$${fromMicro(acc.seedMicro).toFixed(2)}`
     : `run #${seq} · strategy=${strategy.strategyType} · targets=${Object.keys(targets).join(",") || "(cash)"} · ${actions.length} fills · NAV ${fromMicro(navAfter).toFixed(2)}`;
-  store.insertDecision(db, {
+  store.insertDecision(db, userId, {
     seq, ts: Date.now(), reason,
     actions: guardTripped ? [] : actions.map((a) => ({ ...a, qtyUnits: a.qtyMicro / store.QTY_SCALE, usd: fromMicro(a.notionalMicro) })),
     navMicro: guardTripped ? acc.seedMicro : navAfter, cashMicro: book.cashMicro,
@@ -147,8 +147,7 @@ export async function runEngine(db, { strategies = null } = {}) {
   if (meaningful.length > 0) {
     const top = meaningful.slice(0, 3).map((a) => `${a.action} ${a.symbol} $${fromMicro(a.notionalMicro).toFixed(2)}`).join(" · ");
     const payload = { text: `AfterHours: ${top}`, navUsd: fromMicro(navAfter).toFixed(2), fills: meaningful.length };
-    const list = store.insertAlert(db, { channel: "paper-log", payload });
-    alert = list[list.length - 1];
+    store.insertAlert(db, { userId, channel: "paper-log", payload });
     // best-effort real-time push (never blocks)
     try { pushAlert(payload).catch(() => {}); } catch {}
   }

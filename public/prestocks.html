@@ -109,6 +109,14 @@ function sparkSVG(points, color) {
 
 async function get(p) { const r = await fetch(p); if (!r.ok) throw new Error((await r.json()).error || r.status); return r.json(); }
 
+// Auth gate: rule + hold-sim are account-gated actions.
+const meAuth = async () => { try { const r = await fetch("/api/auth/me"); return r.ok; } catch { return false; } };
+const guard = async () => {
+  const ok = await meAuth();
+  if (!ok) { location.href = "/app"; return false; } // send them to the sign-in dashboard
+  return true;
+};
+
 async function loadDesk() {
   const d = await get("/api/prestocks/desk");
   $("#deskTs").textContent = new Date(d.generatedAt).toLocaleTimeString();
@@ -154,6 +162,7 @@ async function loadRules() {
 }
 $("#ruleForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
+  if (!(await guard())) return;
   const text = $("#ruleInput").value.trim(); if (!text) return;
   const r = await fetch("/api/prestocks/rules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
   const d = await r.json().catch(() => ({}));
@@ -167,6 +176,7 @@ async function loadSimOptions() {
 }
 $("#simForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
+  if (!(await guard())) return;
   const symbol = $("#simSym").value, qty = Number($("#simQty").value);
   if (!qty || qty <= 0) { $("#simRes").innerHTML = '<p class="muted" style="font-size:12px">Enter a token quantity.</p>'; return; }
   const r = await fetch("/api/prestocks/sim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol, qty }) });

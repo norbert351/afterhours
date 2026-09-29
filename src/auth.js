@@ -66,6 +66,12 @@ export function userFromToken(db, token) {
   const u = db.prepare("SELECT id, handle, created_at AS createdAt FROM users WHERE id = ?").get(s.user_id);
   return u || null;
 }
+// Convenience for handlers: 401 out unless a valid session is present.
+export function requireUser(req, db) {
+  const u = userFromToken(db, parseCookies(req)[AUTH_COOKIE]);
+  if (!u) return { error: "not signed in — create an account or connect a wallet", status: 401 };
+  return u;
+}
 export function logout(db, token) {
   if (token) db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
 }
@@ -111,6 +117,38 @@ export function createWalletChallenge(address) {
   const expiresAt = Date.now() + CHALLENGE_TTL;
   CHALLENGES.set(address, { nonce, message, expiresAt });
   return { nonce, message, expiresAt };
+}
+
+// ---- Action confirmation: prove a user really clicked "add strategy" with
+// their own wallet (the web3-native "confirm txn on your wallet" gate). The
+// message includes the strategy intent so a signature is tied to the action.
+const ACTION_CHALLENGES = new Map(); // key(address:intent) -> { message, expiresAt }
+const ACTION_TTL = 5 * 60_000;
+
+export function createActionChallenge(address, intent) {
+  const nonce = randomBytes(16).toString("hex");
+  const message = `AfterHours confirm action ${address} :: ${intent} :: ${nonce}`;
+  ACTION_CHALLENGES.set(`${address}:${intent}`, { message, expiresAt: Date.now() + ACTION_TTL });
+  return { nonce, message, expiresAt: Date.now() + ACTION_TTL };
+}
+
+// Verify an action signature. Returns true only if the signature proves the
+// address (the authenticated wallet) signed THIS intent's message.
+export function verifyActionSignature({ address, intent, signature }) {
+  const entry = ACTION_CHALLENGES.get(`${address}:${intent}`);
+  ACTION_CHALLENGES.delete(`${address}:${intent}`);
+  if (!entry) return { error: "no active action challenge — request one first", status: 400 };
+  if (Date.now() > entry.expiresAt) return { error: "action challenge expired — try again", status: 400 };
+  try {
+    const pub = bs58.decode(address);
+    const sigBytes = Array.isArray(signature) ? Uint8Array.from(signature) : bs58.decode(String(signature));
+    const msg = new TextEncoder().encode(entry.message);
+    const ok = ed25519.verify(sigBytes, msg, pub);
+    if (!ok) return { error: "signature did not verify", status: 401 };
+  } catch (e) {
+    return { error: `signature verify failed: ${e.message}`, status: 400 };
+  }
+  return { ok: true };
 }
 
 export function walletUserByAddress(db, address) { return db.prepare("SELECT * FROM users WHERE handle = ?").get(address); }

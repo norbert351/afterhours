@@ -105,14 +105,14 @@ async function load() {
   }
 }
 
-$("#ruleForm").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
+$("#ruleForm").addEventListener("submit", guarded(async (ev) => {
   const text = $("#ruleInput").value.trim();
   if (!text) return;
-  await fetch("/api/strategies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+  const r = await fetch("/api/strategies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+  if (r.status === 401) { openAuth(); return; }
   $("#ruleInput").value = "";
   renderRules();
-});
+}));
 
 load();
 renderRules();
@@ -186,15 +186,16 @@ async function vaultAction(path, verb) {
   if (btn) btn.disabled = false;
   loadVault();
 }
-$("#vaultArm").addEventListener("click", () => vaultAction("arm", "Arm the vault? It will buy the deepest live gap with real SOL (capped ≈$0.25/fill)."));
-$("#vaultStop").addEventListener("click", () => vaultAction("stop", "Stop the vault?"));
-$("#vaultUnwind").addEventListener("click", () => vaultAction("unwind", "Unwind all positions to SOL now?"));
+$("#vaultArm").addEventListener("click", guarded(() => vaultAction("arm", "Arm the vault? It will buy the deepest live gap with real SOL (capped ≈$0.25/fill).")));
+$("#vaultStop").addEventListener("click", guarded(() => vaultAction("stop", "Stop the vault?")));
+$("#vaultUnwind").addEventListener("click", guarded(() => vaultAction("unwind", "Unwind all positions to SOL now?")));
 loadVault();
 setInterval(loadVault, 30_000);
 
 // ---- Live Solana rail ----
 async function loadRail() {
   try {
+    if (!me) { $("#railStatus").textContent = "Sign in to view the rail"; return; }
     const r = await get("/api/v3/live/info");
     $("#railStatus").textContent = r.configured ? "● CONFIGURED" : "NOT CONFIGURED";
     $("#railAddr").textContent = r.address || "—";
@@ -210,7 +211,7 @@ async function loadRail() {
     $("#railMsg").textContent = "rail error: " + e.message;
   }
 }
-$("#railProbe").addEventListener("click", async () => {
+$("#railProbe").addEventListener("click", guarded(async () => {
   if (!confirm("Broadcast a REAL 2,000-lamport self-transfer to prove the rail? (costs ~0.000002 SOL)")) return;
   const btn = $("#railProbe"); btn.disabled = true; btn.textContent = "Broadcasting…";
   try {
@@ -221,8 +222,25 @@ $("#railProbe").addEventListener("click", async () => {
       : "✗ " + (d.error || r.status);
   } catch (e) { $("#railMsg").textContent = "probe error: " + e.message; }
   btn.disabled = false; btn.textContent = "Prove rail · real 2,000-lamport tx";
-});
+}));
 loadRail();
+
+function requestConnect(){ if(me){ checkAuth(); return; } openAuth(); }
+
+// Armed guards that open the auth modal when an action needs an account.
+// Every interactive produce button runs through one of these.
+function guarded(fn){ return async (ev) => {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (!me) { openAuth(); return; }
+  return fn(ev);
+};}
+function walletGuarded(fn){ return async (ev) => {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (!me) { openAuth(); return; }
+  const isWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(me.handle||"");
+  if (!isWallet) { openAuth(); $("authMsg").textContent = "This action requires a Solana wallet. Connect your wallet to confirm on-chain."; return; }
+  return fn(ev);
+};}
 
 // ---- v2 strategy / paper section ----
 async function loadV2() {
@@ -296,26 +314,41 @@ async function runStrategy() {
   loadV2();
 }
 
-$("#stratForm").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
+// Add Strategy = wallet-confirmed action: request challenge, sign in the wallet,
+// then persist only if the ed25519 signature verifies for THIS user's wallet.
+const stratHandler = async () => {
+  if (!me) { openAuth(); return; }
+  const el = window.solana;
+  if (!el || !el.isConnected) {
+    $("authMsg").textContent = "Add a strategy is confirmed on-chain — connect a Solana wallet first.";
+    openAuth();
+    return;
+  }
   const text = $("#stratInput").value.trim() || "rotate to discounted";
+  const pi = $("#parsedInfo"); pi.textContent = "Requesting wallet confirmation…";
   try {
-    const r = await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ text, type: "rotate_to_discount" }) });
+    const addr = (el.publicKey || (await el.connect()).publicKey || el.publicKey).toString();
+    const ch = await (await fetch("/api/v2/strategies/challenge", { method: "POST", headers: {"Content-Type":"application/json"}, credentials: "same-origin", body: JSON.stringify({ text }) })).json();
+    if (ch.error) { pi.textContent = ch.error; return; }
+    const sig = await el.signMessage(new TextEncoder().encode(ch.message), "utf8");
+    const sigBytes = (sig.signature ?? sig);
+    const r = await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, credentials: "same-origin", body: JSON.stringify({ text, type: "rotate_to_discount", address: addr, signature: Array.from(sigBytes) }) });
     const d = await r.json();
-    const pi = $("#parsedInfo");
     if (r.ok && d?.parsed?.ok) {
-      pi.innerHTML = `<span style="color:var(--good,#2ecc71)">✓ Understood:</span> <b>${escapeHtml(d.parsed.summary)}</b> — the autonomous loop will rebalance toward this every 60s.`;
+      pi.innerHTML = `<span style="color:var(--good,#2ecc71)">✓ Confirmed on-chain · Understood:</span> <b>${escapeHtml(d.parsed.summary)}</b> — the autonomous loop will rebalance toward this every 60s.`;
       if (!d.parsed.hasSymbols) {
         pi.innerHTML += `<br><span style="color:var(--warn,#e67e22)">Tip:</span> name a symbol (SPACEX, AAPL, OPENAI…) to restrict which tokens it rotates into.`;
       }
     } else {
-      pi.textContent = `strategy saved (${r.status})`;
+      pi.textContent = (d.error || `strategy save failed (${r.status})`);
     }
+    loadV2();
   } catch (e) {
-    $("#parsedInfo").textContent = "failed to add strategy: " + (e.message||e);
+    pi.textContent = "wallet confirm error: " + (e.message||e);
   }
-});
-$("#runBtn").addEventListener("click", runStrategy);
+};
+$("#stratForm").addEventListener("submit", stratHandler);
+$("#runBtn").addEventListener("click", guarded(async () => { await runStrategy(); }));
 loadV2();
 setInterval(loadV2, 30_000);
 
@@ -338,6 +371,8 @@ async function checkAuth() {
       b.onclick = openAuth;
     }
     renderWatchlist();
+    // Now that we know auth state, pull the account-gated sections.
+    loadV2(); loadVault(); loadRail();
   } catch (e) { me = null; }
 }
 function openAuth(){ $("#authModal").classList.add("show"); $("#authMsg").textContent="Secure · keys stay with you"; }
