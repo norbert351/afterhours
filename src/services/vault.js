@@ -48,7 +48,7 @@ export function openVaultStore(dbPath) {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(`
     CREATE TABLE IF NOT EXISTS vault_state (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
+      user_id INTEGER PRIMARY KEY,
       status TEXT NOT NULL DEFAULT 'idle',
       armed_at INTEGER,
       last_tick_at INTEGER,
@@ -56,10 +56,12 @@ export function openVaultStore(dbPath) {
       positions_json TEXT NOT NULL DEFAULT '[]',
       baseline_json TEXT NOT NULL DEFAULT '{}',
       baseline_fresh INTEGER NOT NULL DEFAULT 0,
-      runs INTEGER NOT NULL DEFAULT 0
+      runs INTEGER NOT NULL DEFAULT 0,
+      deposit_atoms INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS vault_fills (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 0,
       ts INTEGER NOT NULL,
       side TEXT NOT NULL,
       symbol TEXT NOT NULL,
@@ -72,18 +74,67 @@ export function openVaultStore(dbPath) {
       mode TEXT NOT NULL,
       note TEXT
     );
-    INSERT OR IGNORE INTO vault_state (id, status) VALUES (1, 'idle');
   `);
   // idempotent migrations for pre-existing vault DBs (later columns)
   const cols = db.prepare("PRAGMA table_info(vault_state)").all().map((c) => c.name);
   if (!cols.includes("baseline_json")) db.exec("ALTER TABLE vault_state ADD COLUMN baseline_json TEXT NOT NULL DEFAULT '{}'");
   if (!cols.includes("baseline_fresh")) db.exec("ALTER TABLE vault_state ADD COLUMN baseline_fresh INTEGER NOT NULL DEFAULT 0");
+  if (!cols.includes("user_id")) { // legacy singleton vault (id=1, no user col) → multi-tenant
+    db.exec(`ALTER TABLE vault_state RENAME TO vault_state_legacy;
+      CREATE TABLE vault_state (
+        user_id INTEGER PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'idle',
+        armed_at INTEGER, last_tick_at INTEGER, last_error TEXT,
+        positions_json TEXT NOT NULL DEFAULT '[]',
+        baseline_json TEXT NOT NULL DEFAULT '{}',
+        baseline_fresh INTEGER NOT NULL DEFAULT 0,
+        runs INTEGER NOT NULL DEFAULT 0,
+        deposit_atoms INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT OR IGNORE INTO vault_state
+        (user_id, status, armed_at, last_tick_at, last_error, positions_json, baseline_json, baseline_fresh, runs)
+        SELECT 0, status, armed_at, last_tick_at, last_error, positions_json, baseline_json, baseline_fresh, runs
+        FROM vault_state_legacy WHERE id = 1;
+      DROP TABLE vault_state_legacy;`);
+  }
+  // user_id on vault_fills BEFORE any index references it.
+  const fillCols = db.prepare("PRAGMA table_info(vault_fills)").all().map((c) => c.name);
+  if (!fillCols.includes("user_id"))
+    db.exec("ALTER TABLE vault_fills ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_vault_fills_user ON vault_fills(user_id)");
+  // seed a default account for the legacy/system user so /api/vault still works for it
+  ensureVaultUser(db, 0, Number(process.env.AH_VAULT_SEED_ATOMS || 0));
   return db;
 }
 
-export function readState(db) {
-  const r = db.prepare("SELECT * FROM vault_state WHERE id = 1").get();
+// A user's vault account comes with its own deposit budget (default 0 = paper
+// demo draws from the shared server wallet; a number seeds that user's ledger).
+export function ensureVaultUser(db, userId, depositAtoms = 0) {
+  const exists = db.prepare("SELECT user_id FROM vault_state WHERE user_id = ?").get(userId);
+  if (!exists) {
+    db.prepare("INSERT OR IGNORE INTO vault_state (user_id, status, deposit_atoms) VALUES (?, 'idle', ?)")
+      .run(userId, depositAtoms);
+  }
+}
+
+export function activeVaultUserIds(db) {
+  return db.prepare("SELECT user_id FROM vault_state WHERE status IN ('armed','holding')").all().map((r) => r.user_id);
+}
+
+export function setDeposit(db, userId, atoms) {
+  ensureVaultUser(db, userId);
+  db.prepare("UPDATE vault_state SET deposit_atoms = ? WHERE user_id = ?").run(atoms, userId);
+}
+export function getDeposit(db, userId) {
+  ensureVaultUser(db, userId);
+  return db.prepare("SELECT deposit_atoms AS atoms FROM vault_state WHERE user_id = ?").get(userId).atoms;
+}
+
+export function readState(db, userId = 0) {
+  ensureVaultUser(db, userId);
+  const r = db.prepare("SELECT * FROM vault_state WHERE user_id = ?").get(userId);
   return {
+    userId,
     status: r.status,
     armedAt: r.armed_at,
     lastTickAt: r.last_tick_at,
@@ -92,13 +143,14 @@ export function readState(db) {
     baseline: safeJson(r.baseline_json),
     baselineFresh: Boolean(r.baseline_fresh),
     runs: r.runs,
+    depositAtoms: r.deposit_atoms || 0,
   };
 }
 
-export function listFills(db, limit = 20) {
+export function listFills(db, userId = 0, limit = 20) {
   return db.prepare(
-    "SELECT ts, side, symbol, mint, in_lamports AS inLamports, out_atoms AS outAtoms, usd_est AS usdEst, signature, explorer, mode, note FROM vault_fills ORDER BY id DESC LIMIT ?",
-  ).all(limit).reverse();
+    "SELECT ts, side, symbol, mint, in_lamports AS inLamports, out_atoms AS outAtoms, usd_est AS usdEst, signature, explorer, mode, note FROM vault_fills WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+  ).all(userId, limit).reverse();
 }
 
 function safeJson(s) {
@@ -106,23 +158,23 @@ function safeJson(s) {
 }
 
 // ── the vault: pure-ish state machine, deps injected for testability ──
-export function createVault({ db, getGaps, swapBuy, swapSell, solPriceUsd, balancesOf, rebaseFor, cfg = vaultConfig() }) {
+export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPriceUsd, balancesOf, rebaseFor, cfg = vaultConfig() }) {
   function persist(state) {
     db.prepare(
-      "UPDATE vault_state SET status = ?, armed_at = ?, last_tick_at = ?, last_error = ?, positions_json = ?, baseline_json = ?, baseline_fresh = ?, runs = ? WHERE id = 1",
-    ).run(state.status, state.armedAt, state.lastTickAt, state.lastError, JSON.stringify(state.positions), JSON.stringify(state.baseline), state.baselineFresh ? 1 : 0, state.runs);
+      "UPDATE vault_state SET status = ?, armed_at = ?, last_tick_at = ?, last_error = ?, positions_json = ?, baseline_json = ?, baseline_fresh = ?, runs = ?, deposit_atoms = ? WHERE user_id = ?",
+    ).run(state.status, state.armedAt, state.lastTickAt, state.lastError, JSON.stringify(state.positions), JSON.stringify(state.baseline), state.baselineFresh ? 1 : 0, state.runs, state.depositAtoms ?? 0, userId);
   }
   function recordFill(f) {
     db.prepare(
-      "INSERT INTO vault_fills (ts, side, symbol, mint, in_lamports, out_atoms, usd_est, signature, explorer, mode, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run(f.ts, f.side, f.symbol, f.mint, f.inLamports ?? null, f.outAtoms ?? null, f.usdEst ?? null, f.signature ?? null, f.explorer ?? null, f.mode, f.note ?? null);
+      "INSERT INTO vault_fills (user_id, ts, side, symbol, mint, in_lamports, out_atoms, usd_est, signature, explorer, mode, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(userId, f.ts, f.side, f.symbol, f.mint, f.inLamports ?? null, f.outAtoms ?? null, f.usdEst ?? null, f.signature ?? null, f.explorer ?? null, f.mode, f.note ?? null);
   }
 
   function load() {
-    const s = readState(db);
+    const s = readState(db, userId);
     return {
-      status: s.status, armedAt: s.armedAt, lastTickAt: s.lastTickAt,
-      lastError: s.lastError, positions: s.positions, baseline: s.baseline, baselineFresh: s.baselineFresh, runs: s.runs,
+      userId, status: s.status, armedAt: s.armedAt, lastTickAt: s.lastTickAt,
+      lastError: s.lastError, positions: s.positions, baseline: s.baseline, baselineFresh: s.baselineFresh, runs: s.runs, depositAtoms: s.depositAtoms,
     };
   }
 

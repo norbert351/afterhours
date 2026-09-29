@@ -10,7 +10,7 @@ import { listReferencePrices } from "./adapters/twelvedata.js";
 import { feedRegistry, latestAaplPrices } from "./adapters/pyth.js";
 import { openStore, getAccount, listPositions, listStrategies, insertStrategy, listDecisions, listAlerts, listPrestocksRules, insertPrestocksRule } from "./store.js";
 import { runEngine } from "./services/v2.js";
-import { listFills } from "./services/vault.js";
+import { listFills, openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT, vaultConfig, activeVaultUserIds } from "./services/vault.js";
 import { startRunLoop } from "./services/loop.js";
 import { fromMicro } from "./services/paper.js";
 import * as solana from "./services/solana.js";
@@ -19,7 +19,6 @@ import * as auth from "./auth.js";
 import { pushAlert } from "./services/notify.js";
 import { marketHoursGap } from "./services/markethours.js";
 import { XSTOCKS } from "./adapters/xstocks.js";
-import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT, vaultConfig } from "./services/vault.js";
 import * as desk from "./services/prestocks-desk.js";
 import { xstockOfficialData } from "./adapters/jupiter-price.js";
 import { parseStrategyInstruction } from "./services/strategy-parse.js";
@@ -279,34 +278,57 @@ if (String(process.env.AH_AUTORUN).trim() !== "0") runLoop.start();
 const runStatus = { status: () => runLoop.status() };
 
 // ---- Weekend Gap Vault: real capital-utilization product (winner-shaped) ----
+// Multi-tenant: every user owns an isolated vault (own deposit, own state,
+// own fills). The keeper loop ticks each armed/holding user's vault.
 const vaultDb = openVaultStore(process.env.AH_VAULT_DB_PATH);
-const vault = createVault({
-  db: vaultDb,
-  getGaps: () => marketHoursGap(),
-  swapBuy: (symbol, mint, lamports) =>
-    solana.jupiterSwap({ inputMint: VAULT_SOL_MINT, outputMint: mint, amount: lamports }),
-  swapSell: (symbol, mint, atoms) =>
-    solana.jupiterSwap({ inputMint: mint, outputMint: VAULT_SOL_MINT, amount: atoms }),
-  solPriceUsd: () => liveSolPriceUsd(),
-  balancesOf: () => solana.tokenBalancesAtoms(),
-  rebaseFor: async (symbol) => {
-    try {
-      const d = await xstockOfficialData();
-      const r = d[symbol];
-      return r ? { multiplier: r.multiplier, nextMultiplier: r.nextMultiplier, nextMultiplierAt: r.nextMultiplierAt, officialUsd: r.officialUsd } : null;
-    } catch { return null; }
-  },
-});
-const vaultLoop = vault.loop({ intervalMs: Number(process.env.AH_VAULT_INTERVAL_MS || 60_000) });
-if (String(process.env.AH_VAULT_AUTORUN).trim() !== "0") vaultLoop.start();
-// HONESTY: reconcile the ledger against live wallet balances at startup so any
-// phantom position (a pre-fix failed swap that was signature-confirmed but never
-// delivered tokens on-chain) is dropped with a labeled note instead of served as
-// a real holding to judges or users.
-vault.reconcile().catch(() => {});
 
-async function vaultStateView() {
-  const s = vault.state();
+function vaultFor(userId) {
+  return createVault({
+    db: vaultDb, userId,
+    getGaps: () => marketHoursGap(),
+    swapBuy: (symbol, mint, lamports) =>
+      solana.jupiterSwap({ inputMint: VAULT_SOL_MINT, outputMint: mint, amount: lamports }),
+    swapSell: (symbol, mint, atoms) =>
+      solana.jupiterSwap({ inputMint: mint, outputMint: VAULT_SOL_MINT, amount: atoms }),
+    solPriceUsd: () => liveSolPriceUsd(),
+    balancesOf: () => solana.tokenBalancesAtoms(),
+    rebaseFor: async (symbol) => {
+      try {
+        const d = await xstockOfficialData();
+        const r = d[symbol];
+        return r ? { multiplier: r.multiplier, nextMultiplier: r.nextMultiplier, nextMultiplierAt: r.nextMultiplierAt, officialUsd: r.officialUsd } : null;
+      } catch { return null; }
+    },
+  });
+}
+
+const vaultLoop = () => {
+  let timer = null, running = false;
+  async function onTick() {
+    if (running) return;
+    running = true;
+    try {
+      // tick every user's vault that is armed or holding (isolated per user)
+      for (const uid of activeVaultUserIds(vaultDb)) {
+        try { await vaultFor(uid).tick(); } catch { /* per-vault resilience */ }
+      }
+    } finally { running = false; }
+  }
+  return {
+    start() { if (timer) return; timer = setInterval(onTick, Number(process.env.AH_VAULT_INTERVAL_MS || 60_000)); onTick(); },
+    stop() { if (timer) { clearInterval(timer); timer = null; } },
+    status: () => ({ enabled: !!timer, intervalMs: Number(process.env.AH_VAULT_INTERVAL_MS || 60_000), running }),
+  };
+};
+const vaultLoopRun = vaultLoop();
+if (String(process.env.AH_VAULT_AUTORUN).trim() !== "0") vaultLoopRun.start();
+// HONESTY: reconcile the legacy/system vault's ledger against live wallet
+// balances at startup so any phantom position is dropped with a labeled note.
+vaultFor(0).reconcile().catch(() => {});
+
+async function vaultStateView(userId) {
+  const v = vaultFor(userId);
+  const s = v.state();
   let gaps = { marketOpen: null, best: null, stats: null };
   let rawRows = [];
   try {
@@ -323,33 +345,33 @@ async function vaultStateView() {
   } catch { /* best-effort preview */ }
   const rebase = {};
   for (const g of rawRows) if (g.multiplier) rebase[g.symbol] = { multiplier: g.multiplier, nextMultiplier: g.nextMultiplier, nextMultiplierAt: g.nextMultiplierAt, officialPriceUsd: g.officialPriceUsd };
-  return { ...s, execMode: vaultConfig().execMode, autoUnwind: vaultConfig().autoUnwind, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, rebase, wallet: await solana.info().catch(() => null) };
+  return { ...s, execMode: vaultConfig().execMode, autoUnwind: vaultConfig().autoUnwind, capUsd: vaultConfig().capUsd, maxPositions: vaultConfig().maxPositions, fills: listFills(vaultDb, userId), marketOpen: gaps.marketOpen, bestGap: gaps.best, gapStats: gaps.stats, rebase, wallet: await solana.info().catch(() => null) };
 }
 
 app.get("/api/vault", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
-  res.json(await vaultStateView());
+  res.json(await vaultStateView(user.id));
 }));
 app.post("/api/vault/arm", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
-  res.json(await vault.arm());
+  res.json(await vaultFor(user.id).arm());
 }));
 app.post("/api/vault/stop", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
-  res.json(vault.stop());
+  res.json(vaultFor(user.id).stop());
 }));
 app.post("/api/vault/unwind", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
-  res.json(await vault.unwind());
+  res.json(await vaultFor(user.id).unwind());
 }));
 app.post("/api/vault/tick", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
-  res.json(await vault.tick());
+  res.json(await vaultFor(user.id).tick());
 }));
 
 // ---- PreStocks Desk (bounty surface: PreStocks data ONLY) ----
