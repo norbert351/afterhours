@@ -22,6 +22,7 @@ import { XSTOCKS } from "./adapters/xstocks.js";
 import { openVaultStore, createVault, liveSolPriceUsd, VAULT_SOL_MINT, vaultConfig } from "./services/vault.js";
 import * as desk from "./services/prestocks-desk.js";
 import { xstockOfficialData } from "./adapters/jupiter-price.js";
+import { parseStrategyInstruction } from "./services/strategy-parse.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -68,8 +69,12 @@ app.get("/api/strategies/evaluate", wrap(async (_req, res) => res.json(await eva
 app.get("/api/v2/strategies", wrap(async (_req, res) => res.json(listStrategies(db))));
 app.post("/api/v2/strategies", wrap(async (req, res) => {
   const type = ["rotate_to_discount", "alert"].includes(req.body?.type) ? req.body.type : "rotate_to_discount";
-  const list = insertStrategy(db, { text: String(req.body?.text || "").trim() || `rotate_to_discount`, strategyType: type, params: req.body?.params || {} });
-  res.status(201).json(list);
+  const text = String(req.body?.text || "").trim() || `rotate_to_discount`;
+  // Parse the plain-English instruction into load-bearing params so the
+  // autonomous loop actually honors what the user typed (not decorative).
+  const { params } = parseStrategyInstruction(text);
+  const list = insertStrategy(db, { text, strategyType: type, params });
+  res.status(201).json({ strategies: list, parsed: parseStrategyInstruction(text).parsed });
 }));
 // Run the strategy engine once: deploys the current strategy to the paper book.
 app.post("/api/v2/run", wrap(async (_req, res) => res.json(await runEngine(db))));

@@ -23,20 +23,41 @@ function currentPrices(universe) {
 }
 
 // Strategy → target weights (fraction of NAV). Honest + deterministic:
-// `rotate_to_discount` overweights tokenized equities trading BELOW their mark
-// price (buy the float-up), equal-weight among the discounts, capped at top N.
-function targetsFor(strategies, dislocations, universe, topN = 6) {
-  const discounted = dislocations
-    .filter((d) => d.type === "issuer_premium" && d.direction === "token_discount")
-    .sort((a, b) => a.gapBps - b.gapBps) // deepest discount first
-    .slice(0, topN);
+// `rotate_to_discount` overweights tokenized equities trading away from their
+// mark price, equal-weight among the candidates, capped at top N. The exact
+// candidate set is driven by the user's parsed instruction (params):
+//   direction   "discount" | "premium"      which side of the gap to rotate into
+//   minGapPct   threshold                   only gaps at/above this % (abs)
+//   symbols     alias[]                     whitelist (AAPLx, SPACEX, …)
+//   topN        int                         cap on holdings
+function targetsFor(strategy, dislocations, universe, topN = 6) {
+  const p = strategy?.params || {};
+  const direction = p.direction || "discount";
+  const wantPremium = direction === "premium";
+  const minGapBps = p.minGapPct != null ? Math.round(p.minGapPct * 100) : 0;
+  const capN = Number(p.topN) > 0 ? Number(p.topN) : topN;
 
-  if (discounted.length === 0) return {};
+  let pool = dislocations.filter((d) => d.type === "issuer_premium");
+  // Direction select: a "premium" has gapBps>0, a "discount" has gapBps<0.
+  pool = pool.filter((d) => wantPremium ? d.gapBps > 0 : d.gapBps < 0);
+  // Abs-gap threshold.
+  if (minGapBps > 0) pool = pool.filter((d) => Math.abs(d.gapBps) >= minGapBps);
+  // Symbol whitelist from the instruction (match symbol OR underlying/alias).
+  if (Array.isArray(p.symbols) && p.symbols.length) {
+    const want = p.symbols.map((s) => s.toUpperCase());
+    pool = pool.filter((d) =>
+      want.includes(d.symbol.toUpperCase()) ||
+      want.includes(`${d.underlying || ""}`.toUpperCase()) ||
+      want.includes(`${d.symbol}`.toUpperCase().replace(/X$/, "")));
+  }
+  pool.sort((a, b) => (wantPremium ? b.gapBps - a.gapBps : a.gapBps - b.gapBps)); // extreme first
+  pool = pool.slice(0, capN);
 
-  // Equal weights across the deepest discounts (this is a rotation strategy demo).
-  const w = 1 / discounted.length;
+  if (pool.length === 0) return {};
+
+  const w = 1 / pool.length;
   const targets = {};
-  for (const d of discounted) targets[d.symbol] = w;
+  for (const d of pool) targets[d.symbol] = w;
   return targets;
 }
 
@@ -48,10 +69,12 @@ export async function runEngine(db, { strategies = null } = {}) {
 
   const stratList = strategies || store.listStrategies(db);
   const active = stratList.filter((s) => s.enabled && s.strategyType !== "alert");
-  const strategy = active[0] || { strategyType: "rotate_to_discount", params: {} };
+  // The user's LATEST instruction drives the loop (newest strategy wins), not
+  // the oldest. If none given, fall back to the default rotate-to-discount.
+  const strategy = active[active.length - 1] || { strategyType: "rotate_to_discount", params: {} };
 
   const { fillPricesMicro, markPricesMicro } = currentPrices(universe);
-  const targets = targetsFor(stratList, disl.dislocations, universe);
+  const targets = targetsFor(strategy, disl.dislocations, universe);
 
   // Load the paper book from the store.
   const acc = store.getAccount(db);

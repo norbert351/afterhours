@@ -82,6 +82,22 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
   <h2>Autonomous strategy engine (paper)</h2>
   <p>Plain-English rules (e.g. <i>"rotate to discounted tokenized equities"</i>) drive an <b>honest paper ledger</b> — integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes phantom profit structurally impossible. 60s server-authoritative loop, every decision logged, dust-filtered alerts.</p>
 
+  <h3>Try it: drive the autonomous loop yourself</h3>
+  <ol>
+    <li>Open the <b>Strategy engine</b> panel in the dashboard (the 60s loop is already running server-side).</li>
+    <li>Type a plain-English rule telling it what to trade, e.g.
+      <ul>
+        <li><i>"rotate to discounted tokenized equities"</i> → any real discount, equal-weighted</li>
+        <li><i>"buy SPACEX and OPENAI under 10% over mark"</i> → restrict to those two, deepest-first</li>
+        <li><i>"top 3 biggest discounts above 5%"</i> → only gaps ≥5%, hold the deepest 3</li>
+        <li><i>"buy AAPL on premium"</i> → rotate into the <b>premiums</b> instead of discounts</li>
+      </ul>
+    </li>
+    <li>Click <b>Add strategy</b> — the UI echoes back <i>exactly what the engine understood</i> (direction, symbols, gap %, depth).</li>
+    <li>Every 60s the loop rebalances the paper book toward that target and logs each decision in <b>Recent decisions</b> below. No orders are ever sent — paper-only.</li>
+  </ol>
+  <p class="muted">Your words are load-bearing: the rule text is parsed into real strategy params (<code>direction</code>, <code>symbols</code>, <code>minGapPct</code>, <code>topN</code>) that the engine honors — not a decorative label.</p>
+
   <h2>Live Solana rail</h2>
   <ul>
     <li><code>GET /api/v3/live/info</code> — wallet address + SOL balance + RPC (honest <code>configured:false</code> when no key).</li>

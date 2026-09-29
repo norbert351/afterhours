@@ -223,13 +223,15 @@
       <div class="grid cards" id="acctCards"></div>
       <div class="card" style="margin-top:10px">
         <form id="stratForm" style="margin-bottom:10px">
-          <input id="stratInput" type="text" value="rotate to discounted tokenized equities" />
+          <input id="stratInput" type="text" value="rotate to discounted tokenized equities" placeholder="e.g. buy SPACEX and OPENAI under 10% over mark" />
           <button type="submit" class="secondary">Add strategy</button>
         </form>
+        <p class="muted" style="font-size:12px;margin:2px 0 6px">Type a plain-English rule. The 60s autonomous loop trades exactly what you describe — direction, symbol whitelist, gap %, depth.</p>
         <div class="rowflex">
-          <span class="muted" style="font-size:12px">Strategy <b>rotate_to_discount</b> buys tokenized equities trading below their mark, rebalances with a no-churn tolerance band. Paper-only — no orders sent.</span>
+          <span class="muted" style="font-size:12px"><b>How it runs:</b> add a rule → the server-authoritative engine rebalances the paper book every 60s → every decision is logged below. Paper-only.</span>
           <button id="runBtn">▶ Run strategy now</button>
         </div>
+        <div id="parsedInfo" style="margin-top:8px;font-size:12px"></div>
         <div id="runResult" style="margin-top:10px"></div>
       </div>
       <div class="card" style="margin-top:10px;overflow-x:auto">

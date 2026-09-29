@@ -1,6 +1,7 @@
 // AfterHours frontend — fetches ONLY verified live endpoints and renders.
 const $ = (sel) => document.querySelector(sel);
 const fmt = (n, d = 2) => (n == null ? "—" : (typeof n === "number" ? n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) : n));
+const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
 async function get(path) {
   const r = await fetch(path);
@@ -298,7 +299,21 @@ async function runStrategy() {
 $("#stratForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const text = $("#stratInput").value.trim() || "rotate to discounted";
-  await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ text, type: "rotate_to_discount" }) });
+  try {
+    const r = await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ text, type: "rotate_to_discount" }) });
+    const d = await r.json();
+    const pi = $("#parsedInfo");
+    if (r.ok && d?.parsed?.ok) {
+      pi.innerHTML = `<span style="color:var(--good,#2ecc71)">✓ Understood:</span> <b>${escapeHtml(d.parsed.summary)}</b> — the autonomous loop will rebalance toward this every 60s.`;
+      if (!d.parsed.hasSymbols) {
+        pi.innerHTML += `<br><span style="color:var(--warn,#e67e22)">Tip:</span> name a symbol (SPACEX, AAPL, OPENAI…) to restrict which tokens it rotates into.`;
+      }
+    } else {
+      pi.textContent = `strategy saved (${r.status})`;
+    }
+  } catch (e) {
+    $("#parsedInfo").textContent = "failed to add strategy: " + (e.message||e);
+  }
 });
 $("#runBtn").addEventListener("click", runStrategy);
 loadV2();
