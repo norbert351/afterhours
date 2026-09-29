@@ -78,3 +78,66 @@ is a verified, visible signal right now (NEURALINK +29%, SPACEX −22%).
 only — no other pre-IPO issuer is integrated here (the main-track app also
 reads Tessera for cross-issuer analysis; the two surfaces are separate and this
 one is single-source by design).
+---
+
+# AfterHours — BNB Tokenized Stocks Submission (paste-ready)
+
+> Deadline **Oct 11 2026**, $20K main pool (1st $6K/4th $2K…), plus **2×$2K
+> specials** (Best Use of Binance Agentic Wallet / Wallet Skills; Best Use of
+> BNB Agent Studio). Same product core ported to BNB Chain with BSC sponsor tech
+> load-bearing. Web3 API is the sanctioned aggregate surface.
+
+## Theme pick
+
+**Main track** — *Tokenized-stock product / autonomous agent on BSC.* The weekend
+gap that AfterHours captures on Solana exists identically on BNB Chain (the #1
+tokenized-equity venue, 88% of tokenized-stock DEX volume): reference price
+freezes at the NYSE close, the on-chain market trades 24/7. The port maps the
+verified BSC rails (bStocks + Ondo, Binance Web3 API RWA) onto the same engine.
+
+## Description (paste text, ~3 paragraphs)
+
+AfterHours on BNB Chain brings the weekend-gap capture agent to the largest
+tokenized-equity venue. BNB Chain hosts more than 88% of tokenized-stock DEX
+volume — bStocks (verifed BEP-20, symbol checks on-chain) and Ondo (documented
+BSC addresses) trade while their NYSE reference freezes. AfterHours reads the
+**Binance Web3 API** aggregate surface (the sanctioned market + RWA + swap + RFQ
+API) for on-chain price **and** underlying reference in one call, computes the
+weekend-gap dislocation per token, and routes execution through the Web3 API
+Trading aggregator (SWAP for crypto/xStocks, RFQ for bStocks/Ondo) with hard
+caps, mint allowlists, and rate limits carried over from the Solana build.
+
+The product is a **multi-tenant, account-gated app**: every user owns an isolated
+paper book and an isolated Weekend Gap Vault (per-user deposit/state/fills), and
+every strategy add is confirmed on-chain in your wallet. The same rails are also
+exposed as an **MCP server** (`bnb_gap`, `bnb_quote`, `bnb_status`) so an agent
+drives it directly — deployable through **BNB Agent Studio** and operated inside
+**Binance Agentic Wallet** via MCP/Skills, the two $2K special tracks.
+
+## Load-bearing BNB sponsor tech (in code, not claims)
+
+| Sponsor surface | How it's used (in the repo) |
+|---|---|
+| **Binance Web3 API** (aggregate market/RWA/swap/RFQ) | `src/adapters/bsc.js` `bnbWeb3Call()` (HMAC-SHA256 `X-OC-APIKEY/TIMESTAMP/SIGN`), `dex/market/rwa/*` for on-chain+reference; Trading aggregator for SWAP/RFQ exec. Free key gates real per-stock values — honest `configured:false` when unset |
+| **Binance Agentic Wallet** ($2K) | `src/mcp/bnb-mcp.js` is an MCP server exposing the product as tools (`bnb_gap`/`bnb_quote`/`bnb_status`); runs from the `binance-skills-hub` Agentic Wallet stack (MCP/Skills) |
+| **BNB Agent Studio** ($2K) | the same MCP server registers in Agent Studio; `npm run bnb-mcp` |
+| **bStocks / Ondo on BSC** | bStocks BEP-20 `0x2F701b108a9aF5558960325A0239D0a13c2C4444` symbol-verified on-chain; Ondo GMTokenManager/Oracle/limit-order documented addresses |
+| **TwelveData** | independent frozen-NYSE reference fallback when the RWA key is unset |
+
+## Links
+
+- **Live:** https://afterhourequity.xyz/bnb (BNB port) · https://afterhourequity.xyz (Solana)
+- **GitHub:** https://github.com/norbert351/afterhours
+- **MCP:** `npm run bnb-mcp` (stdio protocol; tools `bnb_gap`, `bnb_quote`, `bnb_status`)
+
+## Verified / unverified matrix (BNB)
+
+| Claim | Status | Evidence |
+|---|---|---|
+| bStocks BEP-20 on BSC | ✅ | `eth_call symbol()` → "bStocks"; `eth_getCode` returns bytecode (public BSC RPC) |
+| BSC public RPC reachable | ✅ | `bsc-dataseed.binance.org` → eth_blockNumber 200 |
+| GeckoTerminal bsc prices | ✅ | HTTP 200 for bStocks/USDon |
+| Keyless KyberSwap quote | ✅ | `aggregator-api.kyberswap.com/bsc` routes → code 0, real amountOut |
+| Web3 API RWA (real per-stock gap) | ⚠️ key-gated (free during event) | `/api/bnb/web3/rwa-price` returns 501 when key unset — honest |
+| xStocks-on-BSC | ❌ unverified (official docs omit BSC; only junk pool) | deliberately not claimed; build anchors on bStocks + Ondo |
+| PancakeSwap V2 Router | ✅ | `0x10ED…024E` `eth_getCode` bytecode |

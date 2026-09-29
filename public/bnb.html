@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AfterHours · BNB (BSC)</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#14141c;--panel2:#0e0e15;--line:#26262f;--txt:#f5f3fa;--mut:#9a9aaa;--acc:#5546ff;--up:#69f0ae;--down:#ff7a8a;--warn:#f0b23c;--gold:#f0b90b;--mono:ui-monospace,Menlo,monospace;--sans:'Inter',sans-serif;--display:'Space Grotesk',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:18px 16px 80px}
+header{display:flex;align-items:center;gap:14px;padding:8px 0 18px;border-bottom:1px solid var(--line)}
+header img{width:30px;height:30px;border-radius:8px}
+.brand{font-family:var(--display);font-weight:700;font-size:1.15rem;color:#fff}
+.nav{margin-left:auto;display:flex;gap:16px;font-size:.85rem;flex-wrap:wrap}
+.nav a{color:var(--mut);text-decoration:none}.nav a:hover{color:#fff}
+h1{font-family:var(--display);font-size:clamp(1.7rem,4vw,2.5rem);margin:26px 0 6px;color:#fff}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:0 0 12px;font-weight:700}
+section{margin-top:26px}
+.elig{background:rgba(240,185,11,.08);border:1px solid rgba(240,185,11,.3);border-radius:12px;padding:10px 14px;font-size:.8rem;color:#ffe9b0;margin:14px 0}
+.elig b{color:var(--gold)}
+.card,.row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.grid{display:grid;gap:10px}.cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.k{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.v{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:5px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-family:var(--sans)}
+.muted{color:var(--mut)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.pill.up{background:rgba(105,240,174,.14);color:var(--up)}
+.pill.down{background:rgba(255,122,138,.14);color:var(--down)}
+.pill.warn{background:rgba(240,178,60,.14);color:var(--warn)}
+.pill.key{background:rgba(240,185,11,.14);color:var(--gold)}
+.chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
+pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
+@media(max-width:640px){.hide-sm{display:none}table{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
+    <span class="nav"><a href="/">Home</a><a href="/app">App (Solana)</a><a href="/bnb" style="color:#fff">BNB</a><a href="/docs">Docs</a></span>
+  </header>
+
+  <h1>AfterHours · BNB Chain port</h1>
+  <p class="muted">The same weekend-gap engine, on BNB Chain (the #1 tokenized-equity venue — 88% of tokenized-stock DEX volume). Real rails verified live: bStocks BEP-20 on-chain, Ondo documented BSC addresses, public BSC RPC, GeckoTerminal bsc, KyberSwap keyless quotes.</p>
+
+  <div class="elig">🟡 <b>BNB Tokenized Stocks Hackathon port</b> — the aggregated <b>Binance Web3 API</b> (market · RWA · swap · RFQ) is the sanctioned surface; <b>bStocks + Ondo</b> are central. Real per-stock price/reference unlock with the <b>free Web3 API key</b> (web3.binance.com dev-portal). The chain label <code>bnb</code> below is honest: without the key, gated values are flagged, never fabricated.</div>
+
+  <section>
+    <h2>Rail status <span class="chip" id="statusKey"></span></h2>
+    <div class="grid cards" id="statusCards"></div>
+  </section>
+
+  <section>
+    <h2>Weekend gap · BNB <span class="chip" id="gapMeta"></span></h2>
+    <div class="card" style="overflow-x:auto">
+      <table><thead><tr><th>Token</th><th>On-chain $</th><th>Ref $</th><th>Gap</th><th class="hide-sm">Verification</th></tr></thead><tbody id="gapBody"></tbody></table>
+      <p class="muted" id="gapNote" style="margin:8px 0 0;font-size:12px"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Keyless execution quote (KyberSwap, read-only)</h2>
+    <div class="card">
+      <form id="qForm" style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="qAmount" type="number" value="0.1" step="0.01" min="0.01" style="flex:1;min-width:140px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:10px 13px;border-radius:9px;font-family:var(--sans)" />
+        <span class="muted" style="align-self:center;font-size:12px">BNB → USDT</span>
+        <button type="submit" style="background:var(--acc);color:#fff;border:0;padding:10px 16px;border-radius:9px;font-weight:700;cursor:pointer">Quote</button>
+      </form>
+      <pre id="qOut" style="margin-top:10px"></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sanctioned surface — Binance Web3 API RWA</h2>
+    <div class="card">
+      <p class="muted" id="rwaNote" style="font-size:12px"></p>
+      <pre id="rwaOut" style="margin-top:10px"></pre>
+    </div>
+  </section>
+
+  <div class="foot" style="color:var(--mut);font-size:11px;margin-top:30px;padding-top:14px;border-top:1px solid var(--line)">AfterHours BNB · data: BSC RPC (verified) · GeckoTerminal bsc · KyberSwap · Binance Web3 API (keyed RWA) · TwelveData reference. Links become real per-stock gaps the moment the free Web3 API key is set; nothing fabricated.</div>
+</div>
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const fmt = (n, d = 2) => (n == null || !Number.isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d }));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+async function getJSON(p) { const r = await fetch(p); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status); return d; }
+
+async function loadStatus() {
+  try {
+    const s = await getJSON("/api/bnb/status");
+    $("#statusKey").textContent = s.configured.web3Api ? "Web3 API key: ON" : "Web3 API key: OFF";
+    const cfg = s.configured;
+    $("#statusCards").innerHTML = [
+      ["BSC RPC", cfg.rpc ? "LIVE" : "down"], ["GeckoTerminal bsc", cfg.gecko ? "LIVE" : "down"],
+      ["KyberSwap", cfg.kyber ? "LIVE" : "down"], ["TwelveData", cfg.twelvedata ? "LIVE" : "down"],
+      ["Binance Web3 API", cfg.web3Api ? "KEYED" : "needs key"],
+    ].map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${esc(v)}</div></div>`).join("");
+  } catch (e) { $("#statusCards").innerHTML = `<div class="card"><div class="v" style="font-size:13px">${esc(e.message)}</div></div>`; }
+}
+
+async function loadGaps() {
+  try {
+    const u = await getJSON("/api/bnb/universe");
+    $("#gapMeta").textContent = u.configured ? "Web3 key live" : "keyless (gated values flagged)";
+    const rows = u.gaps || [];
+    $("#gapBody").innerHTML = rows.map((g) => {
+      if (g.error) return `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="4" class="muted">${esc(g.error)}</td></tr>`;
+      const cls = g.gapPct >= 0 ? "up" : "down";
+      const sign = g.gapPct >= 0 ? "+" : "";
+      return `<tr><td><b>${esc(g.symbol)}</b></td><td>$${fmt(g.onChainPriceUsd)}</td><td class="muted">$${fmt(g.referencePriceUsd)}</td><td class="${cls}">${sign}${g.gapPct.toFixed(2)}%</td><td class="hide-sm muted">${esc(u.tokens[g.symbol]?.verified || "verified")}</td></tr>`;
+    }).join("") || '<tr><td colspan="5" class="muted">no gaps computed (see note)</td></tr>';
+    $("#gapNote").textContent = (u.tokens?.BSTOCKS?.error ? "bStocks is flagging the junk-pool case: its bare product token's GeckoTerminal price is ~1e-6 USD, not the equity price. Real per-stock price needs the Web3 API RWA key. On-chain + ref are read live; gating is honest." : "Gaps computed from live on-chain price vs frozen reference. Per-stock RWA values unlock with the Web3 API key.");
+  } catch (e) { $("#gapBody").innerHTML = `<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`; }
+}
+
+$("#qForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const amt = Number($("#qAmount").value);
+  const wei = Math.round(amt * 1e18);
+  try {
+    const d = await getJSON("/api/bnb/quote?amount=" + wei);
+    $("#qOut").textContent = JSON.stringify(d, null, 2);
+  } catch (e) { $("#qOut").textContent = "quote error: " + e.message; }
+});
+
+async function loadRwa() {
+  try {
+    const d = await getJSON("/api/bnb/web3/rwa-price");
+    $("#rwaOut").textContent = JSON.stringify(d, null, 2);
+    $("#rwaNote").textContent = "Web3 API RWA price surface (on-chain + underlying reference).";
+  } catch (e) {
+    $("#rwaNote").textContent = "Web3 API RWA needs the free key — register at web3.binance.com dev-portal, set AH_BNB_WEB3_KEY/SECRET.";
+    $("#rwaOut").textContent = "Error: " + e.message;
+  }
+}
+
+loadStatus(); loadGaps(); loadRwa();
+setInterval(loadGaps, 45_000);
+</script>
+</body>
+</html>

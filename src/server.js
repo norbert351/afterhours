@@ -22,6 +22,8 @@ import { XSTOCKS } from "./adapters/xstocks.js";
 import * as desk from "./services/prestocks-desk.js";
 import { xstockOfficialData } from "./adapters/jupiter-price.js";
 import { parseStrategyInstruction } from "./services/strategy-parse.js";
+import * as bnb from "./services/bnb.js";
+import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -418,10 +420,30 @@ app.post("/api/prestocks/sim", wrap(async (req, res) => {
   res.json(desk.holdSim({ ...t, qty }));
 }));
 
+// ---- BNB Chain port (tokenized stocks on BSC) ----
+app.get("/api/bnb/status", wrap(async (_req, res) => res.json(await bnb.bnbStatus())));
+app.get("/api/bnb/universe", wrap(async (_req, res) => res.json(await bnb.bnbUniverse())));
+// Keyless exec quote (KyberSwap) — capped + read-only, no money moves.
+app.get("/api/bnb/quote", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  const amountAtoms = Number(req.query.amount) || 1e17; // default 0.1 BNB wei
+  const tokenOut = String(req.query.tokenOut || USDT_BSC);
+  res.json(await bnb.bnbQuote({ amountAtoms, tokenOut }));
+}));
+// Sanctioned Web3 API pass-through (only when key configured).
+app.get("/api/bnb/web3/rwa-price", wrap(async (req, res) => {
+  const user = auth.requireUser(req, db);
+  if (user.error) return res.status(user.status).json(user);
+  if (!bnbWeb3Configured()) return res.status(501).json({ error: "Web3 API key not configured — register free at web3.binance.com dev-portal" });
+  res.json(await bnbWeb3Call("dex/market/rwa/price", { params: {}, method: "POST" }));
+}));
+
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
 app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 app.get("/prestocks", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "prestocks.html")));
+app.get("/bnb", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bnb.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
