@@ -86,13 +86,7 @@
   .or{text-align:center;color:var(--mut);font-size:12px;margin:12px 0;letter-spacing:.1em;text-transform:uppercase}
   .prova{display:flex;align-items:center;gap:8px;color:#69f0ae;font-size:12px;margin-top:10px}
   .prova .dot{width:8px;height:8px;border-radius:50%;background:#3ecf8e;box-shadow:0 0 10px #3ecf8e}
-  /* chain switcher */
-  .chainswitch{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--panel2);flex-shrink:0}
-  .cs-btn{border:0;background:transparent;color:var(--mut);font-family:var(--mono);font-size:12px;font-weight:600;line-height:1;padding:7px 14px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
-  .cs-btn:hover{color:var(--txt)}
-  .chainswitch.sol .cs-btn[data-chain=sol]{background:var(--acc);color:#06263a}
-  .chainswitch.bnb .cs-btn[data-chain=bnb]{background:#f0b90b;color:#1a1a1a}
-  @media(max-width:560px){.hide-sm{display:none} table{font-size:12px}.chainswitch{margin:2px 0}}
+  @media(max-width:560px){.hide-sm{display:none} table{font-size:12px}}
 </style>
 </head>
 <body>
@@ -106,10 +100,6 @@
       </div>
     </div>
     <div class="head-right">
-      <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network">
-        <button class="cs-btn" data-chain="sol">● Solana</button>
-        <button class="cs-btn" data-chain="bnb">● BSC</button>
-      </div>
       <span id="mktBadge" class="badge">…</span>
       <button id="btnWallet" class="nav-connect">Connect wallet</button>
     </div>
@@ -263,13 +253,6 @@
 </div>
 <script type="module" src="/app.js"></script>
 <script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
-<script>(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
-function setChain(c){cs.classList.remove('sol','bnb');cs.classList.add(c==='bnb'?'bnb':'sol')}
-setChain(localStorage.getItem('ah_chain')||'sol');
-cs.querySelectorAll('.cs-btn').forEach(function(b){b.addEventListener('click',function(){
- var c=b.getAttribute('data-chain');localStorage.setItem('ah_chain',c);setChain(c);
- if(c==='bnb'&&location.pathname!=='/bnb')location.href='/bnb';
-});});})();</script>
 <script src="/privy-auth.js" defer></script>
 </body>
 </html>
