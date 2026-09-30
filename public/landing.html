@@ -159,9 +159,20 @@ pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px
 </style>
 </head>
 <body>
+<style>/* chain switcher (landing) */
+.chainswitch{display:inline-flex;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:3px;background:rgba(255,255,255,.06);align-items:center;flex-shrink:0}
+.chainswitch .cs-btn{border:0;background:transparent;color:rgba(255,255,255,.55);font-family:var(--mono);font-size:.75rem;font-weight:600;line-height:1;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.chainswitch .cs-btn:hover{color:#fff}
+.chainswitch.sol .cs-btn[data-chain=sol]{background:var(--purple);color:#fff !important}
+.chainswitch.bnb .cs-btn[data-chain=bnb]{background:#f0b90b;color:#1a1a1a !important}
+</style>
 <nav class="wrap">
   <div class="brand"><img src="/logo.png" alt="AfterHours">AfterHours</div>
   <div class="nav-links" id="navLinks">
+    <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network" style="margin-right:2px">
+      <button class="cs-btn" data-chain="sol">● Solana</button>
+      <button class="cs-btn" data-chain="bnb">● BSC</button>
+    </div>
     <a href="#stats">How it works</a><a href="#features">Features</a><a href="#dev">Build</a><a href="/docs">Docs</a><a href="#community">Community</a>
   </div>
   <button class="btn btn-wallet nav-wallet-hide" id="navWallet" onclick="connectWallet()">Connect wallet</button>
@@ -374,6 +385,13 @@ async function connectWallet(){
 }
 refreshAuth();setInterval(refreshAuth,60000);
 </script>
+<script>(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
+function setChain(c){cs.classList.remove('sol','bnb');cs.classList.add(c==='bnb'?'bnb':'sol')}
+setChain(localStorage.getItem('ah_chain')||'sol');
+cs.querySelectorAll('.cs-btn').forEach(function(b){b.addEventListener('click',function(){
+ var c=b.getAttribute('data-chain');localStorage.setItem('ah_chain',c);setChain(c);
+ if(c==='bnb')location.href='/bnb';else location.href='/app';
+});});})();</script>
 <script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
 <script src="/privy-auth.js" defer></script>
 </body>

@@ -37,6 +37,12 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
 .pill.key{background:rgba(240,185,11,.14);color:var(--gold)}
 .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
 pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
+/* chain switcher */
+.chainswitch{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--panel2);flex-shrink:0}
+.cs-btn{border:0;background:transparent;color:var(--mut);font-family:var(--mono);font-size:12px;font-weight:600;line-height:1;padding:7px 14px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
+.cs-btn:hover{color:#fff}
+.chainswitch.sol .cs-btn[data-chain=sol]{background:var(--acc);color:#fff}
+.chainswitch.bnb .cs-btn[data-chain=bnb]{background:#f0b90b;color:#1a1a1a}
 @media(max-width:640px){.hide-sm{display:none}table{font-size:12px}}
 </style>
 </head>
@@ -44,7 +50,13 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
 <div class="wrap">
   <header>
     <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
-    <span class="nav"><a href="/">Home</a><a href="/app">App (Solana)</a><a href="/bnb" style="color:#fff">BNB</a><a href="/docs">Docs</a></span>
+    <span class="nav">
+      <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network" style="margin-right:6px">
+        <button class="cs-btn" data-chain="sol">● Solana</button>
+        <button class="cs-btn" data-chain="bnb">● BSC</button>
+      </div>
+      <a href="/">Home</a><a href="/app">App (Solana)</a><a href="/bnb" style="color:#fff">BNB</a><a href="/docs">Docs</a>
+    </span>
   </header>
 
   <h1>AfterHours · BNB Chain port</h1>
@@ -146,5 +158,12 @@ async function loadRwa() {
 loadStatus(); loadGaps(); loadRwa();
 setInterval(loadGaps, 45_000);
 </script>
+<script>(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
+function setChain(c){cs.classList.remove('sol','bnb');cs.classList.add(c==='bnb'?'bnb':'sol')}
+setChain(localStorage.getItem('ah_chain')||'bnb');
+cs.querySelectorAll('.cs-btn').forEach(function(b){b.addEventListener('click',function(){
+ var c=b.getAttribute('data-chain');localStorage.setItem('ah_chain',c);setChain(c);
+ if(c==='sol'&&location.pathname.startsWith('/bnb'))location.href='/app';
+});});})();</script>
 </body>
 </html>
