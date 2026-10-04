@@ -188,6 +188,13 @@ export async function bnbRealTokens({ platform = "bstock", chain = "56" } = {}) 
     const r = await bnbWeb3Call("/api/v1/dex/market/rwa/tokens", {
       params: { binanceChainId: chain, platformId: platform, pageSize: "100", page: String(page) },
     });
+    // Surface a Web3 API error instead of silently returning an empty universe
+    // (rate-limit 429 / server 5xx would otherwise read as "0 real tokens").
+    if (r.code !== 0) {
+      const err = new Error(`RWA tokens error ${r.code} ${r.msg || ""}`.trim());
+      err.code = 502;
+      throw err;
+    }
     const batch = Array.isArray(r.data) ? r.data
       : (r.data && (r.data.list || r.data.tokens)) || [];
     if (!Array.isArray(batch) || !batch.length) break;
