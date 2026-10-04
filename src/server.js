@@ -423,20 +423,29 @@ app.post("/api/prestocks/sim", wrap(async (req, res) => {
 // ---- BNB Chain port (tokenized stocks on BSC) ----
 app.get("/api/bnb/status", wrap(async (_req, res) => res.json(await bnb.bnbStatus())));
 app.get("/api/bnb/universe", wrap(async (_req, res) => res.json(await bnb.bnbUniverse())));
-// Keyless exec quote (KyberSwap) — capped + read-only, no money moves.
+// Keyless exec quote (KyberSwap) — read-only preview, no money moves.
 app.get("/api/bnb/quote", wrap(async (req, res) => {
-  const user = auth.requireUser(req, db);
-  if (user.error) return res.status(user.status).json(user);
   const amountAtoms = Number(req.query.amount) || 1e17; // default 0.1 BNB wei
   const tokenOut = String(req.query.tokenOut || USDT_BSC);
   res.json(await bnb.bnbQuote({ amountAtoms, tokenOut }));
 }));
-// Sanctioned Web3 API pass-through (only when key configured).
+// Sanctioned Web3 API pass-through (only when key configured). RWA price is a GET.
 app.get("/api/bnb/web3/rwa-price", wrap(async (req, res) => {
   const user = auth.requireUser(req, db);
   if (user.error) return res.status(user.status).json(user);
   if (!bnbWeb3Configured()) return res.status(501).json({ error: "Web3 API key not configured — register free at web3.binance.com dev-portal" });
-  res.json(await bnbWeb3Call("dex/market/rwa/price", { params: {}, method: "POST" }));
+  res.json(await bnbWeb3Call("/api/v1/dex/market/rwa/price", { params: { binanceChainId: "56" } }));
+}));
+// Real cross-DEX quote for a tokenized equity on BSC, via the sanctioned Trading API.
+app.get("/api/bnb/equity-quote", wrap(async (req, res) => {
+  if (!bnbWeb3Configured()) return res.status(501).json({ error: "Web3 API key not configured" });
+  const symbol = String(req.query.symbol || "").toUpperCase();
+  const amountUsd = Number(req.query.amountUsd) || 10;
+  const uni = await bnb.bnbUniverse();
+  const tok = (uni.tokens || []).find((t) => t.tokenSymbol?.toUpperCase() === symbol || t.underlyingTicker?.toUpperCase() === symbol);
+  if (!tok) return res.status(404).json({ error: `no "${symbol}" in the BSC RWA universe`, platforms: uni.platformCount });
+  const quote = await bnb.bnbEquityQuote({ tokenIn: USDT_BSC, tokenOut: tok.tokenContractAddress, amountAtoms: Math.round(amountUsd * 1e6) });
+  res.json({ symbol: tok.tokenSymbol, name: tok.tokenName, mint: tok.tokenContractAddress, amountUsd, quote });
 }));
 
 // Static frontend. Homepage = marketing landing; live product = /app.

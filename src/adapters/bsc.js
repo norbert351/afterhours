@@ -113,30 +113,44 @@ export async function bnbGap(prices, referenceBySymbol = {}, { requireRealPrice 
 }
 
 // Binance Web3 API — the sanctioned aggregate surface. All reads keyed; a call
-// without a key returns the honest 4010x body. Signature per docs (HMAC-SHA256,
-// X-OC-APIKEY / X-OC-TIMESTAMP / X-OC-SIGN base64).
-import { createHmac } from "node:crypto";
+// without a key returns the honest 4010x body. Auth per the official docs
+// (web3.binance.com/en/dev-docs/authentication):
+//   headers: X-OC-APIKEY / X-OC-TIMESTAMP (ISO-8601 ms) / X-OC-SIGN
+//   preHash = timestamp + UPPERCASE_METHOD + requestPath(+raw query) + body     (NO separators)
+//   requestPath MUST include the /build base-path prefix, raw URL-encoded.
+//   signature = Base64( HMAC-SHA256(preHash, secret) )
+import { createHmac, createHash } from "node:crypto";
 
-export async function bnbWeb3Call(path, { params = {}, method = "GET" } = {}) {
+export async function bnbWeb3Call(path, { params = {}, method = "GET", body } = {}) {
   const key = String(process.env.AH_BNB_WEB3_KEY || "").trim();
   const secret = String(process.env.AH_BNB_WEB3_SECRET || "").trim();
   if (!key || !secret) {
-    return { code: 40101, msg: "API Key is required — register at web3.binance.com dev-portal" };
+    return { code: 40101, msg: "API Key is required — register at web3.binance.com dev-portal", data: null };
   }
-  const base = "https://web3.binance.com/build/api/v1";
-  const fullPath = `/build/api/v1/${path}`;
+  const methodU = String(method).toUpperCase();
+  const pathL = path.startsWith("/") ? path : "/" + path;                 // /api/v1/...
+  // Build query with encodeURIComponent so spaces become %20 (NOT +), matching the raw wire form that's signed.
+  const qs = Object.entries(params || {})
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join("&");
+  const wirePath = pathL + (qs ? "?" + qs : "");                            // /api/v1/dex/...
+  const requestPath = "/build" + wirePath;                                  // MUST include /build
   const ts = new Date().toISOString();
-  const qs = new URLSearchParams(params).toString();
-  const toSign = `${method}\n${fullPath}\n${qs}\n${ts}\n${secret}`;
-  const sign = createHmac("sha256", secret).update(toSign).digest("base64");
-  const url = `${base}/${path}${qs ? "?" + qs : ""}`;
+  const reqBody = body == null || body === "" ? ""
+    : (typeof body === "string" ? body : JSON.stringify(body));
+  const preHash = ts + methodU + requestPath + reqBody;
+  const sign = createHmac("sha256", secret).update(preHash, "utf8").digest("base64");
+  const url = "https://web3.binance.com/build" + wirePath;
+  const headers = {
+    "X-OC-APIKEY": key, "X-OC-TIMESTAMP": ts, "X-OC-SIGN": sign,
+    "X-OC-RECV-WINDOW": "15000", Accept: "application/json",
+  };
+  if (reqBody) headers["Content-Type"] = "application/json";
   const res = await fetch(url, {
-    method,
-    headers: {
-      "X-OC-APIKEY": key, "X-OC-TIMESTAMP": ts, "X-OC-SIGN": sign,
-      "X-OC-RECV-WINDOW": "15000", Accept: "application/json",
-    },
-    timeout: 12_000,
+    method: methodU,
+    headers,
+    body: methodU === "GET" || methodU === "HEAD" ? undefined : (reqBody || undefined),
+    signal: AbortSignal.timeout(15_000),
   });
   return res.json().catch(() => ({ code: -1, msg: "non-JSON response" }));
 }
@@ -157,4 +171,77 @@ export async function bnbKyberQuote({ tokenIn, tokenOut, amountIn }) {
   const d = await cachedFetch(url, { ttlMs: 15_000, retries: 1 });
   if (d?.code !== 0) throw new Error(d?.message || "Kyber route failed");
   return d;
+}
+
+// ===========================================================================
+// REAL sanctioned surface — RWA Data API (the sponsor's own on-chain-vs-ref).
+// `GET /api/v1/dex/market/rwa/tokens` returns real BSC tokenized-equity tokens
+// each carrying tokenPrice (on-chain) + referencePrice (underlying) + market
+// status/next-open. This is the load-bearing data rail for the weekend gap.
+// ===========================================================================
+
+// Fetch all RWA tokens for a platform on BSC (paginated, honest when key absent).
+export async function bnbRealTokens({ platform = "bstock", chain = "56" } = {}) {
+  if (!bnbWeb3Configured()) return [];
+  const all = [];
+  for (let page = 1; page <= 12; page++) {
+    const r = await bnbWeb3Call("/api/v1/dex/market/rwa/tokens", {
+      params: { binanceChainId: chain, platformId: platform, pageSize: "100", page: String(page) },
+    });
+    const batch = Array.isArray(r.data) ? r.data
+      : (r.data && (r.data.list || r.data.tokens)) || [];
+    if (!Array.isArray(batch) || !batch.length) break;
+    all.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return all;
+}
+
+// Turn RWA token rows into the gap surface (on-chain vs frozen reference).
+// Uses the token's OWN market status when present (openState/nextOpenTime).
+// Dedups by contract and CLASSIFIES plausibility: a real weekend gap is bps to
+// a few %; an on-chain price deviating >10% from reference is almost always a
+// wrapper/denomination data artifact (e.g. Ondo ×10), never a tradable gap.
+const GAP_PLAUSIBLE_PCT = 10;
+export function bnbEquityGaps(tokens) {
+  const seen = new Set();
+  const gaps = [];
+  const flagged = [];
+  for (const t of tokens) {
+    const mint = t.tokenContractAddress;
+    if (!mint || seen.has(mint)) continue; // dedup by contract
+    seen.add(mint);
+    const on = Number(t.tokenPrice);
+    const ref = Number(t.referencePrice);
+    if (!on || !ref) {
+      gaps.push({ symbol: t.tokenSymbol, name: t.tokenName, mint, platform: t.platformId,
+        error: "missing on-chain or reference price", priceUsd: on || null });
+      continue;
+    }
+    const gapPct = ((on - ref) / ref) * 100;
+    const st = t.statusInfo || {};
+    const row = {
+      symbol: t.tokenSymbol, name: t.tokenName, mint, platform: t.platformId,
+      underlying: t.underlyingTicker, onChainPriceUsd: on, referencePriceUsd: ref,
+      decimals: t.decimals, gapPct, volumeUsd24h: Number(t.volume24H) || 0, marketCap: Number(t.marketCap) || 0,
+      marketOpen: st.openState ?? null, nextOpenTime: st.nextOpenTime ?? null,
+      reasonCode: st.reasonCode ?? null,
+    };
+    if (Math.abs(gapPct) > GAP_PLAUSIBLE_PCT) {
+      row.outlier = true;
+      row.note = `on-chain price deviates ${gapPct.toFixed(0)}% from reference — implausible as a tradable gap (likely wrapper/denomination artifact); not reported as real.`;
+      flagged.push(row);
+    } else {
+      gaps.push(row);
+    }
+  }
+  return { gaps, flagged };
+}
+
+// Aggregator quote on BSC via the sanctioned Trading API (SWAP mode). Read-only.
+export async function bnbAggQuote({ tokenIn, tokenOut, amount }) {
+  // Verified param shape (probe-proven): binanceChainId/fromTokenAddress/toTokenAddress/amount.
+  return bnbWeb3Call("/api/v1/dex/aggregator/quote", {
+    params: { binanceChainId: "56", fromTokenAddress: tokenIn, toTokenAddress: tokenOut, amount: String(amount) },
+  });
 }
