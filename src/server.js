@@ -27,6 +27,7 @@ import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOC
 import { bnbExecuteSwap, bnbExecAddress } from "./services/bnb-exec.js";
 import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
 import * as bnbAgent from "./services/bnb-agent.js";
+import * as bitgetArb from "./services/bitget-arb.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -524,12 +525,28 @@ app.get("/api/bnb/agent/actions", wrap(async (_req, res) => {
   const a = bnbAgent.listBnbActions();
   res.json({ count: a.length, actions: a });
 }));
+// ---- AfterHours · Bitget Arbitrage leg (Bitget S2 · Alpha Factory · Arbitrage) ----
+app.get("/api/bitget/status", wrap(async (_req, res) => res.json({
+  source: "Bitget UTA v3 rToken (R<SYM>USDT) · reference via US data", universe: "US stocks",
+  keyNote: "Bitget rToken trades 7×24; during NYSE closure the native reference is frozen so rToken-vs-reference divergence = the arbitrage signal.",
+})));
+app.get("/api/bitget/arbitrage", wrap(async (_req, res) => res.json(await bitgetArb.bitgetArbUniverse())));
+app.get("/api/bitget/decisions", wrap(async (_req, res) => {
+  const d = bitgetArb.listBitgetDecisions();
+  res.json({ count: d.length, decisions: d });
+}));
+app.post("/api/bitget/paper-act", wrap(async (req, res) => {
+  const amount = Number(req.body?.amountUsd) || 100;
+  const uni = await bitgetArb.bitgetArbUniverse();
+  res.json(bitgetArb.bitgetPaperAction({ gaps: uni.gaps, amountUsd: amount }));
+}));
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
 app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 app.get("/prestocks", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "prestocks.html")));
 app.get("/bnb", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bnb.html")));
+app.get("/bitget", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bitget.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
