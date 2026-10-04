@@ -16,6 +16,7 @@
   },
   "main": "src/index.js",
   "dependencies": {
+    "@altananetwork/x402-server": "^0.2.0",
     "@coral-xyz/anchor": "^0.32.1",
     "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.12",
     "@noble/ed25519": "^3.2.0",

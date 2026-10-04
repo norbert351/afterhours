@@ -28,7 +28,7 @@
 
 ## Honest gaps (built-but-partial / not yet done)
 - **Thin tokenized-equity liquidity**: only liquid bStocks route on the SWAP leg (IBMB ✓; CBRSB 40374 at $0.15). For illiquid tickers, RFQ mode (`dex/aggregator/order/submit`) is the path — not yet wired.
-- **Best Use of BNB Agent Studio ($2K)**: MCP server exists; Agent Studio identity (ERC-8004) + x402 self-funding + autonomous runtime registration **not yet wired**.
+- **BNB Agent Studio special — x402 SELF-FUNDING: WIRED ✅.** `POST /api/bnb/agent/gap` is an x402 merchant (v2 challenge verified: `eip155:56`, $U `0xcE24…6666`, payTo exec wallet `0xa5de…a94F`, 0.01 $U). Buyers pay $U → agent wallet → self-funds loop. **Remaining for that special:** (a) a live $U settlement test (needs a $U-funded buyer on mainnet), (b) **ERC-8004 on-chain identity mint** (needs ~0.01 BNB mainnet gas in the exec wallet — currently 0.000565), (c) ERC-8183 hire interface optional.
 - **Best Use of Agentic Wallet ($2K)**: Binance Web3 Wallet AI-execution integration **not yet wired**.
 
 ## Repro (for judges)

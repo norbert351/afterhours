@@ -25,6 +25,7 @@ import { parseStrategyInstruction } from "./services/strategy-parse.js";
 import * as bnb from "./services/bnb.js";
 import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
 import { bnbExecuteSwap, bnbExecAddress } from "./services/bnb-exec.js";
+import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -463,6 +464,33 @@ app.post("/api/bnb/exec", wrap(async (req, res) => {
     return res.status(400).json({ error: "amountUsd must be 0.05–0.50 for the test harness" });
   }
   res.json(await bnbExecuteSwap({ symbol: symbolU, amountUsd: amount }));
+}));
+// ---- BNB Agent Studio: x402 self-funding merchant for the agent intelligence ----
+// GET /api/bnb/agent/info — public read-only: how to pay the agent ($U → exec wallet).
+app.get("/api/bnb/agent/info", wrap(async (_req, res) => res.json({
+  agent: "AfterHours BNB weekend-gap agent",
+  chain: "BNB Smart Chain (BSC)", chainId: 56,
+  payTo: merchantPayTo(), price: merchantPriceUsd(),
+  resource: "https://afterhourequity.xyz/api/bnb/agent/gap",
+  settlement: "x402 · EIP-3009 · $U (eip3009 rail) — proceeds self-fund the agent",
+  spec: ["ERC-8004 agent identity", "x402 self-funding", "autonomous runtime"],
+})));
+// GET /api/bnb/agent/gap — real gap report, gated behind an x402 payment.
+app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
+  const header = req.get("x-payment") || req.get("payment-signature");
+  const p = await requireBnbGapPayment(header);
+  if (p.status === 402) {
+    res.status(402).set("Content-Type", "application/json").send(JSON.stringify(p.body || p));
+    return;
+  }
+  // Payment settled on-chain — serve the real gap report.
+  const uni = await bnb.bnbUniverse();
+  res.json({
+    agent: "AfterHours BNB", paid: true, receipt: p.receiptTx || (p.receipt && p.receipt.txHash) || null,
+    market: uni.market, configured: uni.configured, tokenCount: uni.tokenCount,
+    topGaps: (uni.bstockTop || []).slice(0, 10),
+    gapNote: uni.gapNote,
+  });
 }));
 
 // Static frontend. Homepage = marketing landing; live product = /app.
