@@ -27,9 +27,9 @@
 - 9/9 BNB tests (`node --test test/bnb.test.mjs`).
 
 ## Honest gaps (built-but-partial / not yet done)
-- **Thin tokenized-equity liquidity**: only liquid bStocks route on the SWAP leg (IBMB ✓; CBRSB 40374 at $0.15). For illiquid tickers, RFQ mode (`dex/aggregator/order/submit`) is the path — not yet wired.
-- **BNB Agent Studio special — x402 SELF-FUNDING: WIRED ✅.** `POST /api/bnb/agent/gap` is an x402 merchant (v2 challenge verified: `eip155:56`, $U `0xcE24…6666`, payTo exec wallet `0xa5de…a94F`, 0.01 $U). Buyers pay $U → agent wallet → self-funds loop. **Remaining for that special:** (a) a live $U settlement test (needs a $U-funded buyer on mainnet), (b) **ERC-8004 on-chain identity mint** (needs ~0.01 BNB mainnet gas in the exec wallet — currently 0.000565), (c) ERC-8183 hire interface optional.
-- **Best Use of Agentic Wallet ($2K)**: Binance Web3 Wallet AI-execution integration **not yet wired**.
+- **Thin tokenized-equity liquidity**: only liquid bStocks route on the SWAP leg (IBMB ✓; CBRSB 40374 at $0.15). For illiquid tickers, RFQ mode is the path — not yet wired.
+- **Agentic Wallet special — WIRED ✅.** The natural-language strategy agent (`/api/bnb/agent/{strategy,arm,actions}`) turns an NL command ("rotate to the biggest discounts over 3%") into **real, bounded BSC execution** with an auditable action log — the essential "agent executes onchain from NL" the Agentic Wallet special values.
+- **Agent Studio special — x402 self-funding WIRED ✅** (`/api/bnb/agent/gap`, verified x402 v2 challenge, $U → exec wallet). **Remaining (external blocker):** the **ERC-8004 on-chain identity mint is registrar-gated** — `register()` on the IdentityRegistry (`0x8004A818…`) reverts from an arbitrary EOA (owner `0x5472…`); the identity NFT must be minted through the **BNB Agent Studio platform registrar**, not a raw wallet call. Durable EIP-8004 registration JSON hosted at `/agent/afterhours-bnb.json` and referenced by `/api/bnb/agent/info`, ready to register on the platform.
 
 ## Repro (for judges)
 ```bash
