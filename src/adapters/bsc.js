@@ -152,7 +152,18 @@ export async function bnbWeb3Call(path, { params = {}, method = "GET", body } = 
     body: methodU === "GET" || methodU === "HEAD" ? undefined : (reqBody || undefined),
     signal: AbortSignal.timeout(15_000),
   });
-  return res.json().catch(() => ({ code: -1, msg: "non-JSON response" }));
+  const json = await res.json().catch(() => null);
+  // Retry transient Web3 API rate-limits (42900) with backoff — the RWA Data
+  // API throttles ~5 RPS/endpoint; our page loops trip it under load.
+  if (json && (json.code === 42900 || res.status === 429)) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await new Promise((r) => setTimeout(r, 700 * attempt));
+      const r2 = await fetch(url, { method: methodU, headers, body: reqBody ? reqBody : undefined, signal: AbortSignal.timeout(15_000) });
+      const j2 = await r2.json().catch(() => null);
+      if (j2 && j2.code !== 42900 && r2.status !== 429) return j2 || { code: -1, msg: "empty response" };
+    }
+  }
+  return json || { code: -1, msg: "non-JSON response" };
 }
 
 // Sanctioned RWA price surface (on-chain + underlying reference in one call).
@@ -200,6 +211,7 @@ export async function bnbRealTokens({ platform = "bstock", chain = "56" } = {}) 
     if (!Array.isArray(batch) || !batch.length) break;
     all.push(...batch);
     if (batch.length < 100) break;
+    await new Promise((r) => setTimeout(r, 260)); // pace pages under ~5 RPS throttle
   }
   return all;
 }

@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { bnbGap, bnbEquityGaps } from "../src/adapters/bsc.js";
+import { parseBnbStrategy, bnbAgentDecide } from "../src/services/bnb-agent.js";
 
 test("real price + reference -> a computed gap with correct sign/direction", async () => {
   const prices = { AAPLx: { symbol: "AAPLx", priceUsd: 210, mint: "0x…" } };
@@ -88,4 +89,37 @@ test("bnbEquityGaps: missing/zero price is an honest error row, never a fake gap
   assert.equal(gaps.length, 1);
   assert.ok(gaps[0].error.length > 0);
   assert.equal(gaps[0].gapPct, undefined);
+});
+
+// ---- BNB agentic layer (NL strategy → decide) ----
+test("parseBnbStrategy: plain-English instruction → load-bearing params", () => {
+  const p = parseBnbStrategy("buy the biggest discounts over 3% on tokenized stocks");
+  assert.equal(p.strategyType, "bnb_rotate_gap");
+  assert.equal(p.params.direction, "discount");
+  assert.equal(p.params.minGapPct, 3);
+  assert.equal(p.params.topN, 6);
+  assert.match(p.parsed.summary, /discounts/);
+});
+
+test("parseBnbStrategy: premium + explicit threshold + top N", () => {
+  const p = parseBnbStrategy("rotate to premiums above 5%, top 3");
+  assert.equal(p.params.direction, "premium");
+  assert.equal(p.params.minGapPct, 5);
+  assert.equal(p.params.topN, 3);
+});
+
+test("bnbAgentDecide: only picks the side/threshold the strategy asks for", () => {
+  const gaps = [
+    { symbol: "A", gapPct: -4.2, error: false },
+    { symbol: "B", gapPct: +2.1, error: false },
+    { symbol: "C", gapPct: -6.0, error: false },
+  ];
+  const d = bnbAgentDecide(gaps, { direction: "discount", minGapPct: 3, topN: 2 });
+  assert.deepEqual(d.map((g) => g.symbol).sort(), ["A", "C"]); // both ≤ -3%, B excluded (+), sorted by |gap| C first
+  assert.equal(d[0].symbol, "C");
+});
+
+test("bnbAgentDecide: no target meeting the rule → empty, agent does not act", () => {
+  const d = bnbAgentDecide([{ symbol: "A", gapPct: -1.1, error: false }], { direction: "discount", minGapPct: 5 });
+  assert.equal(d.length, 0);
 });

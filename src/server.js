@@ -26,6 +26,7 @@ import * as bnb from "./services/bnb.js";
 import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
 import { bnbExecuteSwap, bnbExecAddress } from "./services/bnb-exec.js";
 import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
+import * as bnbAgent from "./services/bnb-agent.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -491,6 +492,37 @@ app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
     topGaps: (uni.bstockTop || []).slice(0, 10),
     gapNote: uni.gapNote,
   });
+}));
+// ---- BNB Agentic layer: natural-language strategy → real execution ----
+// POST /api/bnb/agent/strategy — parse an NL instruction + DRY-RUN against live gaps (no money).
+app.post("/api/bnb/agent/strategy", wrap(async (req, res) => {
+  const instruction = String(req.body?.instruction || "").trim();
+  if (!instruction) return res.status(400).json({ error: "instruction required" });
+  const parsed = bnbAgent.parseBnbStrategy(instruction);
+  const uni = await bnb.bnbUniverse();
+  const targets = bnbAgent.bnbAgentDecide(uni.gaps, parsed.params);
+  res.json({
+    strategyType: parsed.strategyType, parsed: parsed.parsed, params: parsed.params,
+    dryRun: { count: targets.length, targets: targets.slice(0, 8).map((g) => ({ symbol: g.symbol, name: g.name, gapPct: g.gapPct, onChain: g.onChainPriceUsd })) },
+  });
+}));
+// POST /api/bnb/agent/arm — the agent EXECUTES the top target of an NL strategy now (bounded, auditable).
+app.post("/api/bnb/agent/arm", wrap(async (req, res) => {
+  const instruction = String(req.body?.instruction || "").trim();
+  const amount = Number(req.body?.amountUsd) || 0.2;
+  if (!instruction) return res.status(400).json({ error: "instruction required" });
+  if (!Number.isFinite(amount) || amount < 0.05 || amount > 0.5) {
+    return res.status(400).json({ error: "amountUsd must be 0.05–0.50" });
+  }
+  const parsed = bnbAgent.parseBnbStrategy(instruction);
+  const uni = await bnb.bnbUniverse();
+  const acted = await bnbAgent.bnbAgentAct({ params: parsed.params, gaps: uni.gaps, amountUsd: amount });
+  res.json({ instruction, parsed: parsed.parsed, ...acted });
+}));
+// GET /api/bnb/agent/actions — the auditable agent decision/execution log.
+app.get("/api/bnb/agent/actions", wrap((_req, res) => {
+  const a = bnbAgent.listBnbActions();
+  res.json({ count: a.length, actions: a });
 }));
 
 // Static frontend. Homepage = marketing landing; live product = /app.
