@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · BNB (BSC)</title>
 <link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/ah-switch.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -55,7 +56,13 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
         <button class="cs-btn" data-chain="sol">● Solana</button>
         <button class="cs-btn" data-chain="bnb">● BSC</button>
       </div>
-      <a href="/">Home</a><a href="/app">App (Solana)</a><a href="/bnb" style="color:#fff">BNB</a><a href="/docs">Docs</a>
+      <div class="ah-switch">
+        <span class="lbl">Products</span>
+        <a href="/app" class="ah-pill sol"><span class="dot"></span>Solana<small>· on-chain desk</small></a>
+        <a href="/bnb" class="ah-pill bnb active"><span class="dot"></span>BNB<small>· bStocks/Ondo gap</small></a>
+        <a href="/bitget" class="ah-pill bga"><span class="dot"></span>Bitget<small>· rToken arb</small></a>
+      </div>
+      <a href="/docs">Docs</a>
     </span>
   </header>
 

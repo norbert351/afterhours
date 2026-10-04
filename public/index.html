@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · on-chain equity intelligence</title>
 <link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/ah-switch.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -104,6 +105,13 @@
       <button id="btnWallet" class="nav-connect">Connect wallet</button>
     </div>
   </header>
+
+  <div class="ah-switch" style="margin:10px 0 2px">
+    <span class="lbl">Products</span>
+    <a href="/app" class="ah-pill sol active"><span class="dot"></span>Solana<small>· on-chain desk</small></a>
+    <a href="/bnb" class="ah-pill bnb"><span class="dot"></span>BNB<small>· bStocks/Ondo gap</small></a>
+    <a href="/bitget" class="ah-pill bga"><span class="dot"></span>Bitget<small>· rToken arb</small></a>
+  </div>
 
   <div id="watchStrip" class="watchstrip" hidden></div>
 

@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AfterHours · Bitget Arbitrage</title>
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/ah-switch.css">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{--bg:#0b0e14;--card:#12161f;--line:#1e2633;--txt:#e6ecf5;--mut:#8b96a8;--grn:#69f0ae;--red:#ff5d5d;--acc:#5aa9ff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 system-ui} 
@@ -15,7 +18,17 @@ button{background:var(--acc);border:0;color:#0b0e14;font-weight:700;border-radiu
 .row{display:flex;justify-content:space-between;align-items:center}
 .badge{font-size:12px;color:var(--grn);background:rgba(105,240,174,.08);border:1px solid rgba(105,240,174,.3);padding:3px 9px;border-radius:20px}
 </style></head><body><div class="wrap">
-<nav><a href="/">AfterHours</a><a href="/bnb">BNB</a><a href="/app">App (Solana)</a><a href="/docs">Docs</a></nav>
+<nav class="wrap" style="display:flex;align-items:center;gap:16px;margin:0 auto;max-width:880px;padding:14px 8px">
+  <div style="display:flex;align-items:center;gap:10px"><img src="/logo.png" width="26" height="26" style="border-radius:7px"><b style="font-size:15px">AfterHours</b></div>
+  <div style="flex:1"></div>
+  <div class="ah-switch" style="margin-left:auto">
+    <span class="lbl">Products</span>
+    <a href="/app" class="ah-pill sol"><span class="dot"></span>Solana<small>· on-chain desk</small></a>
+    <a href="/bnb" class="ah-pill bnb"><span class="dot"></span>BNB<small>· bStocks/Ondo gap</small></a>
+    <a href="/bitget" class="ah-pill bga active"><span class="dot"></span>Bitget<small>· rToken arb</small></a>
+  </div>
+  <a href="/docs" style="font-size:12px;color:var(--mut)">Docs</a>
+</nav>
 <h1>AfterHours · <small>Bitget S2 — Alpha Factory · Arbitrage</small></h1>
 <div class="card row" id="status"><div class="mut">Loading Bitget rToken vs US reference…</div><span class="badge">bitget UTA v3</span></div>
 <div class="card">
