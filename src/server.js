@@ -24,6 +24,7 @@ import { xstockOfficialData } from "./adapters/jupiter-price.js";
 import { parseStrategyInstruction } from "./services/strategy-parse.js";
 import * as bnb from "./services/bnb.js";
 import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
+import { bnbExecuteSwap, bnbExecAddress } from "./services/bnb-exec.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -446,6 +447,22 @@ app.get("/api/bnb/equity-quote", wrap(async (req, res) => {
   if (!tok) return res.status(404).json({ error: `no "${symbol}" in the BSC RWA universe`, platforms: uni.platformCount });
   const quote = await bnb.bnbEquityQuote({ tokenIn: USDT_BSC, tokenOut: tok.tokenContractAddress, amountAtoms: Math.round(amountUsd * 1e6) });
   res.json({ symbol: tok.tokenSymbol, name: tok.tokenName, mint: tok.tokenContractAddress, amountUsd, quote });
+}));
+// BNB execution wallet (read-only address) + a bounded live-fill test harness.
+// Real money moves a few-dollars at most; bound keeps a runaway demo from draining.
+app.get("/api/bnb/exec/address", wrap(async (_req, res) => res.json({ address: bnbExecAddress(), chain: "BNB Smart Chain (BSC)" })));
+app.post("/api/bnb/exec", wrap(async (req, res) => {
+  if (!bnbWeb3Configured() || !process.env.AH_BNB_EXEC_PRIVATE_KEY) {
+    return res.status(501).json({ error: "execution not configured (Web3 key or AH_BNB_EXEC_PRIVATE_KEY required)" });
+  }
+  const { symbol, amountUsd } = req.body || {};
+  const symbolU = String(symbol || "").toUpperCase();
+  const amount = Number(amountUsd);
+  if (!symbolU) return res.status(400).json({ error: "symbol required" });
+  if (!Number.isFinite(amount) || amount < 0.05 || amount > 0.5) {
+    return res.status(400).json({ error: "amountUsd must be 0.05–0.50 for the test harness" });
+  }
+  res.json(await bnbExecuteSwap({ symbol: symbolU, amountUsd: amount }));
 }));
 
 // Static frontend. Homepage = marketing landing; live product = /app.

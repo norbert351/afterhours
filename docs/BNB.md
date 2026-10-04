@@ -22,12 +22,12 @@
 ## What is REAL today (verified this session)
 - Binance Web3 API auth works (`code:0` on `dex/aggregator/supported/chain`).
 - Live RWA gap surface: `GET /api/bnb/universe` returns **real** on-chain vs reference per BSC equity (bStocks + Ondo), dedup'd + plausibility-filtered, sorted by |gap|. While the US market is shut, on-chain drifts off the frozen reference (e.g. IBMB +0.5% on a Sunday).
+- **LIVE spot execution (a few-dollars)**: `POST /api/bnb/exec` (bounded 0.05–0.50 USD) approves USDT → broadcasts the swap tx via the sanctioned Web3 API (PancakeSwap V3). **Real on-chain fill verified:** `0.15 USDT → 0.000659939 IBMB`, swap tx `0x2c683c4715766aea6904dc07734153f014e8e72ce682e51c9d3403020b411b74` (receipt `success`, 14 logs), spent on fresh exec wallet `0xa5de403F977f68c46716fA787205d8E074F8a94F`.
 - Public dashboards (`/bnb`), read-only quotes public, keyless Kyber swap quote works.
 - 9/9 BNB tests (`node --test test/bnb.test.mjs`).
 
-## Honest gaps (built but not live-verified / not yet done)
-- **Real spot execution (few-dollar)**: `dex/aggregator/quote` param shape nailed (`binanceChainId/fromTokenAddress/toTokenAddress/amount`) but thin tokenized-equity liquidity returns `40374` at $25 — the brief's own pain point. Need either a smaller dry-run on a liquid pair or a funded BSC wallet + RFQ mode to broadcast one real fill. **Gate: user-funded BSC wallet (~$5 BNB + test USD) + signed broadcast via `pre-transaction/broadcast-transaction`.**
-- **Transaction API simulate → broadcast**: endpoint paths mapped (`pre-transaction/simulate`, `broadcast-transaction`) but not yet exercised live (needs the wallet above).
+## Honest gaps (built-but-partial / not yet done)
+- **Thin tokenized-equity liquidity**: only liquid bStocks route on the SWAP leg (IBMB ✓; CBRSB 40374 at $0.15). For illiquid tickers, RFQ mode (`dex/aggregator/order/submit`) is the path — not yet wired.
 - **Best Use of BNB Agent Studio ($2K)**: MCP server exists; Agent Studio identity (ERC-8004) + x402 self-funding + autonomous runtime registration **not yet wired**.
 - **Best Use of Agentic Wallet ($2K)**: Binance Web3 Wallet AI-execution integration **not yet wired**.
 
