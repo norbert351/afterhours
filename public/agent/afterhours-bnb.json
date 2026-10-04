@@ -1,0 +1,21 @@
+{
+  "name": "AfterHours BNB — Weekend-Gap Trading Agent",
+  "description": "Autonomous BNB tokenized-equities agent. Reads real on-chain-vs-reference gaps (Binance RWA Data API), rotates into discounted/premium bStocks & Ondo per a natural-language strategy, executes bounded spot fills on BSC mainnet with a real exec wallet, and self-funds via x402 ($U) — proceeds pay its own gas/compute.",
+  "image": "https://afterhourequity.xyz/agent/afterhours-bnb.png",
+  "serviceEndpoint": "https://afterhourequity.xyz/api/bnb/agent/info",
+  "capabilities": [
+    "weekend_gap_monitor",
+    "nl_strategy_execution",
+    "bsc_twap_spot_fill",
+    "x402_self_funding"
+  ],
+  "endpoints": {
+    "info": "https://afterhourequity.xyz/api/bnb/agent/info",
+    "gapReport": "https://afterhourequity.xyz/api/bnb/agent/gap",
+    "strategy": "https://afterhourequity.xyz/api/bnb/agent/strategy",
+    "gapUniverse": "https://afterhourequity.xyz/api/bnb/universe"
+  },
+  "settlement": "x402 · EIP-3009 · $U (United Stables) on BNB Smart Chain (eip155:56)",
+  "chain": "eip155:56",
+  "executionWallet": "0xa5de403F977f68c46716fA787205d8E074F8a94F"
+}
