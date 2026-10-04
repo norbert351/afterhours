@@ -358,15 +358,15 @@ function fmtAddr(h){ return (h||'').length>14 ? h.slice(0,4)+'…'+h.slice(-4) :
 async function checkAuth() {
   try {
     const r = await fetch("/api/auth/me", { credentials: "same-origin" });
-    const b = $("#btnWallet");
+    const b = $("#btnWallet"), label = $("#walletLabel");
     if (r.ok) {
       me = await r.json();
-      b.textContent = "@" + fmtAddr(me.handle);
+      if (label) label.textContent = "@" + fmtAddr(me.handle);
       b.classList.add("signed");
       b.onclick = signOutConfirm;
     } else {
       me = null;
-      b.textContent = "Connect wallet";
+      if (label) label.textContent = "Connect wallet";
       b.classList.remove("signed");
       b.onclick = openAuth;
     }
