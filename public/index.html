@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>AfterHours · on-chain equity intelligence</title>
 <link rel="icon" href="/favicon.png">
-<link rel="stylesheet" href="/ah-theme.css">
+<link rel="stylesheet" href="/ah-ui.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -99,25 +99,14 @@
 </style>
 </head>
 <body>
+<div id="ahnav"></div>
 <div class="wrap">
-  <header>
-    <div class="brand">
-      <img src="/logo.png" class="logo" alt="AfterHours">
-      <div>
-        <h1>AfterHours</h1>
-        <div class="sub">On-chain equity intelligence · verified live data</div>
-      </div>
-    </div>
-    <nav class="prod-pills" aria-label="Products">
-      <a href="/app" class="pill active">Solana</a>
-      <a href="/bnb" class="pill">BNB</a>
-      <a href="/bitget" class="pill">Bitget</a>
-    </nav>
-    <div class="head-right">
-      <span id="mktBadge" class="badge">…</span>
-      <button id="btnWallet" class="nav-connect"><span class="wdot"></span><span id="walletLabel">Connect wallet</span></button>
-    </div>
-  </header>
+  <!-- market status (app.js updates #mktBadge); #btnWallet hidden but bound -->
+    <div class="ah-status" style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+    <span id="mktBadge" class="badge">…</span>
+    <span class="ah-chips" id="statusChips"></span>
+  </div>
+  <button id="btnWallet" style="display:none"><span id="walletLabel">Connect wallet</span></button>
 
   <div id="watchStrip" class="watchstrip" hidden></div>
 
@@ -268,5 +257,7 @@
 <script type="module" src="/app.js"></script>
 <script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
 <script src="/privy-auth.js" defer></script>
+<script>window.AH = { route: "app", chain: "sol", action: "wallet", showChain: true, onConnect: function () { var b = document.getElementById("btnWallet"); if (b) b.click(); else location.href = "/app"; } };</script>
+<script src="/ah-shell.js"></script>
 </body>
 </html>

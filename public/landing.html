@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>AfterHours · Unleash tokenized equities' full potential</title>
 <link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/ah-ui.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -157,17 +158,15 @@ footer h3{font-family:var(--display);font-weight:700;font-size:1.7rem;color:#fff
 .card{background:#fff;border:1px solid #e8e8ee;border-radius:16px;padding:22px;box-shadow:0 10px 30px -18px rgba(85,70,255,.25)}
 pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px;padding:14px;font-family:ui-monospace,'SFMono-Regular',Menlo,monospace;font-size:.8rem;overflow-x:auto;margin-top:8px;white-space:pre-wrap;word-break:break-all;overflow-wrap:anywhere;min-width:0}
 </style>
+<style>
+.hero h1{font-size:clamp(1.9rem,7vw,3rem);overflow-wrap:anywhere;line-height:1.05}
+.hero p.hero-sub{max-width:34em}
+@media(max-width:720px){.hero .orb,.hero .glowwrap{display:none}.hero .wrap{padding:0 6px}}
+</style>
 </head>
 <body>
-<nav class="wrap">
-  <div class="brand"><img src="/logo.png" alt="AfterHours">AfterHours</div>
-  <div class="nav-links" id="navLinks">
-    <a href="#stats">How it works</a><a href="#features">Features</a><a href="#dev">Build</a><a href="/docs">Docs</a><a href="#community">Community</a>
-  </div>
-  <button class="btn btn-wallet nav-wallet-hide" id="navWallet" onclick="connectWallet()">Connect wallet</button>
-  <button class="btn btn-purple" onclick="location.href='/app'">Open app</button>
-  <button id="burger" onclick="document.getElementById('navLinks').classList.toggle('open')">≡</button>
-</nav>
+<!-- shared navbar is injected by /ah-shell.js; navWallet kept (hidden) for auth binding -->
+<button id="navWallet" style="display:none" onclick="connectWallet()">Connect wallet</button>
 
 <!-- HERO -->
 <header class="hero">
@@ -403,5 +402,7 @@ refreshAuth();setInterval(refreshAuth,60000);
 </script>
 <script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
 <script src="/privy-auth.js" defer></script>
+<script>window.AH = { route: "home", action: "openapp", showChain: false, onConnect: function () { if (typeof connectWallet === "function") connectWallet(); else location.href = "/app"; } };</script>
+<script src="/ah-shell.js"></script>
 </body>
 </html>

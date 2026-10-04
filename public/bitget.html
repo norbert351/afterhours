@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AfterHours · Bitget Arbitrage</title>
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/ah-theme.css">
+<link rel="stylesheet" href="/ah-ui.css">
 <style>
-/* only Bitget-page specifics; the design system (nav/cards/tables/buttons) is in ah-theme.css */
-.hero{padding:38px 26px}
+/* only Bitget-page specifics; the design system is in ah-ui.css */
+.hero{padding:34px 26px}
 .hero p.lead{font-size:1rem}
 .badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
 .arb-card{border:1px solid rgba(85,70,255,.4);border-radius:16px;padding:20px;background:linear-gradient(180deg,rgba(85,70,255,.12),rgba(85,70,255,.02));position:relative;overflow:hidden}
@@ -29,11 +29,11 @@ table{font-size:13px;min-width:520px}
 <div id="ahnav"></div>
 <div class="wrap">
   <header class="hero reveal in">
-    <span class="kicker"><span class="dot"></span>Bitget AI S2 · Alpha Factory · Arbitrage</span>
-    <h1>While the NYSE sleeps, rTokens keep printing.</h1>
-    <p class="lead">Bitget tokenized US stocks (<span class="mut" style="font-family:var(--mono)">R&lt;SYM&gt;USDT</span>) trade 7×24; their reference freezes at Friday's bell. AfterHours surfaces the live divergence — the arbitrage signal.</p>
+    <span class="ah-eyebrow"><span class="dot"></span>Bitget AI S2 · Arbitrage</span>
+    <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px;overflow-wrap:anywhere">While the NYSE sleeps, rTokens keep printing.</h1>
+    <p class="ah-lead">Bitget's tokenized US stocks (like <span class="mono" style="color:var(--text)">RMSTRUSDT</span>) trade round the clock — even when their market is closed. See the live gap between the token price and its frozen reference.</p>
     <div class="badge-row">
-      <span class="chip">LIVE rToken data</span><span class="chip">Bitget UTA v3</span><span class="chip">honest · no fabrication</span>
+      <span class="chip">LIVE data</span><span class="chip">7×24</span><span class="chip">verified live</span>
     </div>
     <div class="arb-card" id="topcard" style="margin-top:26px">
       <div class="k">Top arbitrage signal now</div>
@@ -48,7 +48,11 @@ table{font-size:13px;min-width:520px}
       <div class="row" style="padding:14px 18px;border-bottom:1px solid var(--line)"><b style="font-size:.95rem">rToken vs native reference</b><span class="mut" id="meta" style="font-size:12px">…</span></div>
       <div style="overflow-x:auto"><table><thead><tr>
         <th>Symbol</th><th>rToken</th><th class="hide-sm">rToken $</th><th class="hide-sm">Ref $</th><th>Gap</th><th>Direction</th>
-      </tr></thead><tbody id="body"></tbody></table></div>
+      </tr></thead><tbody id="body"><tr><td colspan="6" style="padding:10px 16px">
+        <div class="ah-skel" style="height:16px;margin:7px 0"></div>
+        <div class="ah-skel" style="height:16px;margin:7px 0"></div>
+        <div class="ah-skel" style="height:16px;margin:7px 0"></div>
+      </td></tr></tbody></table></div>
       <div style="padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem" id="note">…</div>
       <div style="display:flex;gap:10px;padding:0 18px 16px;flex-wrap:wrap"><button class="btn" onclick="act()">Paper-act · top |gap| ($100)</button><button class="btn ghost" onclick="location.reload()">Refresh</button></div>
     </div>
@@ -56,7 +60,8 @@ table{font-size:13px;min-width:520px}
 
   <footer class="foot">AfterHours · Bitget UTA v3 rToken + US reference · paper decisions, no real money</footer>
 </div>
-<script src="/ah-nav.js"></script>
+<script>window.AH = { route: "bitget", chain: "bga", action: "wallet", showChain: true };</script>
+<script src="/ah-shell.js"></script>
 <script>
 const $=s=>document.querySelector(s), fmt=n=>n==null?'—':'$'+Number(n).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -75,7 +80,7 @@ async function load(){try{
       <td class="hide-sm">${fmt(g.rTokenPriceUsd)}</td><td class="mut hide-sm">${fmt(g.referenceUsd)}</td>
       <td><span class="${up?'up':'down'}" style="font-weight:600">${up?'+':''}${g.gapPct.toFixed(2)}%</span><div class="gbar ${up?'':'down'}"><i style="width:${abs}%"></i></div></td>
       <td><span class="tag ${up?'hedge':'buy'}">${up?'HEDGE':'BUY'}</span></td></tr>`;}).join('')||'<tr><td colspan="6" class="mut">no gaps</td></tr>';
-}catch(e){$('#body').innerHTML=`<tr><td colspan="6" class="mut">${esc(e.message)}</td></tr>`}}
+}catch(e){$('#body').innerHTML='<tr><td colspan="6"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
 async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());alert(d.acted?`Paper: ${d.target} · ${d.side} · $${d.notionalUsd} (gap ${d.gapPct.toFixed(2)}%)`:`No tradable gap right now.`)}catch(e){alert(e.message)}}
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));

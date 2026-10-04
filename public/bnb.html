@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AfterHours · BNB (BSC)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AfterHours · BNB</title>
 <link rel="icon" href="/favicon.png">
-<link rel="stylesheet" href="/ah-theme.css">
+<link rel="stylesheet" href="/ah-ui.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -50,20 +50,19 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
 <body>
 <div id="ahnav"></div>
 <div class="wrap">
-  <div class="row" style="margin-top:18px">
-    <div>
-      <span class="kicker"><span class="dot"></span>BNB Tokenized Stocks</span>
-      <h1>AfterHours · BNB</h1>
-    </div>
-    <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network">
-      <button class="cs-btn" data-chain="sol">● Solana</button>
-      <button class="cs-btn" data-chain="bnb">● BSC</button>
-    </div>
+  <div class="ah-gutter">
+    <span class="ah-eyebrow"><span class="dot"></span>BNB Chain · Tokenized Stocks</span>
+    <h1 class="ah-h1" style="font-family:var(--display);font-size:clamp(1.7rem,6.5vw,2.4rem);margin:10px 0 6px">The same weekend-gap engine, on BNB Chain.</h1>
+    <p class="ah-lead">See where on-chain copies of US stocks diverge from their frozen reference while the market is closed — live.</p>
   </div>
 
-  <p class="muted" style="margin-top:8px">The same weekend-gap engine, on BNB Chain (the #1 tokenized-equity venue — 88% of tokenized-stock DEX volume). Real rails verified live: bStocks BEP-20 on-chain, Ondo documented BSC addresses, public BSC RPC, GeckoTerminal bsc, KyberSwap keyless quotes.</p>
-
-  <div class="elig">🟡 <b>BNB Tokenized Stocks Hackathon port</b> — the aggregated <b>Binance Web3 API</b> (market · RWA · swap · RFQ) is the sanctioned surface; <b>bStocks + Ondo</b> are central. Real per-stock price/reference unlock with the <b>free Web3 API key</b> (web3.binance.com dev-portal). The chain label <code>bnb</code> below is honest: without the key, gated values are flagged, never fabricated.</div>
+  <details class="ah-details" style="margin:14px 0">
+    <summary>Data sources &amp; status</summary>
+    <div class="bd">
+      <p>Aggregated <b>Binance Web3 API</b> (market · RWA · swap · RFQ) with <b>bStocks + Ondo</b> on-chain. Without the free Web3 API key, gated values are flagged — never fabricated.</p>
+      <div class="ah-chips" style="margin-top:12px;margin-bottom:6px" id="railChips"></div>
+    </div>
+  </details>
 
   <section>
     <h2>Rail status <span class="chip" id="statusKey"></span></h2>
@@ -170,15 +169,21 @@ async function loadRwa() {
 
 loadStatus(); loadGaps(); loadRwa();
 setInterval(loadGaps, 45_000);
+
+// populate the collapsible rail chips
+(async function () {
+  const c = document.getElementById("railChips");
+  if (!c) return;
+  c.innerHTML = '<span class="ah-chip"><span class="st"></span>BNB Chain</span>';
+  try {
+    await getJSON("/api/bnb/web3/rwa-price");
+    c.insertAdjacentHTML("beforeend", '<span class="ah-chip"><span class="st"></span>Web3 API · LIVE</span>');
+  } catch (e) {
+    c.insertAdjacentHTML("beforeend", '<span class="ah-chip down"><span class="st"></span>Web3 API · config</span>');
+  }
+})();
 </script>
-<script src="/ah-nav.js"></script>
-<script>
-(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
-function setChain(c){cs.classList.remove('sol','bnb');cs.classList.add(c==='bnb'?'bnb':'sol')}
-setChain(localStorage.getItem('ah_chain')||'bnb');
-cs.querySelectorAll('.cs-btn').forEach(function(b){b.addEventListener('click',function(){
- var c=b.getAttribute('data-chain');localStorage.setItem('ah_chain',c);setChain(c);
- if(c==='sol'&&location.pathname.startsWith('/bnb'))location.href='/app';
-});});})();</script>
+<script>window.AH = { route: "bnb", chain: "bnb", action: "wallet", showChain: true };</script>
+<script src="/ah-shell.js"></script>
 </body>
 </html>
