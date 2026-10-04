@@ -38,7 +38,7 @@ auth.migrateAuth(db);
 
 // Simple error wrapper for async handlers + honest error surfaces.
 const wrap = (fn) => (req, res) =>
-  fn(req, res).catch((e) =>
+  Promise.resolve(fn(req, res)).catch((e) =>
     res.status(e.status || 500).json({ error: e.message, code: e.code || "INTERNAL" }),
   );
 
@@ -520,7 +520,7 @@ app.post("/api/bnb/agent/arm", wrap(async (req, res) => {
   res.json({ instruction, parsed: parsed.parsed, ...acted });
 }));
 // GET /api/bnb/agent/actions — the auditable agent decision/execution log.
-app.get("/api/bnb/agent/actions", wrap((_req, res) => {
+app.get("/api/bnb/agent/actions", wrap(async (_req, res) => {
   const a = bnbAgent.listBnbActions();
   res.json({ count: a.length, actions: a });
 }));
