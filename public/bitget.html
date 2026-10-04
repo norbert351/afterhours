@@ -1,193 +1,84 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AfterHours · Bitget rToken Arbitrage</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AfterHours · Bitget Arbitrage</title>
 <link rel="icon" href="/favicon.png">
-<link rel="stylesheet" href="/ah-switch.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ah-theme.css">
 <style>
-:root{--bg:#07080d;--t2:#0b0d15;--teal:#00f2ea;--teal2:#17e0d7;--txt:#eef3fb;--mut:#8b96a8;--grn:#69f0ae;--red:#ff6b7a;--line:rgba(255,255,255,.08);--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:
-  radial-gradient(900px 400px at 15% -5%,rgba(0,242,234,.14),transparent 60%),
-  radial-gradient(900px 500px at 90% 10%,rgba(0,242,234,.07),transparent 55%),
-  linear-gradient(180deg,#07080d 0%,#07080d 100%)}
-.wrap{max-width:980px;margin:0 auto;padding:0 16px}
-
-/* Floating glassy navbar */
-.navbox{position:sticky;top:12px;z-index:50;max-width:980px;margin:12px auto 0;padding:0 16px;transition:transform .3s ease,opacity .3s ease}
-nav{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:18px;background:rgba(12,14,20,.55);border:1px solid var(--line);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 8px 30px rgba(0,0,0,.35);transition:box-shadow .3s,background .3s}
-nav.scrolled{background:rgba(10,12,18,.82);box-shadow:0 12px 40px rgba(0,0,0,.5)}
-nav.hidden{transform:translateY(-130%);opacity:0}
-.brand{display:flex;align-items:center;gap:9px;font-weight:700;color:#fff;font-size:15px;white-space:nowrap}
-.brand .amark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#9945FF,#00f2ea);display:grid;place-items:center;font-size:15px;color:#fff;font-weight:800}
-.brand small{color:var(--mut);font-weight:500;font-size:11px;display:block;line-height:1}
-.ah-switch{margin-left:auto}
-nav .docs{margin-left:2px;font-size:12px;color:var(--mut)}
-nav .docs:hover{color:#fff}
-@media(max-width:640px){.brand small{display:none}.navbox{top:8px;margin-top:8px}.brand .amark{width:24px;height:24px;font-size:13px}}
-
-/* Hero */
-.hero{padding:34px 0 10px;text-align:center}
-.hero .kicker{display:inline-flex;align-items:center;gap:7px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--teal);border:1px solid rgba(0,242,234,.35);background:rgba(0,242,234,.07);padding:4px 12px;border-radius:999px;margin-bottom:14px;font-weight:600}
-.hero h1{font-size:clamp(1.7rem,5.5vw,2.7rem);font-weight:700;letter-spacing:-.01em;line-height:1.05}
-.hero h1 span.t{color:var(--teal)}
-.hero p.sub{color:var(--mut);max-width:620px;margin:12px auto 0;font-size:.95rem}
-.hero .live-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
-.hero .live-badges span{font-size:11px;color:#b8fcf9;background:rgba(0,242,234,.08);border:1px solid rgba(0,242,234,.3);padding:4px 10px;border-radius:999px}
-
-/* Top signal card */
-.topgap{max-width:720px;margin:26px auto 0;border:1px solid rgba(0,242,234,.4);border-radius:20px;padding:22px;background:linear-gradient(180deg,rgba(0,242,234,.12),rgba(0,242,234,.02));text-align:left;position:relative;overflow:hidden}
-.topgap::after{content:"";position:absolute;top:-40%;right:-10%;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(0,242,234,.20),transparent 70%);pointer-events:none}
-.topgap .row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-.topgap .sym{font-size:1.6rem;font-weight:700;letter-spacing:-.01em}
-.topgap .r{font-family:var(--mono);font-size:.78rem;color:var(--mut);position:relative;top:-1px}
-.topgap .gap{font-family:var(--mono);font-size:1.9rem;font-weight:600}
-.topgap .gap.up{color:var(--teal2)}.topgap .gap.down{color:var(--red)}
-.topgap .gap small{font-size:.8rem;color:var(--mut)}
-.topgap .meta{margin-top:14px;font-size:.82rem;color:var(--mut);display:flex;flex-wrap:wrap;gap:14px}
-.topgap .meta b{color:var(--txt);font-family:var(--mono);font-weight:600}
-
-/* Signal table */
-.section{margin-top:30px}
-.section h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin-bottom:12px;font-weight:700}
-.signal-card{border:1px solid var(--line);border-radius:18px;background:var(--t2);overflow:hidden}
-.signal-card .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px}
-.signal-card .hd b{font-size:.95rem}
-.signal-card .hd .n{font-size:12px;color:var(--mut)}
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
-th{text-align:left;padding:9px 16px;color:var(--mut);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--line)}
-td{padding:10px 16px;border-bottom:1px solid var(--line)}
-tr:last-child td{border-bottom:0}
-tr{transition:background .15s}tr:active{background:rgba(255,255,255,.04)}
-td b{font-weight:600}
-.r{color:var(--mut);font-size:11px}
-.mut{color:var(--mut)}
-.gbar{height:5px;border-radius:4px;min-width:52px;background:rgba(255,255,255,.07);overflow:hidden;position:relative}
-.gbar i{position:absolute;inset:0;border-radius:4px;background:linear-gradient(90deg,var(--teal),var(--teal2))}
-.gbar.down i{background:linear-gradient(90deg,#ff6b7a,#ff8fa0)}
-td .dir{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:600;letter-spacing:.3px}
-.dir.hedge{color:#ff8fa0;background:rgba(255,107,122,.12);border:1px solid rgba(255,107,122,.3)}
-.dir.buy{color:#8effc6;background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
-.note{padding:12px 16px;font-size:.8rem;color:var(--mut);border-top:1px solid var(--line)}
-.cta-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
-.btn{border:0;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:.9rem;padding:12px 22px;border-radius:14px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:#04222a;transition:transform .15s,box-shadow .15s}
-.btn:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,242,234,.25)}
-.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--mut)}
-.btn.ghost:hover{color:#fff;border-color:rgba(255,255,255,.4)}
-
-/* reveal */
-.reveal{opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease}
-.reveal.in{opacity:1;transform:none}
-.foot{text-align:center;color:var(--mut);font-size:.78rem;padding:28px 0 40px}
-.mobile-hide{display:none}
-@media(min-width:720px){.mobile-hide{display:table-cell}}
+/* only Bitget-page specifics; the design system (nav/cards/tables/buttons) is in ah-theme.css */
+.hero{padding:38px 26px}
+.hero p.lead{font-size:1rem}
+.badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.arb-card{border:1px solid rgba(85,70,255,.4);border-radius:16px;padding:20px;background:linear-gradient(180deg,rgba(85,70,255,.12),rgba(85,70,255,.02));position:relative;overflow:hidden}
+.arb-card::after{content:"";position:absolute;top:-40%;right:-8%;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(85,70,255,.22),transparent 70%)}
+.arb-card .k{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.arb-card .big{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:8px}
+.arb-card .big .sym{font-size:1.7rem;font-weight:700}
+.arb-card .big .gap{font-size:1.9rem;font-family:var(--mono);font-weight:600}
+.arb-card .meta{margin-top:14px;font-size:.82rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:16px}
+.arb-card .meta b{color:var(--text);font-family:var(--mono)}
+.gbar{height:5px;border-radius:4px;min-width:56px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:4px}
+.gbar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.gbar.down i{background:linear-gradient(90deg,var(--bad),#ff96a4)}
+td .tag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
+.tag.hedge{color:#ff96a4;background:rgba(255,122,138,.14);border:1px solid rgba(255,122,138,.35)}
+.tag.buy{color:var(--good);background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+table{font-size:13px;min-width:520px}
 </style></head><body>
-<div class="navbox" id="navbox">
-  <nav id="nav">
-    <div class="brand"><span class="amark">A</span><span>AfterHours<small>Bitget · rToken arb</small></span></div>
-    <div class="ah-switch">
-      <span class="lbl">Products</span>
-      <a href="/app" class="ah-pill sol"><span class="dot"></span>Solana<small>· desk</small></a>
-      <a href="/bnb" class="ah-pill bnb"><span class="dot"></span>BNB<small>· gap</small></a>
-      <a href="/bitget" class="ah-pill bga active"><span class="dot"></span>Bitget<small>· arb</small></a>
-    </div>
-    <a class="docs" href="/docs">Docs</a>
-  </nav>
-</div>
-
+<div id="ahnav"></div>
 <div class="wrap">
   <header class="hero reveal in">
-    <span class="kicker"><span style="width:6px;height:6px;border-radius:50%;background:#00f2ea;box-shadow:0 0 8px #00f2ea"></span>Bitget AI S2 · Alpha Factory · Arbitrage</span>
-    <h1>While the NYSE sleeps,<br><span class="t">rTokens keep printing.</span></h1>
-    <p class="sub">Bitget tokenized US stocks (<span class="r">R&lt;SYM&gt;USDT</span>) trade 7×24. Their native reference freezes at Friday's bell. AfterHours surfaces the live divergence — <b>the arbitrage signal</b> — in real time.</p>
-    <div class="live-badges"><span>● LIVE rToken data</span><span>Bitget UTA v3</span><span>honest · no fabrication</span></div>
-
-    <div class="topgap" id="topgap">
-      <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);font-weight:700">Top arb signal now</div>
-      <div class="row">
-        <span class="sym" id="tgSym">—</span><span class="r" id="tgR"></span>
-        <span class="gap up" id="tgGap">…</span>
-      </div>
-      <div class="meta">
-        <span>rToken: <b id="tgT">…</b></span><span>Ref: <b id="tgRef">…</b></span><span>Action: <b id="tgDir">…</b></span>
-      </div>
+    <span class="kicker"><span class="dot"></span>Bitget AI S2 · Alpha Factory · Arbitrage</span>
+    <h1>While the NYSE sleeps, rTokens keep printing.</h1>
+    <p class="lead">Bitget tokenized US stocks (<span class="mut" style="font-family:var(--mono)">R&lt;SYM&gt;USDT</span>) trade 7×24; their reference freezes at Friday's bell. AfterHours surfaces the live divergence — the arbitrage signal.</p>
+    <div class="badge-row">
+      <span class="chip">LIVE rToken data</span><span class="chip">Bitget UTA v3</span><span class="chip">honest · no fabrication</span>
+    </div>
+    <div class="arb-card" id="topcard" style="margin-top:26px">
+      <div class="k">Top arbitrage signal now</div>
+      <div class="big"><span class="sym" id="tgSym">—</span><span class="mut" id="tgR" style="font-family:var(--mono);font-size:.8rem"></span><span class="gap" id="tgGap">…</span></div>
+      <div class="meta"><span>rToken: <b id="tgT">…</b></span><span>Reference: <b id="tgRef">…</b></span><span>Action: <b id="tgDir">…</b></span></div>
     </div>
   </header>
 
-  <section class="section reveal" id="live">
+  <section class="section reveal">
     <h2>Live arbitrage surface</h2>
-    <div class="signal-card">
-      <div class="hd"><b>rToken vs native reference</b><span class="n" id="meta">…</span></div>
-      <div style="overflow-x:auto">
-      <table>
-        <thead><tr><th>Symbol</th><th>rToken</th><th class="mobile-hide">rToken $</th><th class="mobile-hide">Ref $</th><th>Gap</th><th>Dir</th></tr></thead>
-        <tbody id="body"></tbody>
-      </table>
-      </div>
-      <div class="note" id="note">…</div>
-      <div class="cta-row" style="padding:0 16px 16px">
-        <button class="btn" onclick="act()">Paper-act · top |gap| ($100)</button>
-        <button class="btn ghost" onclick="location.reload()">↻ Refresh</button>
-      </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="row" style="padding:14px 18px;border-bottom:1px solid var(--line)"><b style="font-size:.95rem">rToken vs native reference</b><span class="mut" id="meta" style="font-size:12px">…</span></div>
+      <div style="overflow-x:auto"><table><thead><tr>
+        <th>Symbol</th><th>rToken</th><th class="hide-sm">rToken $</th><th class="hide-sm">Ref $</th><th>Gap</th><th>Direction</th>
+      </tr></thead><tbody id="body"></tbody></table></div>
+      <div style="padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem" id="note">…</div>
+      <div style="display:flex;gap:10px;padding:0 18px 16px;flex-wrap:wrap"><button class="btn" onclick="act()">Paper-act · top |gap| ($100)</button><button class="btn ghost" onclick="location.reload()">Refresh</button></div>
     </div>
   </section>
 
-  <footer class="foot">AfterHours · Bitget UTA v3 rToken + US reference · paper decisions, no real money · © 2026</footer>
+  <footer class="foot">AfterHours · Bitget UTA v3 rToken + US reference · paper decisions, no real money</footer>
 </div>
-
+<script src="/ah-nav.js"></script>
 <script>
-const $=s=>document.querySelector(s);
-const fmt=n=>n==null?'—':'$'+Number(n).toFixed(2);
+const $=s=>document.querySelector(s), fmt=n=>n==null?'—':'$'+Number(n).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
-
-// Floating nav: hide on scroll-down, show on scroll-up, intensify bg after 40px
-let lastY=0;
-const nav=document.getElementById('nav');
-addEventListener('scroll',()=>{
-  const y=scrollY;
-  nav.classList.toggle('scrolled',y>40);
-  if(!Math.abs(y-lastY)) return;
-  if(y>lastY && y>120) nav.classList.add('hidden'); else nav.classList.remove('hidden');
-  lastY=y;
-},{passive:true});
-
-async function load(){
-  try{
-    const d=await get('/api/bitget/arbitrage');
-    const gaps=(d.gaps||[]); const top=gaps[0];
-    $('#meta').textContent=`${d.universe} symbols · ${gaps.length} gaps`;
-    $('#note').textContent=d.market.note+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
-
-    if(top){
-      const up=top.gapPct>=0;
-      $('#tgSym').textContent=top.symbol;
-      $('#tgR').textContent=top.rSymbol;
-      $('#tgGap').textContent=`${up?'+':''}${top.gapPct.toFixed(2)}%`;
-      $('#tgGap').className='gap '+(up?'up':'down');
-      $('#tgT').textContent=fmt(top.rTokenPriceUsd);
-      $('#tgRef').textContent=fmt(top.referenceUsd);
-      $('#tgDir').textContent=up?'Hedge / sell premium':'Buy discount';
-    }
-
-    $('#body').innerHTML=(gaps||[]).map(g=>{
-      const up=g.gapPct>=0, abs=Math.min(Math.abs(g.gapPct)/6*100,100);
-      const dir=up?'hedge':'buy';
-      return `<tr><td><b>${esc(g.symbol)}</b></td><td class="r">${esc(g.rSymbol)}</td>
-        <td class="mobile-hide">${fmt(g.rTokenPriceUsd)}</td><td class="mut mobile-hide">${fmt(g.referenceUsd)}</td>
-        <td><span style="color:${up?'#17e0d7':'#ff8fa0'};font-weight:600">${up?'+':''}${g.gapPct.toFixed(2)}%</span>
-            <div class="gbar ${up?'':'down'}" style="margin-top:4px"><i style="width:${abs}%"></i></div></td>
-        <td><span class="dir ${dir}">${up?'HEDGE':'BUY'}</span></td></tr>`;
-    }).join('')||'<tr><td colspan="6" class="mut">no gaps</td></tr>';
-  }catch(e){$('#body').innerHTML=`<tr><td colspan="6" class="mut">${esc(e.message)}</td></tr>`}
-}
+async function load(){try{
+  const d=await get('/api/bitget/arbitrage'); const gaps=d.gaps||[]; const top=gaps[0];
+  $('#meta').textContent=`${d.universe} symbols · ${gaps.length} gaps`;
+  $('#note').textContent=d.market.note+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
+  if(top){const up=top.gapPct>=0;
+    $('#tgSym').textContent=top.symbol; $('#tgR').textContent=top.rSymbol;
+    const g=$('#tgGap'); g.textContent=`${up?'+':''}${top.gapPct.toFixed(2)}%`; g.className='gap '+(up?'up':'down');
+    $('#tgT').textContent=fmt(top.rTokenPriceUsd); $('#tgRef').textContent=fmt(top.referenceUsd);
+    $('#tgDir').textContent=up?'Hedge / sell premium':'Buy discount';}
+  $('#body').innerHTML=(gaps||[]).map(g=>{const up=g.gapPct>=0,abs=Math.min(Math.abs(g.gapPct)/6*100,100);
+    return `<tr><td><b>${esc(g.symbol)}</b></td><td class="mut">${esc(g.rSymbol)}</td>
+      <td class="hide-sm">${fmt(g.rTokenPriceUsd)}</td><td class="mut hide-sm">${fmt(g.referenceUsd)}</td>
+      <td><span class="${up?'up':'down'}" style="font-weight:600">${up?'+':''}${g.gapPct.toFixed(2)}%</span><div class="gbar ${up?'':'down'}"><i style="width:${abs}%"></i></div></td>
+      <td><span class="tag ${up?'hedge':'buy'}">${up?'HEDGE':'BUY'}</span></td></tr>`;}).join('')||'<tr><td colspan="6" class="mut">no gaps</td></tr>';
+}catch(e){$('#body').innerHTML=`<tr><td colspan="6" class="mut">${esc(e.message)}</td></tr>`}}
 async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());alert(d.acted?`Paper: ${d.target} · ${d.side} · $${d.notionalUsd} (gap ${d.gapPct.toFixed(2)}%)`:`No tradable gap right now.`)}catch(e){alert(e.message)}}
-
-// scroll-reveal automation
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
 load();
-</script></body></html>
+</script>
+</body></html>

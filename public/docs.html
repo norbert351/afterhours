@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · Docs</title>
 <link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/ah-theme.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -39,12 +40,8 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
 </style>
 </head>
 <body>
+<div id="ahnav"></div>
 <div class="wrap">
-  <nav>
-    <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
-    <span class="links"><a href="/">Home</a><a href="/app">App</a><a href="/docs">Docs</a></span>
-  </nav>
-
   <h1>AfterHours — Docs</h1>
   <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible — and executable. <span class="pill good">LIVE on afterhourequity.xyz</span></p>
 
@@ -149,4 +146,5 @@ scripts/ micro-swap.mjs (reusable "little-by-little" tester) · jupiter-swap.mjs
   <a class="btn" href="/app">Open the app →</a>
 </div>
 </body>
+<script src="/ah-nav.js"></script>
 </html>

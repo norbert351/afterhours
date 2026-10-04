@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AfterHours · BNB (BSC)</title>
 <link rel="icon" href="/favicon.png">
-<link rel="stylesheet" href="/ah-switch.css">
+<link rel="stylesheet" href="/ah-theme.css">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -48,26 +48,20 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
 </style>
 </head>
 <body>
+<div id="ahnav"></div>
 <div class="wrap">
-  <header>
-    <img src="/logo.png" alt=""><span class="brand">AfterHours</span>
-    <span class="nav">
-      <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network" style="margin-right:6px">
-        <button class="cs-btn" data-chain="sol">● Solana</button>
-        <button class="cs-btn" data-chain="bnb">● BSC</button>
-      </div>
-      <div class="ah-switch">
-        <span class="lbl">Products</span>
-        <a href="/app" class="ah-pill sol"><span class="dot"></span>Solana<small>· on-chain desk</small></a>
-        <a href="/bnb" class="ah-pill bnb active"><span class="dot"></span>BNB<small>· bStocks/Ondo gap</small></a>
-        <a href="/bitget" class="ah-pill bga"><span class="dot"></span>Bitget<small>· rToken arb</small></a>
-      </div>
-      <a href="/docs">Docs</a>
-    </span>
-  </header>
+  <div class="row" style="margin-top:18px">
+    <div>
+      <span class="kicker"><span class="dot"></span>BNB Tokenized Stocks</span>
+      <h1>AfterHours · BNB</h1>
+    </div>
+    <div class="chainswitch" id="chainSwitch" role="group" aria-label="Choose network">
+      <button class="cs-btn" data-chain="sol">● Solana</button>
+      <button class="cs-btn" data-chain="bnb">● BSC</button>
+    </div>
+  </div>
 
-  <h1>AfterHours · BNB Chain port</h1>
-  <p class="muted">The same weekend-gap engine, on BNB Chain (the #1 tokenized-equity venue — 88% of tokenized-stock DEX volume). Real rails verified live: bStocks BEP-20 on-chain, Ondo documented BSC addresses, public BSC RPC, GeckoTerminal bsc, KyberSwap keyless quotes.</p>
+  <p class="muted" style="margin-top:8px">The same weekend-gap engine, on BNB Chain (the #1 tokenized-equity venue — 88% of tokenized-stock DEX volume). Real rails verified live: bStocks BEP-20 on-chain, Ondo documented BSC addresses, public BSC RPC, GeckoTerminal bsc, KyberSwap keyless quotes.</p>
 
   <div class="elig">🟡 <b>BNB Tokenized Stocks Hackathon port</b> — the aggregated <b>Binance Web3 API</b> (market · RWA · swap · RFQ) is the sanctioned surface; <b>bStocks + Ondo</b> are central. Real per-stock price/reference unlock with the <b>free Web3 API key</b> (web3.binance.com dev-portal). The chain label <code>bnb</code> below is honest: without the key, gated values are flagged, never fabricated.</div>
 
@@ -177,7 +171,9 @@ async function loadRwa() {
 loadStatus(); loadGaps(); loadRwa();
 setInterval(loadGaps, 45_000);
 </script>
-<script>(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
+<script src="/ah-nav.js"></script>
+<script>
+(function(){var cs=document.getElementById('chainSwitch');if(!cs)return;
 function setChain(c){cs.classList.remove('sol','bnb');cs.classList.add(c==='bnb'?'bnb':'sol')}
 setChain(localStorage.getItem('ah_chain')||'bnb');
 cs.querySelectorAll('.cs-btn').forEach(function(b){b.addEventListener('click',function(){

@@ -160,6 +160,7 @@ pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px
 </style>
 </head>
 <body>
+<div id="ahnav" style="margin-bottom:0"></div>
 <nav class="wrap">
   <div class="brand"><img src="/logo.png" alt="AfterHours">AfterHours</div>
   <div class="nav-links" id="navLinks">
@@ -188,28 +189,28 @@ pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px
   </div>
 </header>
 
-<!-- PRODUCT HUB — one engine, three live products (judge-facing) -->
-<section style="padding:48px 0;background:radial-gradient(1200px 500px at 20% 0%,rgba(153,69,255,.10),transparent 60%),radial-gradient(1200px 500px at 80% 0%,rgba(0,242,234,.10),transparent 60%),linear-gradient(180deg,#0d0e16,#0a0b10);border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)">
+<!-- PRODUCT HUB — one product, three venues, ONE design -->
+<section style="padding:48px 0;background:radial-gradient(1100px 480px at 60% 0%,rgba(85,70,255,.12),transparent 55%),linear-gradient(180deg,#0d0e16,#0a0b10);border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)">
   <div class="wrap">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
-      <h2 style="font-size:1.55rem;margin:0">One engine · <span style="color:#7aa8ff">three live products</span></h2>
-      <span style="color:rgba(255,255,255,.45);font-size:.8rem">Same weekend-gap engine, deployed to three venues</span>
+      <h2 style="font-size:1.55rem;margin:0">One engine · <span style="color:#7a68ff">three venues</span></h2>
+      <span style="color:rgba(255,255,255,.45);font-size:.8rem">Same AfterHours product, one design</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:26px">
-      <div style="border:1px solid rgba(153,69,255,.5);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(153,69,255,.20),rgba(153,69,255,.04))">
-        <div style="font-weight:700;font-size:1.05rem;color:#e4c9ff"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9945FF;box-shadow:0 0 10px #9945FF;margin-right:8px"></span>Solana · On-chain Equity Desk</div>
-        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Live on Solana mainnet. xStocks/rToken desk — real on-chain fills, verified. <b style="color:#c9a8ff">Stocklana submission.</b></p>
-        <a href="/app" style="color:#c48aff;font-weight:700;font-size:.92rem">Open →</a>
+      <div style="border:1px solid rgba(85,70,255,.4);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(85,70,255,.14),rgba(85,70,255,.02))">
+        <div style="font-weight:700;font-size:1.05rem;color:#e0d6ff"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#5546ff;box-shadow:0 0 10px #5546ff;margin-right:8px"></span>Solana · On-chain Equity Desk</div>
+        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Live on Solana mainnet. xStocks/rToken desk — real on-chain fills, verified. <b style="color:#b9a8ff">Stocklana.</b></p>
+        <a href="/app" style="color:#9a86ff;font-weight:700;font-size:.92rem">Open →</a>
       </div>
-      <div style="border:1px solid rgba(240,185,11,.5);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(240,185,11,.20),rgba(240,185,11,.04))">
-        <div style="font-weight:700;font-size:1.05rem;color:#ffe3a3"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f0b90b;box-shadow:0 0 10px #f0b90b;margin-right:8px"></span>BNB · bStocks/Ondo Gap</div>
-        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Weekend-gap engine on BNB tokenized stocks (Binance RWA Data API) with live fills + x402 self-funding. <b style="color:#ffd66b">BNB Tokenized Stocks submission.</b></p>
-        <a href="/bnb" style="color:#ffc62b;font-weight:700;font-size:.92rem">Open →</a>
+      <div style="border:1px solid rgba(85,70,255,.4);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(85,70,255,.14),rgba(85,70,255,.02))">
+        <div style="font-weight:700;font-size:1.05rem;color:#e0d6ff"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#5546ff;box-shadow:0 0 10px #5546ff;margin-right:8px"></span>BNB Tokenized Stocks</div>
+        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Weekend-gap engine on BNB equities (RWA Data API), live fills + x402 self-funding. <b style="color:#b9a8ff">BNB Tokenized Stocks.</b></p>
+        <a href="/bnb" style="color:#9a86ff;font-weight:700;font-size:.92rem">Open →</a>
       </div>
-      <div style="border:1px solid rgba(0,242,234,.5);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(0,242,234,.20),rgba(0,242,234,.04))">
-        <div style="font-weight:700;font-size:1.05rem;color:#b6fffb"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#00f2ea;box-shadow:0 0 10px #00f2ea;margin-right:8px"></span>Bitget · rToken Arbitrage</div>
-        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Bitget rToken (R&lt;SYM&gt;USDT) trades 7×24 while the US ref is frozen — the live arbitrage signal. <b style="color:#6ff7f2">Bitget AI S2 · Alpha Factory · Arbitrage.</b></p>
-        <a href="/bitget" style="color:#17e0d7;font-weight:700;font-size:.92rem">Open →</a>
+      <div style="border:1px solid rgba(85,70,255,.4);border-radius:16px;padding:20px 18px;background:linear-gradient(180deg,rgba(85,70,255,.14),rgba(85,70,255,.02))">
+        <div style="font-weight:700;font-size:1.05rem;color:#e0d6ff"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#5546ff;box-shadow:0 0 10px #5546ff;margin-right:8px"></span>Bitget rToken Arbitrage</div>
+        <p style="color:rgba(255,255,255,.72);font-size:.87rem;margin:12px 0 16px">Bitget rToken (R&lt;SYM&gt;USDT) trades 7×24 vs frozen US reference — the live arb signal. <b style="color:#b9a8ff">Bitget AI S2 · Arbitrage.</b></p>
+        <a href="/bitget" style="color:#9a86ff;font-weight:700;font-size:.92rem">Open →</a>
       </div>
     </div>
   </div>
@@ -405,4 +406,5 @@ refreshAuth();setInterval(refreshAuth,60000);
 <script>window.__PRIVY_APP_ID__="cmu8qhngp001t0clcnhetdey2";</script>
 <script src="/privy-auth.js" defer></script>
 </body>
+<script src="/ah-nav.js"></script>
 </html>
