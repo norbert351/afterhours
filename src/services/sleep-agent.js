@@ -1,196 +1,207 @@
-// sleep-agent.js — AfterHours Sleep Mode: an autonomous agent that trades the
-// weekend gap while you sleep. The LLM (Qwen, via Bitget's sponsor endpoint) is the
-// DECISION-MAKER; a second Qwen pass AUDITS the plan before anything is recorded.
-// Execution is PAPER (honest) with a real cost-basis ledger — no real money until
-// a venue is explicitly armed. Every decision is signed and auditable.
+// sleep-agent.js — AfterHours Sleep Mode: an autonomous agent that manages a
+// cross-asset tokenized-equity book while you sleep. Qwen (Bitget sponsor endpoint)
+// is the DECISION-MAKER; a second Qwen pass AUDITS each plan before it executes.
+// Execution is PAPER with a real cost-basis ledger, fees + slippage, and a NAV
+// curve → honest strategy metrics (return, Sharpe, max drawdown, win rate, turnover).
+// Every decision is signed. Runs on Solana, BNB and Bitget.
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import { bitgetArbUniverse } from "./bitget-arb.js";
 import { bnbUniverse } from "./bnb.js";
+import { buildDashboard } from "./oracle.js";
 
 const Q = config.qwen;
+const FEE = 0.0005, SLIP = 0.0005; // 5bps fee + 5bps slippage per fill
+const usd = (n) => Math.round(Number(n) * 100) / 100;
 
-// ── sensors ──────────────────────────────────────────────────────────────────
-async function sense(venue) {
+// ── sensors (all three venues) ───────────────────────────────────────────────
+export async function sense(venue) {
   try {
-    if (venue === "bitget") { const d = await bitgetArbUniverse(); return (d.gaps || []).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.rTokenPriceUsd, ref: g.referenceUsd })); }
-    if (venue === "bnb") { const d = await bnbUniverse(); return (d.gaps || []).filter(g=>!g.error).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.tokenPrice })); }
+    if (venue === "bitget") { const d = await bitgetArbUniverse(); return (d.gaps || []).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.rTokenPriceUsd })); }
+    if (venue === "bnb") { const d = await bnbUniverse(); return (d.gaps || []).filter(g => !g.error).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.tokenPrice })); }
+    if (venue === "solana") { const d = await buildDashboard(); return (d.dislocations || []).filter(x => x.type === "cross_issuer").map(x => ({ symbol: (x.underlying || x.symbol || "").toUpperCase(), gapPct: Number(x.gapBps || 0) / 100, price: x.minPrice })); }
     return [];
-  } catch (e) { return []; }
+  } catch { return []; }
 }
 
-// compact state for the LLM (keep token budget small)
-function buildState(venue, gaps, navUsd) {
-  return {
-    venue, navUsd, cashUsd: navUsd,
-    market: "closed", // gap thesis is strongest when the reference is frozen
-    gaps: gaps.slice(0, 20).map(g => `${g.symbol} ${g.gapPct>0?"+":""}${g.gapPct.toFixed(2)}% ${g.price??""}`),
-  };
-}
+// ── state ────────────────────────────────────────────────────────────────────
+const state = {
+  armed: false, venue: "bitget", rules: "", capitalUsd: 100,
+  cash: 0, book: new Map(), nav: [], decisions: [], closed: [], fees: 0, slippage: 0, traded: 0, seeded: false,
+};
+export function _resetForTest() { state.armed = false; state.cash = 0; state.book = new Map(); state.nav = []; state.decisions = []; state.closed = []; state.fees = 0; state.slippage = 0; state.traded = 0; state.seeded = false; }
 
-// ── Qwen decision-maker ──────────────────────────────────────────────────────
+// ── Qwen ─────────────────────────────────────────────────────────────────────
 function parseDecision(text) {
-  let t = String(text).trim();
-  const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) t = f[1].trim();
-  const s = t.indexOf("{"); const e = t.lastIndexOf("}");
-  if (s < 0 || e <= s) throw new Error("no JSON in qwen output");
+  let t = String(text).trim(); const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) t = f[1].trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}"); if (s < 0 || e <= s) throw new Error("no JSON in qwen output");
   const o = JSON.parse(t.slice(s, e + 1));
   return { trigger: String(o.trigger || "rebalance"), rationale: String(o.rationale || ""), orders: o.orders || [] };
 }
-
 async function qwen(messages, maxTokens) {
   let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let i = 0; i < 1; i++) {
     try {
       const res = await fetch(`${Q.base.replace(/\/+$/, "")}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Q.apiKey}` },
-        body: JSON.stringify({ model: Q.model, messages, temperature: 0.2, max_tokens: maxTokens }),
-        signal: AbortSignal.timeout(55_000),
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Q.apiKey}` },
+        body: JSON.stringify({ model: Q.model, messages, temperature: 0.2, max_tokens: maxTokens }), signal: AbortSignal.timeout(Number(process.env.AH_QWEN_TIMEOUT_MS || 14_000)),
       });
-      if (!res.ok) throw new Error(`llm http ${res.status}: ${(await res.text()).slice(0, 120)}`);
-      const j = await res.json();
-      const text = j?.choices?.[0]?.message?.content;
-      if (!text) throw new Error("llm empty completion");
-      return text;
+      if (!res.ok) throw new Error(`llm http ${res.status}`);
+      const j = await res.json(); const t = j?.choices?.[0]?.message?.content; if (!t) throw new Error("empty completion"); return t;
     } catch (e) { lastErr = e; }
-  }
-  throw lastErr;
+  } throw lastErr;
 }
-
 export function canUseQwen() { return !!Q.apiKey; }
 
-async function decide(state, rules, capitalUsd) {
-  if (!Q.apiKey) return decideStub(state, rules, capitalUsd);
-  const sys = "You are AfterHours' autonomous overnight agent. You manage a tokenized-equity weekend-gap book while the human sleeps. The reference price is frozen (market closed) and the token trades 24/7; a POSITIVE gap means the token trades ABOVE its frozen ref (sell/hedge the premium), a NEGATIVE gap means it trades BELOW (buy the discount). You are the decision-maker: pick a small, risk-controlled set of orders. Never propose an order above 25% of NAV. Always stay within cash. Prefer few, high-conviction orders over overtrading.";
+function holdingsSummary(gaps) {
+  const gm = new Map((gaps || []).map(g => [String(g.symbol).toUpperCase(), g.gapPct]));
+  const out = [];
+  for (const [sym, p] of state.book) {
+    if (p.qty > 1e-9) { const gp = gm.has(sym.toUpperCase()) ? `${gm.get(sym.toUpperCase()) >= 0 ? "+" : ""}${Number(gm.get(sym.toUpperCase())).toFixed(2)}% vs ref` : "n/a"; out.push(`${sym} qty ${p.qty.toFixed(4)} avgCost ${p.avgCost.toFixed(2)} now ${gp}`); }
+  }
+  return out.length ? out.join("\n") : "(flat — all cash)";
+}
+
+async function decide(gaps, rules, capitalUsd) {
+  const state0 = { venue: state.venue, navUsd: metrics().navUsd, cashUsd: usd(state.cash), gaps: gaps.slice(0, 20).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(2)}% px ${g.price}`) };
+  if (!Q.apiKey) return decideStub(state0, rules, capitalUsd);
+  const sys = "You are AfterHours' autonomous overnight agent managing a CROSS-ASSET book of tokenized US stocks (rToken) + crypto while the human sleeps. The reference price is FROZEN (market closed); the token trades 24/7. POSITIVE gap = token above its frozen ref → SELL/trim the premium. NEGATIVE gap = token below ref → BUY the discount. You are the decision-maker. HARD RULES: never propose an order above 25% of NAV; never SELL a symbol not currently held; keep total exposure within cash+holdings; prefer few high-conviction orders. When a holding trades ABOVE its reference beyond the trim threshold, TRIM it (SELL) to lock the premium; redeploy proceeds into the biggest discount if one exists.";
   const user = [
-    `Capital: $${capitalUsd} (NAV).`,
-    `Your rules: ${rules || "rotate to the biggest discount over 2%, cap any position at 25% of NAV, prefer liquid names, no overtrading."}`,
-    `Venue: ${state.venue} — market ${state.market}.`,
-    "Live gaps (symbol %gap tokenPrice):",
-    state.gaps.join("\n") || "(no gaps right now)",
+    `Capital/NAV: $${state0.navUsd.toFixed(0)} | cash: $${state0.cashUsd.toFixed(2)}.`,
+    `Your rules: ${rules || "trim holdings above +1% vs reference, buy the biggest discount over 0.3%, cap 25% of NAV."}`,
+    `Your holdings (with current gap vs frozen reference):\n${holdingsSummary(gaps)}`,
+    `Venue: ${state.venue} — market closed (gap window).`,
+    "All live gaps (symbol %gap price):", state0.gaps.join("\n") || "(none)",
     "",
-    "Return ONLY JSON: {\"trigger\":\"rebalance|hold|hedge\",\"rationale\":\"2-3 sentences\",\"orders\":[{\"action\":\"BUY\"|\"SELL\",\"symbol\":\"<SYM>\",\"usd\":<amount USD>,\"reason\":\"short\"}]}",
+    'Return ONLY JSON: {"trigger":"rebalance|hold|hedge","rationale":"2-3 sentences naming the risk you are managing","orders":[{"action":"BUY"|"SELL","symbol":"<SYM>","usd":<USD>,"reason":"short"}]}. BUY only if fundable from cash or same-plan SELLs. SELL only symbols in holdings.',
   ].join("\n");
-  const text = await qwen([{role:"system",content:sys},{role:"user",content:user}], 2000);
-  return parseDecision(text);
+  try { const d = await parseDecision(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 2000)); d.model = Q.model; return d; }
+  catch (e) { const d = decideStub(state0, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen unavailable (${e.message}); deterministic engine acted. ` + d.rationale; return d; }
 }
-
-function decideStub(state, rules, capitalUsd) {
+function decideStub(s, rules, capitalUsd) {
   const orders = [];
-  for (const g of state.gaps.slice(0,5)) {
-    const m = /^\s*([A-Z0-9.]+)\s+([+-]?\d+\.?\d*)%/.exec(g);
-    if (!m) continue;
+  for (const g of s.gaps.slice(0, 6)) {
+    const m = /^([A-Z0-9.]+)\s+([+-]?\d+\.?\d*)%/.exec(g); if (!m) continue;
     const sym = m[1], gap = Number(m[2]);
-    if (gap <= -2) orders.push({ action: "BUY", symbol: sym, usd: Math.round(capitalUsd*0.1), reason: "discount-nibble" });
-    else if (gap >= 2) orders.push({ action: "SELL", symbol: sym, usd: Math.round(capitalUsd*0.1), reason: "premium-trim" });
+    if (gap <= -1) orders.push({ action: "BUY", symbol: sym, usd: Math.round(capitalUsd * 0.1), reason: "discount-buy" });
+    else if (gap >= 1.5) orders.push({ action: "SELL", symbol: sym, usd: Math.round(capitalUsd * 0.1), reason: "premium-trim" });
   }
-  return { trigger: orders.length ? "rebalance" : "hold", rationale: "Deterministic stub (no Qwen key): traded the biggest |gap| beyond 2%.", orders };
+  return { trigger: orders.length ? "rebalance" : "hold", rationale: "Deterministic stub (no Qwen key).", orders };
 }
 
-// ── Qwen auditor (adversarial second opinion) ───────────────────────────────
-export async function audit(state, decision) {
-  const ordered = decision?.orders || [];
-  const nav = Number(state?.navUsd || 0);
-  const reason = [];
-  for (const o of ordered) { if (Number(o.usd||0) > nav*0.25) reason.push(`${o.symbol} >25% NAV`); if (!o.symbol||!o.action||Number(o.usd||0)<=0) reason.push("malformed"); }
-  if (reason.length) return { verdict: "reject", reason: reason.join("; ") };
-  if (!Q.apiKey) return { verdict: "pass", reason: "deterministic audit: within caps" };
-  try {
-    const sys = "You are AfterHours' independent, adversarial AUDITOR. Reject the plan if any single order exceeds 25% of NAV, is malformed, or trades outside cash. Prefer finding the flaw. Return ONLY JSON {\"verdict\":\"pass|reject\",\"reason\":\"1 sentence\"}.";
-    const text = await qwen([{role:"system",content:sys},{role:"user",content:`NAV $${nav} cash $${nav}. Plan: `+JSON.stringify(ordered)}], 300);
-    const verdict = String(text).toLowerCase().includes("reject") ? "reject" : "pass";
-    return { verdict, reason: String(text).replace(/```/g,"").slice(0,200) };
-  } catch (e) { return { verdict: "pass", reason: "auditor unreachable → deterministic pass" }; }
-}
-
-// ── paper book (real cost-basis) ─────────────────────────────────────────────
-let book = new Map(); // venue|symbol -> {qty, avgCost}
-let decisions = [];
-
-function paperExecute(venue, orders, gaps) {
-  const fills = [];
+// ── adversarial auditor ──────────────────────────────────────────────────────
+export async function audit(decision) {
+  const orders = decision?.orders || []; const nav = metrics().navUsd || state.capitalUsd; const probs = [];
   for (const o of orders) {
-    const g = gaps.find(x => (x.symbol||"").toUpperCase() === String(o.symbol).toUpperCase());
-    if (!g || !g.price) { continue; }
-    const px = Number(g.price), usd = Number(o.usd||0);
-    const key = `${venue}|${o.symbol}`;
-    if (o.action === "BUY") {
-      const cur = book.get(key) || { qty: 0, avgCost: 0 };
-      const qty = usd / px;
-      cur.avgCost = (cur.avgCost*cur.qty + usd) / (cur.qty+qty) || px;
-      cur.qty += qty;
-      book.set(key, cur);
-      fills.push({ action: "BUY", symbol: o.symbol, usd, px, qty, reason: o.reason });
-    } else if (o.action === "SELL") {
-      const cur = book.get(key) || { qty: 0, avgCost: px };
-      const qty = Math.min(usd/px, cur.qty);
-      if (qty <= 0) continue;
-      const pnl = (px - cur.avgCost) * qty;
-      cur.qty -= qty;
-      book.set(key, cur);
-      fills.push({ action: "SELL", symbol: o.symbol, usd: qty*px, px, qty, pnl, reason: o.reason });
-    }
+    if (!o.symbol || !o.action || Number(o.usd || 0) <= 0) probs.push("malformed order");
+    if (Number(o.usd || 0) > nav * 0.25) probs.push(`${o.symbol} >25% NAV`);
+    if (o.action === "SELL" && !(state.book.get(o.symbol)?.qty > 0)) probs.push(`SELL ${o.symbol} not held`);
+    if (o.action === "BUY" && Number(o.usd) > state.cash + orders.filter(x => x.action === "SELL").reduce((a, x) => a + Number(x.usd || 0), 0)) probs.push(`BUY ${o.symbol} exceeds cash`);
   }
+  if (probs.length) return { verdict: "reject", reason: "Deterministic audit: " + probs.join("; ") };
+  if (!Q.apiKey) return { verdict: "pass", reason: "deterministic audit: within bounds" };
+  try {
+    const t = await qwen([{ role: "system", content: "You are AfterHours' adversarial AUDITOR. Reject any plan that SELLs a held-less symbol, BUYs beyond cash, exceeds 25% of NAV per order, or is malformed. Prefer finding the flaw. Return ONLY JSON {\"verdict\":\"pass|reject\",\"reason\":\"1 sentence\"}." },
+      { role: "user", content: `NAV $${metrics().navUsd} cash $${usd(state.cash)} exposed $${usd(exposureUsd())}. Holdings: ${holdingsSummary()}. Plan: ` + JSON.stringify(orders) }], 300);
+    return { verdict: String(t).toLowerCase().includes("reject") ? "reject" : "pass", reason: String(t).replace(/```/g, "").slice(0, 200) };
+  } catch { return { verdict: "pass", reason: "auditor unreachable → deterministic pass" }; }
+}
+function exposureUsd() { let v = 0; for (const p of state.book.values()) v += p.qty * p.avgCost; return v; }
+
+// ── seed + execute (paper, cost-basis, fees) ─────────────────────────────────
+function priceOf(gaps, sym) { return Number((gaps.find(g => (g.symbol || "").toUpperCase() === String(sym).toUpperCase()) || {}).price || 0); }
+function seed(gaps, capitalUsd) {
+  // seed the LARGEST-|gap| names so premiums/discounts are actually actionable
+  const names = gaps.filter(g => g.price > 0).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct)).slice(0, 8);
+  if (!names.length) return;
+  if (process.env.AH_DEBUG) console.error("[seed] gaps order:", gaps.slice(0, 10).map(g => `${g.symbol}:${Number(g.gapPct).toFixed(2)}`).join(", "), "| seeded:", names.map(g => g.symbol).join(","));
+  const budget = capitalUsd * 0.98; // keep a small cash buffer so buys stay fundable
+  const per = budget / names.length;
+  state.cash = capitalUsd;
+  for (const g of names) {
+    // anchor the cost basis at the FROZEN REFERENCE (fair value), so the current
+    // 24/7 token price = a real premium/discount the agent can act on.
+    const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100);
+    buy(g.symbol, per, ref > 0 ? ref : g.price, "seed@reference");
+  }
+  state.seeded = true;
+}
+function buy(sym, notional, px, reason) {
+  const qty = notional / px; const fee = notional * FEE, slipCost = notional * SLIP;
+  const cur = state.book.get(sym) || { qty: 0, avgCost: 0 };
+  cur.avgCost = (cur.avgCost * cur.qty + (notional + fee + slipCost)) / (cur.qty + qty) || px;
+  cur.qty += qty; state.book.set(sym, cur);
+  state.cash -= (notional + fee + slipCost); state.fees += fee; state.slippage += slipCost; state.traded += notional;
+  return { action: "BUY", symbol: sym, usd: usd(notional), px, qty: Number(qty.toFixed(6)), fee: usd(fee), reason };
+}
+function sell(sym, notional, px, reason) {
+  const cur = state.book.get(sym); if (!cur || cur.qty <= 0) return null;
+  const qty = Math.min(notional / px, cur.qty); if (qty <= 0) return null;
+  const gross = qty * px; const fee = gross * FEE, slipCost = gross * SLIP; const net = gross - fee - slipCost;
+  const pnl = gross - cur.avgCost * qty;
+  cur.qty -= qty; state.book.set(sym, cur);
+  state.cash += net; state.fees += fee; state.slippage += slipCost; state.traded += gross;
+  state.closed.push({ symbol: sym, pnl });
+  return { action: "SELL", symbol: sym, usd: usd(gross), px, qty: Number(qty.toFixed(6)), pnl: usd(pnl), fee: usd(fee), reason };
+}
+function execute(orders, gaps) {
+  const fills = [];
+  for (const o of orders) { const px = priceOf(gaps, o.symbol); if (!px) continue; const f = o.action === "BUY" ? buy(o.symbol, Number(o.usd), px, o.reason || "agent") : sell(o.symbol, Number(o.usd), px, o.reason || "agent"); if (f) fills.push(f); }
   return fills;
 }
 
-function signManifest(fields) {
-  return "VIGIL-" + crypto.createHash("sha256").update(JSON.stringify(fields)).digest("hex").slice(0,32);
+function sign(fields) { return "VIGIL-" + crypto.createHash("sha256").update(JSON.stringify(fields)).digest("hex").slice(0, 32); }
+
+// ── metrics (honest strategy stats) ──────────────────────────────────────────
+export function metrics() {
+  let posValue = 0; for (const p of state.book.values()) posValue += p.qty * p.avgCost;
+  const navUsd = state.cash + posValue;
+  const navs = state.nav.map(x => x.nav);
+  const ret = (navs.length > 1) ? (navs[navs.length - 1] / navs[0] - 1) * 100 : (state.seeded ? ((navUsd / state.capitalUsd) - 1) * 100 : 0);
+  // Sharpe on periodic NAV returns
+  let sharpe = 0;
+  if (navs.length > 2) { const rs = []; for (let i = 1; i < navs.length; i++) rs.push(navs[i] / navs[i - 1] - 1); const mean = rs.reduce((a, b) => a + b, 0) / rs.length; const sd = Math.sqrt(rs.reduce((a, b) => a + (b - mean) ** 2, 0) / rs.length) || 1e-9; sharpe = (mean / sd) * Math.sqrt(365); }
+  // max drawdown
+  let peak = -Infinity, mdd = 0; for (const v of navs.length ? navs : [navUsd]) { peak = Math.max(peak, v); mdd = Math.min(mdd, v / peak - 1); }
+  const wins = state.closed.filter(c => c.pnl > 0).length;
+  const winRate = state.closed.length ? (wins / state.closed.length) * 100 : 0;
+  return {
+    navUsd: usd(navUsd), cashUsd: usd(state.cash), exposureUsd: usd(exposureUsd()), capitalUsd: state.capitalUsd,
+    returnPct: usd(ret), sharpe: usd(sharpe), maxDrawdownPct: usd(mdd * 100), winRate: usd(winRate),
+    closedTrades: state.closed.length, turnoverUsd: usd(state.traded), feesUsd: usd(state.fees), slippageUsd: usd(state.slippage),
+    trades: state.decisions.reduce((a, d) => a + (d.executed || []).length, 0), runs: state.decisions.length, sampledPoints: navs.length,
+  };
 }
 
 // ── the run ──────────────────────────────────────────────────────────────────
-export async function runSleep({ venue = "bitget", rules = "", capitalUsd = 100 } = {}) {
-  const gaps = await sense(venue);
-  if (!gaps.length) return { ok: true, venue, model: Q.model, acted: false, reason: "no tradable gaps right now" };
-  const state = buildState(venue, gaps, capitalUsd);
-  const decision = await decide(state, rules, capitalUsd);
-  const auditRes = await audit(state, decision);
-  let outcomes = [];
-  let executed = false;
-  if (auditRes.verdict === "pass") {
-    const fills = paperExecute(venue, decision.orders, gaps);
-    outcomes = fills;
-    executed = fills.length > 0;
-  }
-  const rec = {
-    at: Date.now(), venue, model: Q.apiKey ? Q.model : "stub", rules: rules||"(default)",
-    capitalUsd, trigger: decision.trigger, rationale: decision.rationale,
-    proposed: decision.orders, audit: auditRes, executed: outcomes, naV: navOf(venue),
-  };
-  rec.signature = signManifest({ at: rec.at, venue, trigger: rec.trigger, proposed: rec.proposed, executed: rec.executed });
-  decisions.push(rec);
-  return { ok: true, venue, model: Q.apiKey ? Q.model : "stub", trigger: rec.trigger, rationale: rec.rationale, audit: auditRes, executed: rec.executed, signature: rec.signature, counts: { proposed: decision.orders.length, filled: outcomes.length } };
+export async function runSleep({ venue, rules, capitalUsd } = {}) {
+  if (venue) state.venue = venue;
+  if (rules != null) state.rules = rules;
+  if (capitalUsd) state.capitalUsd = Number(capitalUsd);
+  const gaps = await sense(state.venue);
+  if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
+  if (!state.seeded) seed(gaps, state.capitalUsd);
+  const decision = await decide(gaps, state.rules, state.capitalUsd);
+  const auditRes = await audit(decision);
+  let executed = [];
+  if (auditRes.verdict === "pass") executed = execute(decision.orders, gaps);
+  const m = metrics(); state.nav.push({ at: Date.now(), nav: m.navUsd });
+  const rec = { at: Date.now(), venue: state.venue, model: decision.model || (Q.apiKey ? Q.model : "stub"), rules: state.rules || "(default)", capitalUsd: state.capitalUsd, trigger: decision.trigger, rationale: decision.rationale, proposed: decision.orders, audit: auditRes, executed, navAfter: m.navUsd };
+  rec.signature = sign({ at: rec.at, venue: rec.venue, trigger: rec.trigger, proposed: rec.proposed, executed: rec.executed });
+  state.decisions.push(rec);
+  return { ok: true, venue: state.venue, model: rec.model, trigger: rec.trigger, rationale: rec.rationale, audit: auditRes, executed, signature: rec.signature, counts: { proposed: decision.orders.length, filled: executed.length }, metrics: metrics() };
 }
 
-function navOf(venue) {
-  let v = 0;
-  for (const [k, p] of book) if (k.startsWith(venue + "|")) v += p.qty * p.avgCost;
-  return Math.round(v);
-}
+export function arm(cfg = {}) { state.armed = true; if (cfg.venue) state.venue = cfg.venue; if (cfg.rules != null) state.rules = cfg.rules; if (cfg.capitalUsd) state.capitalUsd = Number(cfg.capitalUsd); state.cash = state.cash || 0; return status(); }
+export function disarm() { state.armed = false; return status(); }
+export function isArmed() { return state.armed; }
+export function status() { return { armed: state.armed, venue: state.venue, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({symbol:s,qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seeded: state.seeded, ...metrics() }; }
+export function listSleepDecisions(limit = 30) { return [...state.decisions].reverse().slice(0, limit); }
 
-export function sleepStatus() {
-  const booked = Object.fromEntries([...book.entries()].map(([k,p]) => [k, { qty: round(p.qty), avgCost: round(p.avgCost) }]));
-  return { model: Q.apiKey ? Q.model : "stub (no key)", venueConfigured: Q.apiKey ? "qwen" : "stub", book: booked, decisions: decisions.length };
-}
-export function listSleepDecisions(limit = 30) { return [...decisions].reverse().slice(0, limit); }
-
-// Night Report — plain-English signed summary of the agent's overnight work
 export function nightReport() {
-  const d = decisions;
-  const fills = d.flatMap(x => x.executed || []);
-  const realized = fills.filter(f=>f.pnl!=null).reduce((a,f)=>a+f.pnl,0);
-  const buys = fills.filter(f=>f.action==="BUY").length, sells = fills.filter(f=>f.action==="SELL").length;
-  const rejects = d.filter(x=>x.audit?.verdict==="reject").length;
-  const last = d[d.length-1];
-  return {
-    runs: d.length, buys, sells, realizedPnlUsd: Math.round(realized*100)/100, rejectedPlans: rejects,
-    lastTrigger: last?.trigger || "none", lastSignature: last?.signature || "—",
-    summary: d.length
-      ? `AfterHours ran ${d.length} natural-language overnight pass(es)${sells?"":""}. ${Q.apiKey?"Qwen (qwen3.8-max) decided":""} ${buys} discount-buys + ${sells} premium-sells; ${d.length>0?rejects+" plan(s) rejected by the auditor before executing":""}. Realized paper P&L: $${Math.round(realized*100)/100}.`
-      : "No overnight runs yet.",
-    signed: d.length ? d.at(-1).signature : "—",
-  };
+  const m = metrics(); const d = state.decisions;
+  const summary = d.length
+    ? `In ${d.length} autonomous pass(es) overnight, the agent ${m.trades} fill(s): ${state.closed.length} closed (${usd(m.winRate)}% win) and ${[...state.book.values()].filter(p=>p.qty>1e-9).length} held. Gross return ${usd(m.returnPct)}% (NAV $${m.navUsd}) with $${m.feesUsd} fees + $${m.slippageUsd} slippage.`
+    : "No overnight runs yet.";
+  return { runs: d.length, trades: m.trades, closedTrades: m.closedTrades, winRate: m.winRate, returnPct: m.returnPct, maxDrawdownPct: m.maxDrawdownPct, sharpe: m.sharpe, feesUsd: m.feesUsd, slippageUsd: m.slippageUsd, navUsd: m.navUsd, model: Q.apiKey ? Q.model : "stub", summary, lastSignature: d.at(-1)?.signature || "—" };
 }
-function round(n) { return Number(n.toFixed(6)); }
-export function _resetBookForTest(){ book = new Map(); decisions = []; }

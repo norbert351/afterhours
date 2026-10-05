@@ -4,40 +4,46 @@
 // divergence is the arbitrage signal, exactly the S2 Arbitrage sub-theme.
 // Honesty: reference fetched sparingly (refreshed only while the market is
 // open; reused while closed because it cannot move); implausible gaps flagged.
-import { isMarketOpen, getReferencePrice } from "../adapters/twelvedata.js";
+import { isMarketOpen, getReferencePrice, batchReferencePrices } from "../adapters/twelvedata.js";
 import { bitgetRPrice, US_UNIVERSE } from "../adapters/bitget-r.js";
+import fs from "node:fs";
 
 const GAP_PLAUSIBLE_PCT = 10;
+const REF_FILE = new URL("../../.bitget-refs.json", import.meta.url).pathname;
 
-// Reference cache: while the market is closed the reference is frozen, so we
-// hold the last-fetched value and do not re-hit TwelveData (free-tier quota).
-let refCache = new Map(); // symbol -> {price, at}
+// Reference cache: while the market is closed the reference is FROZEN, so we
+// persist it to disk and reuse across restarts (free-tier quota is tiny).
+let refCache = new Map();
+try { const raw = JSON.parse(fs.readFileSync(REF_FILE, "utf8")); for (const [k, v] of raw) refCache.set(k, v); } catch { /* none yet */ }
+function saveRefs() { try { fs.writeFileSync(REF_FILE, JSON.stringify([...refCache])); } catch { /* non-fatal */ } }
 export function _resetRefCacheForTest() { refCache = new Map(); }
 
-async function referenceFor(symbol) {
+// Populate missing references in ONE batched request; keep whatever we have on failure.
+async function refreshReferences() {
   const open = isMarketOpen();
-  const cached = refCache.get(symbol);
-  const freshEnough = cached && Date.now() - cached.at < (open ? 10 * 60_000 : 24 * 3600_000);
-  if (cached && (freshEnough || !open)) return cached; // closed => frozen, reuse
+  const missing = US_UNIVERSE.filter((s) => !refCache.get(s));
+  const stale = US_UNIVERSE.every((s) => refCache.get(s)) && ![...refCache.values()].every((c) => Date.now() - c.at < (open ? 10 * 60_000 : 24 * 3600_000));
+  if (!missing.length && (open ? !stale : true)) return;
   try {
-    const r = await getReferencePrice(symbol);
-    refCache.set(symbol, { price: r.price, at: Date.now() });
-    return { price: r.price, at: Date.now() };
-  } catch (e) {
-    if (cached) return cached; // stale-but-something better than nothing (honest)
-    return { error: e.message };
-  }
+    const batch = await batchReferencePrices(open && !missing.length ? US_UNIVERSE : missing);
+    let got = 0;
+    for (const [sym, r] of Object.entries(batch)) { refCache.set(sym, { price: r.price, at: Date.now() }); got++; }
+    if (got) saveRefs();
+  } catch { /* keep existing cache (honest: reuse frozen refs) */ }
 }
+
+function referenceFor(symbol) { return refCache.get(symbol) || { error: "no reference" } };
 
 export async function bitgetArbUniverse() {
   const marketOpen = isMarketOpen();
+  await refreshReferences();
   const gaps = [];
   const flagged = [];
   const errors = [];
   for (const sym of US_UNIVERSE) {
     const tok = await bitgetRPrice(sym);
     if (!tok || !tok.priceUsd) { errors.push({ symbol: sym, error: "no Bitget rToken ticker" }); continue; }
-    const ref = await referenceFor(sym);
+    const ref = referenceFor(sym);
     if (ref.error || !ref.price) { errors.push({ symbol: sym, error: ref.error || "no reference" }); continue; }
     const gapPct = ((tok.priceUsd - ref.price) / ref.price) * 100;
     const row = {

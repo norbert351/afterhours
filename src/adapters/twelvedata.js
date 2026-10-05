@@ -48,3 +48,20 @@ export async function listReferencePrices() {
   }
   return out;
 }
+
+// Batched reference fetch — ONE request for many symbols (avoids per-request
+// rate-limits so every rToken gets a live frozen reference).
+export async function batchReferencePrices(symbols = []) {
+  const uniq = [...new Set(symbols.map((s) => String(s).toUpperCase()).filter(Boolean))];
+  if (!uniq.length) return {};
+  const url = `${config.sources.twelvedata.base}/price?symbol=${encodeURIComponent(uniq.join(","))}&apikey=${encodeURIComponent(config.sources.twelvedata.apiKey)}`;
+  const data = await cachedFetch(url, { ttlMs: 600_000 });
+  const out = {};
+  const open = isMarketOpen();
+  for (const s of uniq) {
+    const raw = uniq.length === 1 ? data?.price : data?.[s]?.price;
+    const price = Number(raw);
+    if (isFinite(price) && price > 0) out[s] = { symbol: s, price, currency: "USD", marketOpen: open, source: "twelvedata(batch)", at: Date.now() };
+  }
+  return out;
+}

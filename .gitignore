@@ -8,3 +8,4 @@ public/demo/
 *.db
 *.db-wal
 *.db-shm
+.bitget-refs.json

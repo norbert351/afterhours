@@ -542,16 +542,26 @@ app.post("/api/bitget/paper-act", wrap(async (req, res) => {
   res.json(bitgetArb.bitgetPaperAction({ gaps: uni.gaps, amountUsd: amount }));
 }));
 // ---- AfterHours Sleep Mode (Qwen autonomous agent) ----
-app.get("/api/sleep/status", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.sleepStatus(), qwen: sleepAgent.canUseQwen() ? "live" : "unset" })));
+app.get("/api/sleep/status", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.status() })));
+app.get("/api/sleep/metrics", wrap(async (_req, res) => res.json(sleepAgent.metrics())));
 app.post("/api/sleep/run", wrap(async (req, res) => {
-  const { venue = "bitget", rules = "", capitalUsd = 100 } = req.body || {};
-  const v = /^(solana|bnb|bitget)$/.test(venue) ? (venue === "solana" ? "" : venue) : "bitget";
-  if (!v) return res.status(400).json({ error: "Solana sensor not wired in Sleep Mode yet — use bnb or bitget" });
+  const { venue, rules = "", capitalUsd = 100 } = req.body || {};
+  const v = /^(solana|bnb|bitget)$/.test(venue || "") ? venue : "bitget";
   res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }));
 }));
-app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: sleepAgent.listSleepDecisions().length, model: sleepAgent.sleepStatus().model, decisions: sleepAgent.listSleepDecisions() })));
+app.post("/api/sleep/arm", wrap(async (req, res) => {
+  const { venue = "bitget", rules = "", capitalUsd = 100 } = req.body || {};
+  const v = /^(solana|bnb|bitget)$/.test(venue) ? venue : "bitget";
+  res.json({ ok: true, ...sleepAgent.arm({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }) });
+}));
+app.post("/api/sleep/disarm", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.disarm() })));
+app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: sleepAgent.listSleepDecisions().length, model: sleepAgent.status().model, decisions: sleepAgent.listSleepDecisions() })));
 app.get("/api/sleep/report", wrap(async (_req, res) => res.json(sleepAgent.nightReport())));
 app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "sleep.html")));
+
+// overnight autopilot: while armed, the agent runs itself on an interval
+const SLEEP_INTERVAL_MS = Number(process.env.AH_SLEEP_MS || 300_000);
+setInterval(async () => { if (sleepAgent.isArmed()) { try { await sleepAgent.runSleep({}); } catch (e) { console.error("[sleep] autopilot:", e.message); } } }, SLEEP_INTERVAL_MS);
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));

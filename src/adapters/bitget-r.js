@@ -9,9 +9,10 @@ import { cachedFetch } from "../lib/http.js";
 const BITGET_TICKERS = "https://api.bitget.com/api/v2/spot/market/tickers?productType=spot";
 
 // The tracked US-stock universe (tokenized on Bitget as R<SYM>USDT).
+// Kept to 8 liquid names so a single batched reference request fits the free
+// data tier's per-minute credit limit (the reference is frozen while closed).
 export const US_UNIVERSE = [
-  "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "META", "GOOGL",
-  "SPY", "QQQ", "MSTR", "PLTR", "NFLX", "COIN", "AMD", "AVGO", "ORCL",
+  "MSTR", "COIN", "NVDA", "TSLA", "AAPL", "MSFT", "META", "SPY",
 ];
 
 const TTL = 15_000;
