@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AfterHours · Sleep Mode</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ah-ui.css">
+<style>
+.hero{padding:34px 26px}
+body{background:var(--bg)}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:14px 0 6px}
+input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 14px;font-size:15px;font-family:inherit}
+select{appearance:none}
+.ctl{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.ctl{grid-template-columns:1fr 1fr}}
+.config{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);padding:20px}
+.log{max-height:320px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.log .d{padding:9px 4px;border-bottom:1px solid var(--line)}
+.log b{color:var(--text)}
+.log .up{color:var(--good)}.log .down{color:var(--bad)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.kv .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.kv .v{font-family:var(--mono);font-size:15px;font-weight:600}
+</style></head><body>
+<div id="ahnav"></div>
+<div class="wrap">
+  <header class="hero" style="margin-top:18px">
+    <span class="ah-eyebrow"><span class="dot"></span>Qwen · autonomous · 24/7</span>
+    <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px">Trades the gap while you sleep.</h1>
+    <p class="ah-lead">Give the agent a rule and capital — Qwen decides the overnight moves, a second Qwen pass audits them before anything is recorded, and you get a signed Night Report.</p>
+  </header>
+
+  <section class="config reveal">
+    <h2 style="font-size:1.05rem;margin-bottom:4px">Arm the agent</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:6px">Paper, no real money — executions are honest and signed.</p>
+    <div class="ctl">
+      <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option></select></div>
+      <div><label for="cap">Capital (USD)</label><input id="cap" type="number" inputmode="decimal" value="100" min="1"></div>
+    </div>
+    <label for="rules">Rules (plain English)</label>
+    <input id="rules" type="text" value="rotate to the biggest discount over 2%, cap any position at 25% of capital, buy the discount and sell the premium, no overtrading" placeholder="e.g. buy the biggest discount over 3%, flat before Monday">
+    <button class="ah-btn" id="runBtn" style="width:100%;margin-top:16px">▶ Run a pass</button>
+    <div class="ah-state" id="runState" style="display:none"></div>
+
+    <h2 style="font-size:1rem;margin-top:22px">Night report</h2>
+    <div class="card" id="reportCard"><div class="ah-skel" style="height:18px;margin:6px 0"></div></div>
+    <div class="kv" id="statusKv"></div>
+
+    <h2 style="font-size:1rem;margin-top:22px">Signed decision log</h2>
+    <div class="log" id="log"><div class="mut">No runs yet.</div></div>
+  </section>
+
+  <footer class="foot">AfterHours Sleep Mode · Qwen decision-maker + auditor · paper ledger · © 2026</footer>
+</div>
+<script>window.AH = { route: "sleep", action: "openapp", showChain: false };</script>
+<script src="/ah-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
+async function statusKv(){
+  try{const s=await get('/api/sleep/status'); const b=Object.entries(s.book||{});
+    $('#statusKv').innerHTML=
+      `<div><div class="k">Model</div><div class="v">${esc(s.model||'—')}</div></div>
+       <div><div class="k">Runs</div><div class="v">${s.decisions||0}</div></div>
+       <div><div class="k">Qwen</div><div class="v">${s.qwen==='live'?'LIVE':'unset'}</div></div>
+       <div><div class="k">Positions</div><div class="v">${b.length}</div></div>`;
+  }catch(e){}
+}
+async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=
+  `<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p>
+   <p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.signature)}</p>`;}catch(e){$('#reportCard').innerHTML='<p class="mut">—</p>'}}
+async function refresh(){await statusKv();await report(); try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>`<div class="d">
+  <b>${x.venue}</b> · ${esc(x.trigger)} · audit ${esc(x.audit?.verdict||'?')}<br>
+  <span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> · ${esc(x.rationale)}
+  ${(x.executed||[]).map(f=>` &nbsp; <span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} $${f.usd.toFixed(2)}</span>`).join('')}</div>`).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+$('#runBtn').addEventListener('click', async ()=>{
+  const el=$('#runState'); el.style.display='block'; el.textContent='Sensing gaps → Qwen deciding → auditing…';
+  $('#runBtn').disabled=true;
+  try{
+    const r=await fetch('/api/sleep/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||100})}).then(r=>r.json());
+    if(r.error){el.textContent='⚠ '+r.error;}
+    else if(r.executed?.length){el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed paper fill(s)</span> · ${esc(r.rationale)}`;}
+    else if(r.acted===false){el.textContent='No tradable gaps right now.';}
+    else {el.innerHTML=`<span style="color:var(--good)">${esc(r.trigger)}</span> · ${esc(r.rationale)}`;}
+    await refresh();
+  }catch(e){el.textContent='Run failed: '+e.message;}
+  $('#runBtn').disabled=false;
+});
+refresh();
+</script>
+</body></html>

@@ -46,4 +46,11 @@ export const config = {
       },
     },
   },
+
+  // ── Sleep Mode LLM (Qwen via Bitget's sponsor endpoint) ───────────────────
+  qwen: {
+    base: process.env.AH_QWEN_BASE || "https://hackathon.bitgetops.com/v1",
+    model: process.env.AH_QWEN_MODEL || "qwen3.8-max",
+    apiKey: process.env.AH_QWEN_KEY || "",
+  },
 };

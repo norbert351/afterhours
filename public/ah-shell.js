@@ -66,6 +66,7 @@
       '<a class="mi' + (route === "home" ? " active" : "") + '" href="/">Home</a>' +
       '<a class="mi' + (route === "app" ? " active" : "") + '" href="/app">App · Dashboard</a>' +
       '<a class="mi' + (route === "bnb" ? " active" : "") + '" href="/bnb">App · BNB</a>' +
+      '<a class="mi' + (route === "sleep" ? " active" : "") + '" href="/sleep">Sleep Mode · Autopilot</a>' +
       '<p class="mi-sec">Chains</p>' +
       '<a class="mi chain-sol' + (chain === "sol" ? " active" : "") + '" href="/app"><span class="swatch"></span><span class="mi-label">Solana</span></a>' +
       '<a class="mi chain-bnb' + (chain === "bnb" ? " active" : "") + '" href="/bnb"><span class="swatch"></span><span class="mi-label">BNB</span></a>' +

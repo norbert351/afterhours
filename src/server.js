@@ -28,6 +28,7 @@ import { bnbExecuteSwap, bnbExecAddress } from "./services/bnb-exec.js";
 import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
 import * as bnbAgent from "./services/bnb-agent.js";
 import * as bitgetArb from "./services/bitget-arb.js";
+import * as sleepAgent from "./services/sleep-agent.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -540,6 +541,17 @@ app.post("/api/bitget/paper-act", wrap(async (req, res) => {
   const uni = await bitgetArb.bitgetArbUniverse();
   res.json(bitgetArb.bitgetPaperAction({ gaps: uni.gaps, amountUsd: amount }));
 }));
+// ---- AfterHours Sleep Mode (Qwen autonomous agent) ----
+app.get("/api/sleep/status", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.sleepStatus(), qwen: sleepAgent.canUseQwen() ? "live" : "unset" })));
+app.post("/api/sleep/run", wrap(async (req, res) => {
+  const { venue = "bitget", rules = "", capitalUsd = 100 } = req.body || {};
+  const v = /^(solana|bnb|bitget)$/.test(venue) ? (venue === "solana" ? "" : venue) : "bitget";
+  if (!v) return res.status(400).json({ error: "Solana sensor not wired in Sleep Mode yet — use bnb or bitget" });
+  res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }));
+}));
+app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: sleepAgent.listSleepDecisions().length, model: sleepAgent.sleepStatus().model, decisions: sleepAgent.listSleepDecisions() })));
+app.get("/api/sleep/report", wrap(async (_req, res) => res.json(sleepAgent.nightReport())));
+app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "sleep.html")));
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
