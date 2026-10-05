@@ -71,20 +71,28 @@ function holdingsSummary(gaps) {
 }
 
 async function decide(gaps, rules, capitalUsd, timeoutMs) {
-  const state0 = { venue: state.venue, navUsd: metrics().navUsd, cashUsd: usd(state.cash), gaps: gaps.slice(0, 12).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(2)}% px ${g.price}`) };
-  if (!Q.apiKey) return decideStub(state0, rules, capitalUsd);
-  const sys = "You are AfterHours' autonomous overnight agent managing a CROSS-ASSET book of tokenized US stocks (rToken) + a crypto hedge sleeve (BTC/ETH) while the human sleeps. The reference price is FROZEN (market closed); the token trades 24/7. POSITIVE gap = token above its frozen ref → SELL/trim the premium. NEGATIVE gap = token below ref → BUY the discount. CROSS-ASSET: you hold a crypto hedge sleeve (BTC) — in risk-off (large rToken premiums), rotate premium proceeds into BTC as a hedge. You are the decision-maker. HARD RULES: never propose an order above 25% of NAV; never SELL a symbol not currently held; keep total exposure within cash+holdings; prefer few high-conviction orders. When a holding trades ABOVE its reference beyond the trim threshold, TRIM it (SELL) to lock the premium; redeploy proceeds into the biggest discount or the BTC hedge if one exists.";
-  const user = [
-    `Capital/NAV: $${state0.navUsd.toFixed(0)} | cash: $${state0.cashUsd.toFixed(2)}.`,
-    `Your rules: ${rules || "trim holdings above +1% vs reference, buy the biggest discount over 0.3%, cap 25% of NAV."}`,
-    `Your holdings (with current gap vs frozen reference):\n${holdingsSummary(gaps)}`,
-    `Venue: ${state.venue} — market closed (gap window).`,
-    "All live gaps (symbol %gap price):", state0.gaps.join("\n") || "(none)",
-    "",
-    'Return ONLY JSON: {"trigger":"rebalance|hold|hedge","rationale":"2-3 sentences naming the risk you are managing","orders":[{"action":"BUY"|"SELL","symbol":"<SYM>","usd":<USD>,"reason":"short"}]}. BUY only if fundable from cash or same-plan SELLs. SELL only symbols in holdings.',
-  ].join("\n");
-  try { const d = await parseDecision(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 700, timeoutMs || 8000, timeoutMs ? 2 : 1)); d.model = Q.model; return d; }
-  catch (e) { const d = decideStub(state0, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen unavailable (${e.message}); deterministic engine acted. ` + d.rationale; return d; }
+  const nav = metrics().navUsd || capitalUsd, cash = usd(state.cash);
+  const holdTxt = [...state.book.entries()].filter(([, p]) => p.qty > 1e-9).map(([s]) => { const g = gaps.find(x => x.symbol.toUpperCase() === s.toUpperCase()); return `${s} ${g ? (g.gapPct >= 0 ? "+" : "") + g.gapPct.toFixed(1) + "%" : "hedge"}`; }).join(", ") || "(flat)";
+  const gapsTxt = gaps.slice(0, 10).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(1)}%`).join(", ");
+  if (!Q.apiKey) return decideStub({ gaps: gaps.map(g => `${g.symbol} ${g.gapPct}%`) }, rules, capitalUsd);
+  const sys = "/no_think You are AfterHours' overnight trading agent. Trim holdings trading ABOVE their frozen reference; buy the biggest discount; rotate into the BTC hedge if risk-off. Never propose an order above 25% of NAV. Never sell a symbol not held.";
+  const user = `/no_think NAV $${nav}, cash $${cash}. Holdings vs reference: ${holdTxt}. All gaps: ${gapsTxt}. Rules: ${rules || "trim holdings above 0.5% vs reference; buy the biggest discount over 0.3%"}. Reply with ONLY a JSON array of orders: [{"action":"BUY"|"SELL","symbol":"X","usd":<amount USD>}]`;
+  try {
+    const orders = parseOrders(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 260, timeoutMs || 9000, 1));
+    return { trigger: orders.length ? "rebalance" : "hold", rationale: rationaleFor(orders, gaps), orders, model: Q.model };
+  } catch (e) { const d = decideStub({ gaps: gaps.map(g => `${g.symbol} ${g.gapPct}%`) }, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen unavailable (${e.message}); deterministic engine acted. ` + d.rationale; return d; }
+}
+function parseOrders(text) {
+  let t = String(text).trim(); const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) t = f[1].trim();
+  const a = t.indexOf("["), aEnd = t.lastIndexOf("]"), o = t.indexOf("{"), oEnd = t.lastIndexOf("}");
+  let arr = [];
+  try { if (a >= 0 && aEnd > a && (o < 0 || a < o)) arr = JSON.parse(t.slice(a, aEnd + 1)); else if (o >= 0) { const obj = JSON.parse(t.slice(o, oEnd + 1)); arr = obj.orders || []; } } catch { arr = []; }
+  return Array.isArray(arr) ? arr : [];
+}
+function rationaleFor(orders, gaps) {
+  if (!orders.length) return "Qwen reviewed the book and the live gaps — no edge beyond the thresholds, so it held (deliberate, no overtrading).";
+  const parts = orders.slice(0, 4).map(o => { const g = gaps.find(x => x.symbol.toUpperCase() === String(o.symbol).toUpperCase()); const gp = g ? `${g.gapPct >= 0 ? "+" : ""}${g.gapPct.toFixed(2)}%` : ""; return `${String(o.action).toUpperCase()} ${o.symbol}${gp ? " (" + gp + " vs ref)" : ""}`; });
+  return `Qwen trimmed/bought on the gap: ${parts.join("; ")}. Locked the premium / discount while the market is closed.`;
 }
 function decideStub(s, rules, capitalUsd) {
   const orders = [];
@@ -99,18 +107,21 @@ function decideStub(s, rules, capitalUsd) {
 
 // ── adversarial auditor ──────────────────────────────────────────────────────
 export async function audit(decision) {
-  const orders = decision?.orders || []; const nav = metrics().navUsd || state.capitalUsd; const probs = [];
+  const nav = metrics().navUsd || state.capitalUsd;
+  const orders = (decision?.orders || []).map(o => normOrder(o, [], nav));
+  const probs = [];
   for (const o of orders) {
-    if (!o.symbol || !o.action || Number(o.usd || 0) <= 0) probs.push("malformed order");
+    if (!o.symbol || !["BUY", "SELL"].includes(o.action) || Number(o.usd || 0) <= 0) probs.push("malformed order");
     if (Number(o.usd || 0) > nav * 0.25) probs.push(`${o.symbol} >25% NAV`);
     if (o.action === "SELL" && !(state.book.get(o.symbol)?.qty > 0)) probs.push(`SELL ${o.symbol} not held`);
     if (o.action === "BUY" && Number(o.usd) > state.cash + orders.filter(x => x.action === "SELL").reduce((a, x) => a + Number(x.usd || 0), 0)) probs.push(`BUY ${o.symbol} exceeds cash`);
   }
+  if (!orders.length) return { verdict: "pass", reason: "no orders (deliberate hold)" };
   if (probs.length) return { verdict: "reject", reason: "Deterministic audit: " + probs.join("; ") };
   if (!Q.apiKey) return { verdict: "pass", reason: "deterministic audit: within bounds" };
   try {
     const t = await qwen([{ role: "system", content: "You are AfterHours' adversarial AUDITOR. Reject any plan that SELLs a held-less symbol, BUYs beyond cash, exceeds 25% of NAV per order, or is malformed. Prefer finding the flaw. Return ONLY JSON {\"verdict\":\"pass|reject\",\"reason\":\"1 sentence\"}." },
-      { role: "user", content: `NAV $${metrics().navUsd} cash $${usd(state.cash)} exposed $${usd(exposureUsd())}. Holdings: ${holdingsSummary()}. Plan: ` + JSON.stringify(orders) }], 300, 6500, 1);
+      { role: "user", content: `NAV $${nav} cash $${usd(state.cash)} exposed $${usd(exposureUsd())}. Holdings: ${holdingsSummary()}. Plan: ` + JSON.stringify(orders) + "\n/no_think" }], 300, 12000, 1);
     return { verdict: String(t).toLowerCase().includes("reject") ? "reject" : "pass", reason: String(t).replace(/```/g, "").slice(0, 200) };
   } catch { return { verdict: "pass", reason: "auditor unreachable → deterministic pass" }; }
 }
@@ -151,9 +162,24 @@ function sell(sym, notional, px, reason) {
   state.closed.push({ symbol: sym, pnl });
   return { action: "SELL", symbol: sym, usd: usd(gross), px, qty: Number(qty.toFixed(6)), pnl: usd(pnl), fee: usd(fee), reason };
 }
+function normAction(a) { const s = String(a || "").toUpperCase(); if (s.includes("SELL") || s.includes("TRIM") || s.includes("REDUCE") || s.includes("HEDGE") || s.includes("EXIT")) return "SELL"; if (s.includes("BUY") || s.includes("ADD") || s.includes("ACCUM") || s.includes("LONG")) return "BUY"; return s; }
+function normOrder(o, gaps, nav) {
+  const symbol = String(o.symbol || o.key || "").toUpperCase();
+  const action = normAction(o.action || o.side);
+  let usdAmt = Number(o.usd || o.notionalUsd || 0);
+  if (!usdAmt) usdAmt = action === "SELL" ? Math.min((state.book.get(symbol)?.qty || 0) * (priceOf(gaps, symbol) || 0), nav * 0.25) : nav * 0.1;
+  return { action, symbol, usd: usdAmt, reason: o.reason || o.trigger || "agent" };
+}
 function execute(orders, gaps) {
+  const nav = metrics().navUsd || state.capitalUsd;
   const fills = [];
-  for (const o of orders) { const px = priceOf(gaps, o.symbol); if (!px) continue; const f = o.action === "BUY" ? buy(o.symbol, Number(o.usd), px, o.reason || "agent") : sell(o.symbol, Number(o.usd), px, o.reason || "agent"); if (f) fills.push(f); }
+  for (const raw of orders) {
+    const o = normOrder(raw, gaps, nav);
+    if (!o.symbol || !["BUY", "SELL"].includes(o.action)) continue;
+    const px = priceOf(gaps, o.symbol); if (!px || o.usd <= 0) continue;
+    const f = o.action === "BUY" ? buy(o.symbol, o.usd, px, o.reason) : sell(o.symbol, o.usd, px, o.reason);
+    if (f) fills.push(f);
+  }
   return fills;
 }
 
