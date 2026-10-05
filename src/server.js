@@ -550,9 +550,9 @@ app.post("/api/sleep/run", wrap(async (req, res) => {
   res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100), deep: !!deep }));
 }));
 app.post("/api/sleep/arm", wrap(async (req, res) => {
-  const { venue = "bitget", rules = "", capitalUsd = 100 } = req.body || {};
+  const { venue = "bitget", rules = "", capitalUsd = 100, venues } = req.body || {};
   const v = /^(solana|bnb|bitget)$/.test(venue) ? venue : "bitget";
-  res.json({ ok: true, ...sleepAgent.arm({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }) });
+  res.json({ ok: true, ...sleepAgent.arm({ venue: v, venues: Array.isArray(venues) ? venues : undefined, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }) });
 }));
 app.post("/api/sleep/disarm", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.disarm() })));
 app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: sleepAgent.listSleepDecisions().length, model: sleepAgent.status().model, decisions: sleepAgent.listSleepDecisions() })));
@@ -562,9 +562,10 @@ app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public
 // overnight autopilot: while armed, the agent runs itself on an interval using the
 // FULL Qwen reasoning budget (background latency is fine; interactive runs stay fast)
 const SLEEP_INTERVAL_MS = Number(process.env.AH_SLEEP_MS || 300_000);
+const SLEEP_VENUES = String(process.env.AH_SLEEP_VENUES || "bitget,bnb,solana").split(",").map((s) => s.trim()).filter((s) => /^(solana|bnb|bitget)$/.test(s));
 // re-arm on boot so the overnight autopilot survives restarts
-if (process.env.AH_SLEEP_ARMED === "1") sleepAgent.arm({ venue: process.env.AH_SLEEP_VENUE || "bitget", rules: process.env.AH_SLEEP_RULES || "", capitalUsd: Number(process.env.AH_SLEEP_CAPITAL || 1000) });
-setInterval(async () => { if (sleepAgent.isArmed()) { try { await sleepAgent.runSleep({ deep: true }); } catch (e) { console.error("[sleep] autopilot:", e.message); } } }, SLEEP_INTERVAL_MS);
+if (process.env.AH_SLEEP_ARMED === "1") sleepAgent.arm({ venues: SLEEP_VENUES, rules: process.env.AH_SLEEP_RULES || "", capitalUsd: Number(process.env.AH_SLEEP_CAPITAL || 1000) });
+setInterval(async () => { if (sleepAgent.isArmed()) { for (const v of sleepAgent.venues()) { try { await sleepAgent.runSleep({ venue: v, deep: true }); } catch (e) { console.error("[sleep] autopilot", v, e.message); } } } }, SLEEP_INTERVAL_MS);
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));

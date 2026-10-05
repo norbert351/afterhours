@@ -82,7 +82,7 @@ async function status(){
   try{const s=await get('/api/sleep/status');
     $('#modelBadge').textContent='model '+s.model;
     $('#modelBadge').className='badge'+(s.qwen==='live'?' live':'');
-    $('#armBadge').textContent=s.armed?'● autopilot ARMED':'● disarmed';
+    $('#armBadge').textContent=s.armed?('● armed: '+(s.venues||[]).join(' + ')):'● disarmed';
     $('#armBadge').className='badge'+(s.armed?' live':'');
     const m=s;
     $('#metrics').innerHTML=[
@@ -97,7 +97,7 @@ async function status(){
       ['Slippage',money(m.slippageUsd),''],
     ].map(([k,v,c])=>`<div class="m"><div class="k">${k}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
     const b=(s.book||[]);
-    $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
+    $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.venue||'')}·${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
     drawEquity(s.equity||[]);
   }catch(e){}
 }
@@ -123,7 +123,7 @@ $('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style
     else el.innerHTML=`${esc(r.trigger||'')} · ${esc(r.rationale||r.reason||'')}`;
     await refresh();}catch(e){el.textContent='Run failed: '+e.message;}
   $('#runBtn').disabled=false;});
-$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());$('#armBtn').textContent=r.armed?'✓ armed':'⟳ Arm autopilot';await refresh();});
+$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
 refresh();setInterval(refresh,20000);
 </script>
 </body></html>

@@ -9,6 +9,7 @@ import { config } from "../config.js";
 import { bitgetArbUniverse } from "./bitget-arb.js";
 import { bnbUniverse } from "./bnb.js";
 import { buildDashboard } from "./oracle.js";
+import { findDislocations } from "./dislocation.js";
 import { cryptoTickers } from "../adapters/bitget-r.js";
 
 const Q = config.qwen;
@@ -24,8 +25,8 @@ export async function sense(venue) {
       try { const c = await cryptoTickers(); for (const [sym, px] of Object.entries(c)) if (px) g.push({ symbol: sym, gapPct: 0, price: px, hedge: true }); } catch { /* no crypto */ }
       return g;
     }
-    if (venue === "bnb") { const d = await bnbUniverse(); return (d.gaps || []).filter(g => !g.error).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.tokenPrice })); }
-    if (venue === "solana") { const d = await buildDashboard(); return (d.dislocations || []).filter(x => x.type === "cross_issuer").map(x => ({ symbol: (x.underlying || x.symbol || "").toUpperCase(), gapPct: Number(x.gapBps || 0) / 100, price: x.minPrice })); }
+    if (venue === "bnb") { const d = await bnbUniverse(); return (d.gaps || []).filter(g => !g.error && g.gapPct != null).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.onChainPriceUsd || g.tokenPrice })).filter(g => g.price > 0); }
+    if (venue === "solana") { const d = await findDislocations(); return (d.dislocations || []).map(x => ({ symbol: String(x.underlying || x.symbol || "").toUpperCase(), gapPct: Number(x.gapBps || 0) / 100, price: x.minPrice })).filter(g => g.symbol && g.price > 0); }
     return [];
   } catch { return []; }
 }
@@ -33,9 +34,9 @@ export async function sense(venue) {
 // ── state ────────────────────────────────────────────────────────────────────
 const state = {
   armed: false, venue: "bitget", rules: "", capitalUsd: 100,
-  cash: 0, book: new Map(), nav: [], decisions: [], closed: [], fees: 0, slippage: 0, traded: 0, seeded: false,
+  cash: 0, book: new Map(), nav: [], decisions: [], closed: [], fees: 0, slippage: 0, traded: 0, seededVenues: new Set(), venues: ["bitget"],
 };
-export function _resetForTest() { state.armed = false; state.cash = 0; state.book = new Map(); state.nav = []; state.decisions = []; state.closed = []; state.fees = 0; state.slippage = 0; state.traded = 0; state.seeded = false; }
+export function _resetForTest() { state.armed = false; state.cash = 0; state.book = new Map(); state.nav = []; state.decisions = []; state.closed = []; state.fees = 0; state.slippage = 0; state.traded = 0; state.seededVenues = new Set(); state.venues = ["bitget"]; }
 
 // ── Qwen ─────────────────────────────────────────────────────────────────────
 function parseDecision(text) {
@@ -64,8 +65,8 @@ export function canUseQwen() { return !!Q.apiKey; }
 function holdingsSummary(gaps) {
   const gm = new Map((gaps || []).map(g => [String(g.symbol).toUpperCase(), g.gapPct]));
   const out = [];
-  for (const [sym, p] of state.book) {
-    if (p.qty > 1e-9) { const gp = gm.has(sym.toUpperCase()) ? `${gm.get(sym.toUpperCase()) >= 0 ? "+" : ""}${Number(gm.get(sym.toUpperCase())).toFixed(2)}% vs ref` : "n/a"; out.push(`${sym} qty ${p.qty.toFixed(4)} avgCost ${p.avgCost.toFixed(2)} now ${gp}`); }
+  for (const [key, p] of state.book) {
+    if (p.qty > 1e-9) { const bare = String(key).split("|").pop(); const vn = String(key).split("|")[0]; const gp = gm.has(bare.toUpperCase()) ? `${gm.get(bare.toUpperCase()) >= 0 ? "+" : ""}${Number(gm.get(bare.toUpperCase())).toFixed(2)}% vs ref` : "hedge"; out.push(`${bare} [${vn}] qty ${p.qty.toFixed(4)} avgCost ${p.avgCost.toFixed(2)} now ${gp}`); }
   }
   return out.length ? out.join("\n") : "(flat — all cash)";
 }
@@ -113,7 +114,7 @@ export async function audit(decision) {
   for (const o of orders) {
     if (!o.symbol || !["BUY", "SELL"].includes(o.action) || Number(o.usd || 0) <= 0) probs.push("malformed order");
     if (Number(o.usd || 0) > nav * 0.25) probs.push(`${o.symbol} >25% NAV`);
-    if (o.action === "SELL" && !(state.book.get(o.symbol)?.qty > 0)) probs.push(`SELL ${o.symbol} not held`);
+    if (o.action === "SELL" && !(state.book.get(state.venue + "|" + o.symbol)?.qty > 0)) probs.push(`SELL ${o.symbol} not held`);
     if (o.action === "BUY" && Number(o.usd) > state.cash + orders.filter(x => x.action === "SELL").reduce((a, x) => a + Number(x.usd || 0), 0)) probs.push(`BUY ${o.symbol} exceeds cash`);
   }
   if (!orders.length) return { verdict: "pass", reason: "no orders (deliberate hold)" };
@@ -129,45 +130,47 @@ function exposureUsd() { let v = 0; for (const p of state.book.values()) v += p.
 
 // ── seed + execute (paper, cost-basis, fees) ─────────────────────────────────
 function priceOf(gaps, sym) { return Number((gaps.find(g => (g.symbol || "").toUpperCase() === String(sym).toUpperCase()) || {}).price || 0); }
-function seed(gaps, capitalUsd) {
-  // core: the LARGEST-|gap| rToken names (actionable premiums/discounts)
+function seed(gaps, budgetUsd, venue) {
+  // core: the LARGEST-|gap| names (actionable premiums/discounts) for THIS venue
   const core = gaps.filter(g => g.price > 0 && !g.hedge).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct)).slice(0, 6);
-  const hedge = gaps.filter(g => g.hedge && g.price > 0).slice(0, 1); // BTC sleeve
+  const hedge = gaps.filter(g => g.hedge && g.price > 0).slice(0, 1); // BTC sleeve (bitget only)
   if (!core.length && !hedge.length) return;
-  if (process.env.AH_DEBUG) console.error("[seed] gaps:", gaps.slice(0, 10).map(g => `${g.symbol}:${Number(g.gapPct).toFixed(2)}`).join(", "), "| core:", core.map(g => g.symbol).join(","), "| hedge:", hedge.map(g => g.symbol).join(","));
-  const budget = capitalUsd * 0.98;
+  const budget = budgetUsd * 0.98;
   const hedgeBudget = hedge.length ? budget * 0.15 : 0;         // 15% crypto hedge sleeve
   const coreBudget = budget - hedgeBudget;
-  state.cash = capitalUsd;
+  state.cash += budgetUsd; // each venue contributes its sleeve to the shared portfolio
   const per = core.length ? coreBudget / core.length : 0;
-  for (const g of core) { const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100); buy(g.symbol, per, ref > 0 ? ref : g.price, "seed@reference"); }
-  for (const g of hedge) { buy(g.symbol, hedgeBudget, g.price, "seed@hedge"); }
-  state.seeded = true;
+  const v = venue || state.venue;
+  for (const g of core) { const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100); buy(v + "|" + g.symbol, per, ref > 0 ? ref : g.price, "seed@reference"); }
+  for (const g of hedge) { buy(v + "|" + g.symbol, hedgeBudget, g.price, "seed@hedge"); }
+  state.seededVenues.add(v);
 }
-function buy(sym, notional, px, reason) {
+function buy(key, notional, px, reason) {
+  const disp = String(key).split("|").pop();
   const qty = notional / px; const fee = notional * FEE, slipCost = notional * SLIP;
-  const cur = state.book.get(sym) || { qty: 0, avgCost: 0 };
+  const cur = state.book.get(key) || { qty: 0, avgCost: 0 };
   cur.avgCost = (cur.avgCost * cur.qty + (notional + fee + slipCost)) / (cur.qty + qty) || px;
-  cur.qty += qty; state.book.set(sym, cur);
+  cur.qty += qty; state.book.set(key, cur);
   state.cash -= (notional + fee + slipCost); state.fees += fee; state.slippage += slipCost; state.traded += notional;
-  return { action: "BUY", symbol: sym, usd: usd(notional), px, qty: Number(qty.toFixed(6)), fee: usd(fee), reason };
+  return { action: "BUY", symbol: disp, usd: usd(notional), px, qty: Number(qty.toFixed(6)), fee: usd(fee), reason };
 }
-function sell(sym, notional, px, reason) {
-  const cur = state.book.get(sym); if (!cur || cur.qty <= 0) return null;
+function sell(key, notional, px, reason) {
+  const disp = String(key).split("|").pop();
+  const cur = state.book.get(key); if (!cur || cur.qty <= 0) return null;
   const qty = Math.min(notional / px, cur.qty); if (qty <= 0) return null;
   const gross = qty * px; const fee = gross * FEE, slipCost = gross * SLIP; const net = gross - fee - slipCost;
   const pnl = gross - cur.avgCost * qty;
-  cur.qty -= qty; state.book.set(sym, cur);
+  cur.qty -= qty; state.book.set(key, cur);
   state.cash += net; state.fees += fee; state.slippage += slipCost; state.traded += gross;
-  state.closed.push({ symbol: sym, pnl });
-  return { action: "SELL", symbol: sym, usd: usd(gross), px, qty: Number(qty.toFixed(6)), pnl: usd(pnl), fee: usd(fee), reason };
+  state.closed.push({ symbol: disp, pnl });
+  return { action: "SELL", symbol: disp, usd: usd(gross), px, qty: Number(qty.toFixed(6)), pnl: usd(pnl), fee: usd(fee), reason };
 }
 function normAction(a) { const s = String(a || "").toUpperCase(); if (s.includes("SELL") || s.includes("TRIM") || s.includes("REDUCE") || s.includes("HEDGE") || s.includes("EXIT")) return "SELL"; if (s.includes("BUY") || s.includes("ADD") || s.includes("ACCUM") || s.includes("LONG")) return "BUY"; return s; }
 function normOrder(o, gaps, nav) {
   const symbol = String(o.symbol || o.key || "").toUpperCase();
   const action = normAction(o.action || o.side);
   let usdAmt = Number(o.usd || o.notionalUsd || 0);
-  if (!usdAmt) usdAmt = action === "SELL" ? Math.min((state.book.get(symbol)?.qty || 0) * (priceOf(gaps, symbol) || 0), nav * 0.25) : nav * 0.1;
+  if (!usdAmt) usdAmt = action === "SELL" ? Math.min((state.book.get(state.venue + "|" + symbol)?.qty || 0) * (priceOf(gaps, symbol) || 0), nav * 0.25) : nav * 0.1;
   return { action, symbol, usd: usdAmt, reason: o.reason || o.trigger || "agent" };
 }
 function execute(orders, gaps) {
@@ -177,7 +180,8 @@ function execute(orders, gaps) {
     const o = normOrder(raw, gaps, nav);
     if (!o.symbol || !["BUY", "SELL"].includes(o.action)) continue;
     const px = priceOf(gaps, o.symbol); if (!px || o.usd <= 0) continue;
-    const f = o.action === "BUY" ? buy(o.symbol, o.usd, px, o.reason) : sell(o.symbol, o.usd, px, o.reason);
+    const key = state.venue + "|" + o.symbol;
+    const f = o.action === "BUY" ? buy(key, o.usd, px, o.reason) : sell(key, o.usd, px, o.reason);
     if (f) fills.push(f);
   }
   return fills;
@@ -190,7 +194,7 @@ export function metrics() {
   let posValue = 0; for (const p of state.book.values()) posValue += p.qty * p.avgCost;
   const navUsd = state.cash + posValue;
   const navs = state.nav.map(x => x.nav);
-  const ret = (navs.length > 1) ? (navs[navs.length - 1] / navs[0] - 1) * 100 : (state.seeded ? ((navUsd / state.capitalUsd) - 1) * 100 : 0);
+  const ret = (navs.length > 1) ? (navs[navs.length - 1] / navs[0] - 1) * 100 : (state.seededVenues.size ? ((navUsd / state.capitalUsd) - 1) * 100 : 0);
   // Sharpe on periodic NAV returns
   let sharpe = 0;
   if (navs.length > 2) { const rs = []; for (let i = 1; i < navs.length; i++) rs.push(navs[i] / navs[i - 1] - 1); const mean = rs.reduce((a, b) => a + b, 0) / rs.length; const sd = Math.sqrt(rs.reduce((a, b) => a + (b - mean) ** 2, 0) / rs.length) || 1e-9; sharpe = (mean / sd) * Math.sqrt(365); }
@@ -213,7 +217,7 @@ export async function runSleep({ venue, rules, capitalUsd, deep } = {}) {
   if (capitalUsd) state.capitalUsd = Number(capitalUsd);
   const gaps = await sense(state.venue);
   if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
-  if (!state.seeded) seed(gaps, state.capitalUsd);
+  if (!state.seededVenues.has(state.venue)) seed(gaps, state.capitalUsd / Math.max(1, state.venues.length), state.venue);
   const decision = await decide(gaps, state.rules, state.capitalUsd, deep ? 80000 : undefined);
   const auditRes = await audit(decision);
   let executed = [];
@@ -225,10 +229,11 @@ export async function runSleep({ venue, rules, capitalUsd, deep } = {}) {
   return { ok: true, venue: state.venue, model: rec.model, trigger: rec.trigger, rationale: rec.rationale, audit: auditRes, executed, signature: rec.signature, counts: { proposed: decision.orders.length, filled: executed.length }, metrics: metrics() };
 }
 
-export function arm(cfg = {}) { state.armed = true; if (cfg.venue) state.venue = cfg.venue; if (cfg.rules != null) state.rules = cfg.rules; if (cfg.capitalUsd) state.capitalUsd = Number(cfg.capitalUsd); state.cash = state.cash || 0; return status(); }
+export function arm(cfg = {}) { state.armed = true; if (Array.isArray(cfg.venues) && cfg.venues.length) { state.venues = cfg.venues.filter(v => /^(solana|bnb|bitget)$/.test(v)); if (!state.venues.length) state.venues = ["bitget"]; state.venue = state.venues[0]; } if (cfg.venue) state.venue = cfg.venue; if (cfg.rules != null) state.rules = cfg.rules; if (cfg.capitalUsd) state.capitalUsd = Number(cfg.capitalUsd); state.cash = state.cash || 0; return status(); }
 export function disarm() { state.armed = false; return status(); }
 export function isArmed() { return state.armed; }
-export function status() { return { armed: state.armed, venue: state.venue, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({symbol:s,qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seeded: state.seeded, equity: state.nav.map(x=>({at:x.at,nav:x.nav})), ...metrics() }; }
+export function venues() { return state.venues; }
+export function status() { return { armed: state.armed, venue: state.venue, venues: state.venues, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({venue:String(s).split("|")[0],symbol:String(s).split("|").pop(),qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seededVenues: [...state.seededVenues], equity: state.nav.map(x=>({at:x.at,nav:x.nav})), ...metrics() }; }
 export function listSleepDecisions(limit = 30) { return [...state.decisions].reverse().slice(0, limit); }
 
 export function nightReport() {
