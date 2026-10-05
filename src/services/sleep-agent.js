@@ -9,6 +9,7 @@ import { config } from "../config.js";
 import { bitgetArbUniverse } from "./bitget-arb.js";
 import { bnbUniverse } from "./bnb.js";
 import { buildDashboard } from "./oracle.js";
+import { cryptoTickers } from "../adapters/bitget-r.js";
 
 const Q = config.qwen;
 const FEE = 0.0005, SLIP = 0.0005; // 5bps fee + 5bps slippage per fill
@@ -17,7 +18,12 @@ const usd = (n) => Math.round(Number(n) * 100) / 100;
 // ── sensors (all three venues) ───────────────────────────────────────────────
 export async function sense(venue) {
   try {
-    if (venue === "bitget") { const d = await bitgetArbUniverse(); return (d.gaps || []).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.rTokenPriceUsd })); }
+    if (venue === "bitget") {
+      const d = await bitgetArbUniverse();
+      const g = (d.gaps || []).map(x => ({ symbol: x.symbol, gapPct: x.gapPct, price: x.rTokenPriceUsd }));
+      try { const c = await cryptoTickers(); for (const [sym, px] of Object.entries(c)) if (px) g.push({ symbol: sym, gapPct: 0, price: px, hedge: true }); } catch { /* no crypto */ }
+      return g;
+    }
     if (venue === "bnb") { const d = await bnbUniverse(); return (d.gaps || []).filter(g => !g.error).map(g => ({ symbol: g.symbol, gapPct: g.gapPct, price: g.tokenPrice })); }
     if (venue === "solana") { const d = await buildDashboard(); return (d.dislocations || []).filter(x => x.type === "cross_issuer").map(x => ({ symbol: (x.underlying || x.symbol || "").toUpperCase(), gapPct: Number(x.gapBps || 0) / 100, price: x.minPrice })); }
     return [];
@@ -65,7 +71,7 @@ function holdingsSummary(gaps) {
 async function decide(gaps, rules, capitalUsd) {
   const state0 = { venue: state.venue, navUsd: metrics().navUsd, cashUsd: usd(state.cash), gaps: gaps.slice(0, 20).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(2)}% px ${g.price}`) };
   if (!Q.apiKey) return decideStub(state0, rules, capitalUsd);
-  const sys = "You are AfterHours' autonomous overnight agent managing a CROSS-ASSET book of tokenized US stocks (rToken) + crypto while the human sleeps. The reference price is FROZEN (market closed); the token trades 24/7. POSITIVE gap = token above its frozen ref → SELL/trim the premium. NEGATIVE gap = token below ref → BUY the discount. You are the decision-maker. HARD RULES: never propose an order above 25% of NAV; never SELL a symbol not currently held; keep total exposure within cash+holdings; prefer few high-conviction orders. When a holding trades ABOVE its reference beyond the trim threshold, TRIM it (SELL) to lock the premium; redeploy proceeds into the biggest discount if one exists.";
+  const sys = "You are AfterHours' autonomous overnight agent managing a CROSS-ASSET book of tokenized US stocks (rToken) + a crypto hedge sleeve (BTC/ETH) while the human sleeps. The reference price is FROZEN (market closed); the token trades 24/7. POSITIVE gap = token above its frozen ref → SELL/trim the premium. NEGATIVE gap = token below ref → BUY the discount. CROSS-ASSET: you hold a crypto hedge sleeve (BTC) — in risk-off (large rToken premiums), rotate premium proceeds into BTC as a hedge. You are the decision-maker. HARD RULES: never propose an order above 25% of NAV; never SELL a symbol not currently held; keep total exposure within cash+holdings; prefer few high-conviction orders. When a holding trades ABOVE its reference beyond the trim threshold, TRIM it (SELL) to lock the premium; redeploy proceeds into the biggest discount or the BTC hedge if one exists.";
   const user = [
     `Capital/NAV: $${state0.navUsd.toFixed(0)} | cash: $${state0.cashUsd.toFixed(2)}.`,
     `Your rules: ${rules || "trim holdings above +1% vs reference, buy the biggest discount over 0.3%, cap 25% of NAV."}`,
@@ -111,19 +117,18 @@ function exposureUsd() { let v = 0; for (const p of state.book.values()) v += p.
 // ── seed + execute (paper, cost-basis, fees) ─────────────────────────────────
 function priceOf(gaps, sym) { return Number((gaps.find(g => (g.symbol || "").toUpperCase() === String(sym).toUpperCase()) || {}).price || 0); }
 function seed(gaps, capitalUsd) {
-  // seed the LARGEST-|gap| names so premiums/discounts are actually actionable
-  const names = gaps.filter(g => g.price > 0).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct)).slice(0, 8);
-  if (!names.length) return;
-  if (process.env.AH_DEBUG) console.error("[seed] gaps order:", gaps.slice(0, 10).map(g => `${g.symbol}:${Number(g.gapPct).toFixed(2)}`).join(", "), "| seeded:", names.map(g => g.symbol).join(","));
-  const budget = capitalUsd * 0.98; // keep a small cash buffer so buys stay fundable
-  const per = budget / names.length;
+  // core: the LARGEST-|gap| rToken names (actionable premiums/discounts)
+  const core = gaps.filter(g => g.price > 0 && !g.hedge).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct)).slice(0, 6);
+  const hedge = gaps.filter(g => g.hedge && g.price > 0).slice(0, 1); // BTC sleeve
+  if (!core.length && !hedge.length) return;
+  if (process.env.AH_DEBUG) console.error("[seed] gaps:", gaps.slice(0, 10).map(g => `${g.symbol}:${Number(g.gapPct).toFixed(2)}`).join(", "), "| core:", core.map(g => g.symbol).join(","), "| hedge:", hedge.map(g => g.symbol).join(","));
+  const budget = capitalUsd * 0.98;
+  const hedgeBudget = hedge.length ? budget * 0.15 : 0;         // 15% crypto hedge sleeve
+  const coreBudget = budget - hedgeBudget;
   state.cash = capitalUsd;
-  for (const g of names) {
-    // anchor the cost basis at the FROZEN REFERENCE (fair value), so the current
-    // 24/7 token price = a real premium/discount the agent can act on.
-    const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100);
-    buy(g.symbol, per, ref > 0 ? ref : g.price, "seed@reference");
-  }
+  const per = core.length ? coreBudget / core.length : 0;
+  for (const g of core) { const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100); buy(g.symbol, per, ref > 0 ? ref : g.price, "seed@reference"); }
+  for (const g of hedge) { buy(g.symbol, hedgeBudget, g.price, "seed@hedge"); }
   state.seeded = true;
 }
 function buy(sym, notional, px, reason) {

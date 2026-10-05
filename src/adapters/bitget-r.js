@@ -37,6 +37,17 @@ export async function bitgetRTickers() {
   return r;
 }
 
+// Cross-asset hedge sleeve: BTC/ETH spot prices (Bitget), fetched once per cache.
+export async function cryptoTickers() {
+  const d = await cachedFetch(BITGET_TICKERS, { ttlMs: TTL, retries: 2 });
+  const rows = Array.isArray(d?.data) ? d.data : [];
+  const out = {};
+  for (const t of rows) {
+    if (t.symbol === "BTCUSDT" || t.symbol === "ETHUSDT") out[t.symbol.slice(0, -4)] = Number(t.lastPr) || 0;
+  }
+  return out;
+}
+
 // Live rToken price for a US symbol, e.g. TSLA -> RTSLAUSDT.
 export async function bitgetRPrice(symbol) {
   const m = await bitgetRTickers();
