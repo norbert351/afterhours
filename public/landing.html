@@ -171,12 +171,13 @@ pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px
 <!-- HERO -->
 <header class="hero">
   <div class="wrap">
-    <span class="eyebrow">Tokenized equities · trading 24/7</span>
-    <h1>Unleash <span class="glowwrap"><span class="orb"></span></span> tokenized&nbsp;equities’<br>full potential.</h1>
-    <p class="hero-sub">The NYSE closes, but the on-chain copies of the same stocks keep trading all weekend. AfterHours lives on that edge — mapping the live on-chain price of every tokenized equity against its frozen reference, and turning the gap into strategy.</p>
+    <span class="eyebrow">Autonomous agent · Qwen · runs while you sleep</span>
+    <h1>An agent that trades the gap while you sleep.</h1>
+    <p class="hero-sub">Tokenized US stocks keep trading 7×24 while their reference freezes at the bell. Give AfterHours a rule and capital — <b>Qwen decides the overnight moves</b>, a second Qwen pass audits them, and every fill is signed. See the Night Report in the morning.</p>
     <div class="hero-cta">
-      <button class="btn btn-purple" onclick="location.href='/app'" style="font-size:.95rem;padding:.85rem 1.5rem">Open the app</button>
-      <span class="livetag"><span class="live"></span> Live on Solana mainnet — not a mockup</span>
+      <button class="btn btn-purple" onclick="location.href='/sleep'" style="font-size:.95rem;padding:.85rem 1.5rem">Wake the agent →</button>
+      <button class="btn btn-wallet" onclick="location.href='/app'" style="font-size:.95rem;padding:.85rem 1.5rem">Open the dashboard</button>
+      <span class="livetag"><span class="live"></span> Live data · not a mockup</span>
     </div>
     <div class="newsbar">
       <span class="tag">LIVE</span>
@@ -222,11 +223,11 @@ pre{background:#0c0c14;color:#c9c2ff;border:1px solid #26262f;border-radius:12px
       <div class="cta-row"><button class="btn btn-purple" onclick="location.href='/app'">See the gaps</button></div>
     </div>
     <div class="statbox">
-      <div class="rate"><span class="b"></span><span>+1.7%</span></div>
-      <div class="label">largest live on-chain gap right now</div>
+      <div class="rate"><span class="b"></span><span id="statGap">+1.7%</span></div>
+      <div class="label">largest live on-chain gap vs frozen reference</div>
       <div class="tvl">
-        <div class="k">Combined 24h on-chain volume</div>
-        <div class="n" id="tvlBig">$19.4M</div>
+        <div class="k">Gaps tracked live</div>
+        <div class="n" id="tvlBig">—</div>
       </div>
       <div class="icons">
         <span class="ci">AAPLx</span><span class="ci">NVDAx</span><span class="ci">MSFTx</span><span class="ci">TSLAx</span>
@@ -362,9 +363,13 @@ async function loadGaps(){
   try{
     const d=await (await fetch('/api/markethours/gap')).json();
     const rows=d.gaps.filter(g=>!g.error);
-    const vols=rows.reduce((a,g)=>a+(g.volumeUsd24h||0),0);
-    document.getElementById('tvlBig').textContent='$'+(vols/1e3).toFixed(1)+'M';
-    if(rows[0]){var s=rows.sort((a,b)=>Math.abs(b.gapPct)-Math.abs(a.gapPct));document.getElementById('newsT').textContent=s[0].symbol+' is at '+(s[0].gapPct>=0?'+':'')+s[0].gapPct.toFixed(2)+'% vs reference · NYSE closed';}
+    const sorted=[...rows].sort((a,b)=>Math.abs(b.gapPct)-Math.abs(a.gapPct));
+    document.getElementById('tvlBig').textContent=rows.length ? rows.length+' tokens · live' : '—';
+    if(sorted[0]){
+      const g=sorted[0];
+      document.getElementById('statGap').textContent=(g.gapPct>=0?'+':'')+g.gapPct.toFixed(2)+'%';
+      document.getElementById('newsT').textContent=g.symbol+' is at '+(g.gapPct>=0?'+':'')+g.gapPct.toFixed(2)+'% vs reference · NYSE closed';
+    }
     document.getElementById('phoneScr').innerHTML=rows.slice(0,5).map(g=>{
       const cls=g.gapPct>=0?'up':'dn';
       return `<div class="row"><span>${g.symbol}</span><span class="px">$${g.onChainPriceUsd.toFixed(2)}</span><span class="pct ${cls}">${g.gapPct>=0?'+':''}${g.gapPct.toFixed(2)}%</span></div>`;

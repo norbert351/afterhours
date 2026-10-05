@@ -7,86 +7,106 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/ah-ui.css">
 <style>
-.hero{padding:34px 26px}
-body{background:var(--bg)}
-label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin:14px 0 6px}
-input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 14px;font-size:15px;font-family:inherit}
-select{appearance:none}
-.ctl{display:grid;grid-template-columns:1fr;gap:12px}
-@media(min-width:640px){.ctl{grid-template-columns:1fr 1fr}}
+.hero{padding:32px 24px}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:14px 0 6px}
+input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 14px;font-size:15px;font-family:inherit;appearance:none}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .config{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);padding:20px}
-.log{max-height:320px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
-.log .d{padding:9px 4px;border-bottom:1px solid var(--line)}
-.log b{color:var(--text)}
-.log .up{color:var(--good)}.log .down{color:var(--bad)}
-.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.kv .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-.kv .v{font-family:var(--mono);font-size:15px;font-weight:600}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.mgrid .m{background:var(--panel3);border:1px solid var(--line);border-radius:12px;padding:12px}
+.mgrid .m .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.mgrid .m .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:4px}
+.mgrid .m .v.up{color:var(--good)}.mgrid .m .v.down{color:var(--bad)}
+.log{max-height:300px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.log .d{padding:9px 2px;border-bottom:1px solid var(--line)}
+.log b{color:var(--text)}.log .up{color:var(--good)}.log .down{color:var(--bad)}
+.armrow{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.badge{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--muted)}
+.badge.live{border-color:rgba(74,222,128,.4);color:var(--good)}
 </style></head><body>
 <div id="ahnav"></div>
 <div class="wrap">
   <header class="hero" style="margin-top:18px">
-    <span class="ah-eyebrow"><span class="dot"></span>Qwen · autonomous · 24/7</span>
+    <span class="ah-eyebrow"><span class="dot"></span>Qwen · autonomous · runs while you sleep</span>
     <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px">Trades the gap while you sleep.</h1>
-    <p class="ah-lead">Give the agent a rule and capital — Qwen decides the overnight moves, a second Qwen pass audits them before anything is recorded, and you get a signed Night Report.</p>
+    <p class="ah-lead">Give the agent a rule and capital. Qwen decides the overnight moves, a second Qwen pass audits them before anything executes, and every fill is signed. Runs on Solana, BNB and Bitget.</p>
+    <div class="armrow"><span class="badge" id="modelBadge">model …</span><span class="badge" id="armBadge">● disarmed</span></div>
   </header>
 
   <section class="config reveal">
-    <h2 style="font-size:1.05rem;margin-bottom:4px">Arm the agent</h2>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:6px">Paper, no real money — executions are honest and signed.</p>
     <div class="ctl">
-      <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option></select></div>
-      <div><label for="cap">Capital (USD)</label><input id="cap" type="number" inputmode="decimal" value="100" min="1"></div>
+      <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option><option value="solana">Solana</option></select></div>
+      <div><label for="cap">Capital (USD)</label><input id="cap" type="number" inputmode="decimal" value="1000" min="1"></div>
     </div>
     <label for="rules">Rules (plain English)</label>
-    <input id="rules" type="text" value="rotate to the biggest discount over 2%, cap any position at 25% of capital, buy the discount and sell the premium, no overtrading" placeholder="e.g. buy the biggest discount over 3%, flat before Monday">
-    <button class="ah-btn" id="runBtn" style="width:100%;margin-top:16px">▶ Run a pass</button>
+    <input id="rules" type="text" value="trim any holding trading more than 0.5% above its frozen reference; buy the biggest discount with the proceeds; cap 25% of NAV">
+    <div class="armrow">
+      <button class="ah-btn" id="runBtn">▶ Run a pass</button>
+      <button class="ah-btn ghost" id="armBtn">⟳ Arm autopilot</button>
+    </div>
     <div class="ah-state" id="runState" style="display:none"></div>
-
-    <h2 style="font-size:1rem;margin-top:22px">Night report</h2>
-    <div class="card" id="reportCard"><div class="ah-skel" style="height:18px;margin:6px 0"></div></div>
-    <div class="kv" id="statusKv"></div>
-
-    <h2 style="font-size:1rem;margin-top:22px">Signed decision log</h2>
-    <div class="log" id="log"><div class="mut">No runs yet.</div></div>
   </section>
 
-  <footer class="foot">AfterHours Sleep Mode · Qwen decision-maker + auditor · paper ledger · © 2026</footer>
+  <section class="reveal" style="margin-top:26px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Strategy metrics</h2>
+    <div class="mgrid" id="metrics"></div>
+  </section>
+
+  <section class="reveal" style="margin-top:24px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:6px">Night report</h2>
+    <div class="card" id="reportCard"><div class="ah-skel" style="height:18px;margin:6px 0"></div></div>
+  </section>
+
+  <section class="reveal" style="margin-top:24px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Holdings</h2>
+    <div class="card" id="book" style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">—</div>
+  </section>
+
+  <section class="reveal" style="margin-top:24px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Signed decision log</h2>
+    <div class="card log" id="log"><div class="mut">No runs yet.</div></div>
+  </section>
+  <footer class="foot">AfterHours Sleep Mode · Qwen decision-maker + auditor · paper ledger, fees + slippage · © 2026</footer>
 </div>
 <script>window.AH = { route: "sleep", action: "openapp", showChain: false };</script>
 <script src="/ah-shell.js"></script>
 <script>
 const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
 async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
-async function statusKv(){
-  try{const s=await get('/api/sleep/status'); const b=Object.entries(s.book||{});
-    $('#statusKv').innerHTML=
-      `<div><div class="k">Model</div><div class="v">${esc(s.model||'—')}</div></div>
-       <div><div class="k">Runs</div><div class="v">${s.decisions||0}</div></div>
-       <div><div class="k">Qwen</div><div class="v">${s.qwen==='live'?'LIVE':'unset'}</div></div>
-       <div><div class="k">Positions</div><div class="v">${b.length}</div></div>`;
+async function status(){
+  try{const s=await get('/api/sleep/status');
+    $('#modelBadge').textContent='model '+s.model;
+    $('#modelBadge').className='badge'+(s.qwen==='live'?' live':'');
+    $('#armBadge').textContent=s.armed?'● autopilot ARMED':'● disarmed';
+    $('#armBadge').className='badge'+(s.armed?' live':'');
+    const m=s;
+    $('#metrics').innerHTML=[
+      ['NAV',money(m.navUsd),''],
+      ['Return',(m.returnPct>=0?'+':'')+m.returnPct+'%',m.returnPct>=0?'up':'down'],
+      ['Sharpe',m.sharpe,''],
+      ['Max DD',m.maxDrawdownPct+'%','down'],
+      ['Win rate',m.winRate+'%',m.winRate>=50?'up':''],
+      ['Trades',m.trades+' ('+m.closedTrades+' closed)',''],
+      ['Turnover',money(m.turnoverUsd),''],
+      ['Fees',money(m.feesUsd),''],
+      ['Slippage',money(m.slippageUsd),''],
+    ].map(([k,v,c])=>`<div class="m"><div class="k">${k}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
+    const b=(s.book||[]);
+    $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
   }catch(e){}
 }
-async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=
-  `<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p>
-   <p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.signature)}</p>`;}catch(e){$('#reportCard').innerHTML='<p class="mut">—</p>'}}
-async function refresh(){await statusKv();await report(); try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>`<div class="d">
-  <b>${x.venue}</b> · ${esc(x.trigger)} · audit ${esc(x.audit?.verdict||'?')}<br>
-  <span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> · ${esc(x.rationale)}
-  ${(x.executed||[]).map(f=>` &nbsp; <span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} $${f.usd.toFixed(2)}</span>`).join('')}</div>`).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
-$('#runBtn').addEventListener('click', async ()=>{
-  const el=$('#runState'); el.style.display='block'; el.textContent='Sensing gaps → Qwen deciding → auditing…';
-  $('#runBtn').disabled=true;
-  try{
-    const r=await fetch('/api/sleep/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||100})}).then(r=>r.json());
-    if(r.error){el.textContent='⚠ '+r.error;}
-    else if(r.executed?.length){el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed paper fill(s)</span> · ${esc(r.rationale)}`;}
-    else if(r.acted===false){el.textContent='No tradable gaps right now.';}
-    else {el.innerHTML=`<span style="color:var(--good)">${esc(r.trigger)}</span> · ${esc(r.rationale)}`;}
-    await refresh();
-  }catch(e){el.textContent='Run failed: '+e.message;}
-  $('#runBtn').disabled=false;
-});
-refresh();
+async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.lastSignature)}</p>`;}catch(e){}}
+async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>`<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · ${esc(x.model||'')}<br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+async function refresh(){await status();await report();await decisions();}
+function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
+$('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';el.textContent='Qwen deciding → auditing → executing…';$('#runBtn').disabled=true;
+  try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());
+    if(r.executed&&r.executed.length)el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed fill(s)</span> · ${esc(r.rationale||'')}`;
+    else el.innerHTML=`${esc(r.trigger||'')} · ${esc(r.rationale||r.reason||'')}`;
+    await refresh();}catch(e){el.textContent='Run failed: '+e.message;}
+  $('#runBtn').disabled=false;});
+$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());$('#armBtn').textContent=r.armed?'✓ armed':'⟳ Arm autopilot';await refresh();});
+refresh();setInterval(refresh,20000);
 </script>
 </body></html>
