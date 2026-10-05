@@ -50,6 +50,10 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
   <section class="reveal" style="margin-top:26px">
     <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Strategy metrics</h2>
     <div class="mgrid" id="metrics"></div>
+    <div id="equityChart" style="margin-top:14px;background:var(--panel3);border:1px solid var(--line);border-radius:12px;padding:12px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px">Equity curve (paper)</div>
+      <svg id="eqSvg" viewBox="0 0 300 70" width="100%" height="80" preserveAspectRatio="none"><polyline fill="none" stroke="#7a68ff" stroke-width="2" points=""/></svg>
+    </div>
   </section>
 
   <section class="reveal" style="margin-top:24px">
@@ -94,10 +98,23 @@ async function status(){
     ].map(([k,v,c])=>`<div class="m"><div class="k">${k}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
     const b=(s.book||[]);
     $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
+    drawEquity(s.equity||[]);
   }catch(e){}
 }
+function drawEquity(eq){
+  const poly=document.querySelector('#eqSvg polyline'); if(!poly)return;
+  const cap=Number($('#cap').value)||1000;
+  const pts=eq.length?eq.map(x=>x.nav):[cap];
+  const vals=pts.length>1?pts:[cap,cap];
+  const min=Math.min(...vals),max=Math.max(...vals),rng=(max-min)||1;
+  const W=300,H=70;
+  poly.setAttribute('points',vals.map((v,i)=>{
+    const x=(i/(vals.length-1||1))*W, y=H-((v-min)/rng)*H;
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' '));
+}
 async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.lastSignature)}</p>`;}catch(e){}}
-async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>`<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · ${esc(x.model||'')}<br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const q=String(x.model||'').includes('qwen');return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${q?' live':''}" style="padding:1px 8px;font-size:10px">${q?'Qwen decided':'deterministic fallback'}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
 $('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';el.textContent='Qwen deciding → auditing → executing…';$('#runBtn').disabled=true;

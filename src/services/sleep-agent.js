@@ -44,14 +44,16 @@ function parseDecision(text) {
   const o = JSON.parse(t.slice(s, e + 1));
   return { trigger: String(o.trigger || "rebalance"), rationale: String(o.rationale || ""), orders: o.orders || [] };
 }
-async function qwen(messages, maxTokens) {
+async function qwen(messages, maxTokens, timeoutMs, attempts) {
   let lastErr;
-  for (let i = 0; i < 1; i++) {
+  const n = attempts || 2;
+  for (let i = 0; i < n; i++) {
     try {
       const res = await fetch(`${Q.base.replace(/\/+$/, "")}/chat/completions`, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${Q.apiKey}` },
-        body: JSON.stringify({ model: Q.model, messages, temperature: 0.2, max_tokens: maxTokens }), signal: AbortSignal.timeout(Number(process.env.AH_QWEN_TIMEOUT_MS || 14_000)),
+        body: JSON.stringify({ model: Q.model, messages, temperature: 0.2, max_tokens: maxTokens }), signal: AbortSignal.timeout(timeoutMs || Number(process.env.AH_QWEN_TIMEOUT_MS || 12_000)),
       });
+      if (res.status === 429) { lastErr = new Error("rate limited"); await new Promise(r => setTimeout(r, 2500)); continue; }
       if (!res.ok) throw new Error(`llm http ${res.status}`);
       const j = await res.json(); const t = j?.choices?.[0]?.message?.content; if (!t) throw new Error("empty completion"); return t;
     } catch (e) { lastErr = e; }
@@ -68,8 +70,8 @@ function holdingsSummary(gaps) {
   return out.length ? out.join("\n") : "(flat — all cash)";
 }
 
-async function decide(gaps, rules, capitalUsd) {
-  const state0 = { venue: state.venue, navUsd: metrics().navUsd, cashUsd: usd(state.cash), gaps: gaps.slice(0, 20).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(2)}% px ${g.price}`) };
+async function decide(gaps, rules, capitalUsd, timeoutMs) {
+  const state0 = { venue: state.venue, navUsd: metrics().navUsd, cashUsd: usd(state.cash), gaps: gaps.slice(0, 12).map(g => `${g.symbol} ${g.gapPct > 0 ? "+" : ""}${g.gapPct.toFixed(2)}% px ${g.price}`) };
   if (!Q.apiKey) return decideStub(state0, rules, capitalUsd);
   const sys = "You are AfterHours' autonomous overnight agent managing a CROSS-ASSET book of tokenized US stocks (rToken) + a crypto hedge sleeve (BTC/ETH) while the human sleeps. The reference price is FROZEN (market closed); the token trades 24/7. POSITIVE gap = token above its frozen ref → SELL/trim the premium. NEGATIVE gap = token below ref → BUY the discount. CROSS-ASSET: you hold a crypto hedge sleeve (BTC) — in risk-off (large rToken premiums), rotate premium proceeds into BTC as a hedge. You are the decision-maker. HARD RULES: never propose an order above 25% of NAV; never SELL a symbol not currently held; keep total exposure within cash+holdings; prefer few high-conviction orders. When a holding trades ABOVE its reference beyond the trim threshold, TRIM it (SELL) to lock the premium; redeploy proceeds into the biggest discount or the BTC hedge if one exists.";
   const user = [
@@ -81,7 +83,7 @@ async function decide(gaps, rules, capitalUsd) {
     "",
     'Return ONLY JSON: {"trigger":"rebalance|hold|hedge","rationale":"2-3 sentences naming the risk you are managing","orders":[{"action":"BUY"|"SELL","symbol":"<SYM>","usd":<USD>,"reason":"short"}]}. BUY only if fundable from cash or same-plan SELLs. SELL only symbols in holdings.',
   ].join("\n");
-  try { const d = await parseDecision(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 2000)); d.model = Q.model; return d; }
+  try { const d = await parseDecision(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 700, timeoutMs || 8000, timeoutMs ? 2 : 1)); d.model = Q.model; return d; }
   catch (e) { const d = decideStub(state0, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen unavailable (${e.message}); deterministic engine acted. ` + d.rationale; return d; }
 }
 function decideStub(s, rules, capitalUsd) {
@@ -108,7 +110,7 @@ export async function audit(decision) {
   if (!Q.apiKey) return { verdict: "pass", reason: "deterministic audit: within bounds" };
   try {
     const t = await qwen([{ role: "system", content: "You are AfterHours' adversarial AUDITOR. Reject any plan that SELLs a held-less symbol, BUYs beyond cash, exceeds 25% of NAV per order, or is malformed. Prefer finding the flaw. Return ONLY JSON {\"verdict\":\"pass|reject\",\"reason\":\"1 sentence\"}." },
-      { role: "user", content: `NAV $${metrics().navUsd} cash $${usd(state.cash)} exposed $${usd(exposureUsd())}. Holdings: ${holdingsSummary()}. Plan: ` + JSON.stringify(orders) }], 300);
+      { role: "user", content: `NAV $${metrics().navUsd} cash $${usd(state.cash)} exposed $${usd(exposureUsd())}. Holdings: ${holdingsSummary()}. Plan: ` + JSON.stringify(orders) }], 300, 6500, 1);
     return { verdict: String(t).toLowerCase().includes("reject") ? "reject" : "pass", reason: String(t).replace(/```/g, "").slice(0, 200) };
   } catch { return { verdict: "pass", reason: "auditor unreachable → deterministic pass" }; }
 }
@@ -179,14 +181,14 @@ export function metrics() {
 }
 
 // ── the run ──────────────────────────────────────────────────────────────────
-export async function runSleep({ venue, rules, capitalUsd } = {}) {
+export async function runSleep({ venue, rules, capitalUsd, deep } = {}) {
   if (venue) state.venue = venue;
   if (rules != null) state.rules = rules;
   if (capitalUsd) state.capitalUsd = Number(capitalUsd);
   const gaps = await sense(state.venue);
   if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
   if (!state.seeded) seed(gaps, state.capitalUsd);
-  const decision = await decide(gaps, state.rules, state.capitalUsd);
+  const decision = await decide(gaps, state.rules, state.capitalUsd, deep ? 80000 : undefined);
   const auditRes = await audit(decision);
   let executed = [];
   if (auditRes.verdict === "pass") executed = execute(decision.orders, gaps);
@@ -200,7 +202,7 @@ export async function runSleep({ venue, rules, capitalUsd } = {}) {
 export function arm(cfg = {}) { state.armed = true; if (cfg.venue) state.venue = cfg.venue; if (cfg.rules != null) state.rules = cfg.rules; if (cfg.capitalUsd) state.capitalUsd = Number(cfg.capitalUsd); state.cash = state.cash || 0; return status(); }
 export function disarm() { state.armed = false; return status(); }
 export function isArmed() { return state.armed; }
-export function status() { return { armed: state.armed, venue: state.venue, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({symbol:s,qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seeded: state.seeded, ...metrics() }; }
+export function status() { return { armed: state.armed, venue: state.venue, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({symbol:s,qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seeded: state.seeded, equity: state.nav.map(x=>({at:x.at,nav:x.nav})), ...metrics() }; }
 export function listSleepDecisions(limit = 30) { return [...state.decisions].reverse().slice(0, limit); }
 
 export function nightReport() {

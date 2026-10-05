@@ -545,9 +545,9 @@ app.post("/api/bitget/paper-act", wrap(async (req, res) => {
 app.get("/api/sleep/status", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.status() })));
 app.get("/api/sleep/metrics", wrap(async (_req, res) => res.json(sleepAgent.metrics())));
 app.post("/api/sleep/run", wrap(async (req, res) => {
-  const { venue, rules = "", capitalUsd = 100 } = req.body || {};
+  const { venue, rules = "", capitalUsd = 100, deep } = req.body || {};
   const v = /^(solana|bnb|bitget)$/.test(venue || "") ? venue : "bitget";
-  res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }));
+  res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100), deep: !!deep }));
 }));
 app.post("/api/sleep/arm", wrap(async (req, res) => {
   const { venue = "bitget", rules = "", capitalUsd = 100 } = req.body || {};
@@ -559,9 +559,10 @@ app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: slee
 app.get("/api/sleep/report", wrap(async (_req, res) => res.json(sleepAgent.nightReport())));
 app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "sleep.html")));
 
-// overnight autopilot: while armed, the agent runs itself on an interval
+// overnight autopilot: while armed, the agent runs itself on an interval using the
+// FULL Qwen reasoning budget (background latency is fine; interactive runs stay fast)
 const SLEEP_INTERVAL_MS = Number(process.env.AH_SLEEP_MS || 300_000);
-setInterval(async () => { if (sleepAgent.isArmed()) { try { await sleepAgent.runSleep({}); } catch (e) { console.error("[sleep] autopilot:", e.message); } } }, SLEEP_INTERVAL_MS);
+setInterval(async () => { if (sleepAgent.isArmed()) { try { await sleepAgent.runSleep({ deep: true }); } catch (e) { console.error("[sleep] autopilot:", e.message); } } }, SLEEP_INTERVAL_MS);
 
 // Static frontend. Homepage = marketing landing; live product = /app.
 app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "landing.html")));
