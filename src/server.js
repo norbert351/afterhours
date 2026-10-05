@@ -562,6 +562,8 @@ app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public
 // overnight autopilot: while armed, the agent runs itself on an interval using the
 // FULL Qwen reasoning budget (background latency is fine; interactive runs stay fast)
 const SLEEP_INTERVAL_MS = Number(process.env.AH_SLEEP_MS || 300_000);
+// re-arm on boot so the overnight autopilot survives restarts
+if (process.env.AH_SLEEP_ARMED === "1") sleepAgent.arm({ venue: process.env.AH_SLEEP_VENUE || "bitget", rules: process.env.AH_SLEEP_RULES || "", capitalUsd: Number(process.env.AH_SLEEP_CAPITAL || 1000) });
 setInterval(async () => { if (sleepAgent.isArmed()) { try { await sleepAgent.runSleep({ deep: true }); } catch (e) { console.error("[sleep] autopilot:", e.message); } } }, SLEEP_INTERVAL_MS);
 
 // Static frontend. Homepage = marketing landing; live product = /app.
