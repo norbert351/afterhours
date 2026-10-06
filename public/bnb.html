@@ -130,6 +130,12 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
     </div>
   </section>
 
+  <section>
+    <h2>Proof · live BSC execution <span class="chip" id="execMeta"></span></h2>
+    <div class="card" id="execCard"><span class="muted" style="font-size:12px">Loading…</span></div>
+    <div class="card" id="receiptCard"><span class="muted" style="font-size:12px">Loading audit receipt…</span></div>
+  </section>
+
   <div class="foot" style="color:var(--mut);font-size:11px;margin-top:30px;padding-top:14px;border-top:1px solid var(--line)">AfterHours BNB · data: BSC RPC (verified) · GeckoTerminal bsc · KyberSwap · Binance Web3 API (keyed RWA) · TwelveData reference. Links become real per-stock gaps the moment the free Web3 API key is set; nothing fabricated.</div>
 </div>
 <script>
@@ -197,7 +203,8 @@ async function loadGaps() {
     }).join("") || '<div class="muted" style="padding:8px">no gaps</div>';
     const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — excluded.` : "";
     const mfNote = mfMove != null ? ` Market factor (SPY) ${pctv(mfMove)} removed; costs ${((u.costModelPct ?? 0.14)).toFixed(2)}% subtracted.` : "";
-    $("#gapNote").textContent = "raw = (on-chain − frozen ref) / ref." + mfNote + " A raw gap that doesn't survive the market-factor adjustment + costs is a WAIT — not an opportunity." + flNote;
+    const refNote = u.reference ? `Reference: ${u.reference.source} · ${u.reference.status}. ` : "";
+    $("#gapNote").textContent = refNote + "raw = (on-chain − frozen ref) / ref." + mfNote + " A raw gap that doesn't survive the market-factor adjustment + costs is a WAIT — not an opportunity." + flNote;
   } catch (e) { $("#gapBody").innerHTML = `<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`; }
 }
 
@@ -254,7 +261,21 @@ $('#bnbActBtn').addEventListener('click',async()=>{const el=$('#bnbActOut'),b=$(
   el.innerHTML=d.acted?`<span style="color:var(--up)">✓ ${esc(d.decision)} ${esc(d.target)} · net ${pv(d.netEdgePct)} (raw ${pv(d.rawGapPct)} − costs ${((d.costPct??0.14)).toFixed(2)}%) · $${d.notionalUsd}</span><br><span style="color:var(--mut);font-size:11px">${esc(d.reason||'')}</span>`:`<span style="color:var(--warn)">WAIT — ${esc(d.reason||'no residual edge above costs')}</span>`;
   loadBnbDecisions();}catch(e){el.textContent='Failed: '+e.message;}b.disabled=false;});
 $('#bnbRefreshBtn').addEventListener('click',()=>{loadGaps();loadBnbDecisions();});
-loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions();
+async function loadExec(){try{const d=await getJSON('/api/bnb/execs');const fills=d.fills||[];
+  $('#execMeta').textContent = (d.configured? (fills.length? fills.length+' recorded':'ready') : 'not configured');
+  let h = `<div class="mrow"><span>Execution wallet</span><b class="mono" style="font-size:11px">${esc(d.wallet||'—')}</b></div>`
+    + `<div class="mrow"><span>Network</span><b>BNB Smart Chain · chain 56 · <span class="tag buy">SPOT</span></b></div>`;
+  if(!fills.length){ h += `<div class="muted" style="font-size:12px;margin-top:8px">NO LIVE EXECUTION YET — the paper environment is active. Live spot execution runs when a funded exec wallet + Web3 key are set.</div>`; }
+  else { h += fills.slice(0,5).map(f=>`<div class="mrow" style="margin-top:6px"><span>${esc(f.symbol)} · $${esc(f.amountUsd)} USDT</span>`
+    + `<b>${f.swapHash?`<a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(String(f.swapHash).slice(0,16))}… · BscScan</a>`:esc(f.error||'—')}</b></div>`).join(''); }
+  $('#execCard').innerHTML=h;}catch(e){$('#execCard').innerHTML=`<span class="muted" style="font-size:12px">${esc(e.message)}</span>`;}}
+async function loadReceipt(){try{const d=await getJSON('/api/sleep/decisions');const ds=d.decisions||d||[];const r=ds[0];
+  if(!r||!r.signature){$('#receiptCard').innerHTML='<span class="muted" style="font-size:12px">No signed decision yet — arm Sleep Mode to generate a VIGIL audit receipt.</span>';return;}
+  $('#receiptCard').innerHTML=`<div class="mrow"><span>AUDIT RECEIPT (VIGIL)</span><b class="mono" style="font-size:11px">${esc(r.signature)}</b></div>`
+    +`<div class="mrow"><span>Decision</span><b>${esc(r.trigger||r.decision||'—')}</b></div>`
+    +`<div class="mrow"><span>Venue / model</span><b>${esc(r.venue||'')} · ${esc(r.model||'')}</b></div>`
+    +`<div class="mrow"><span>At</span><b>${r.at?new Date(r.at).toLocaleString():'—'}</b></div>`;}catch(e){$('#receiptCard').innerHTML=`<span class="muted" style="font-size:12px">Receipt unavailable: ${esc(e.message)}</span>`;}}
+loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions(); loadExec(); loadReceipt();
 setInterval(loadGaps, 45_000);
 
 // populate the collapsible rail chips

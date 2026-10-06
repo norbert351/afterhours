@@ -51,6 +51,10 @@ export async function bitgetArbUniverse() {
     const row = {
       symbol: sym, rSymbol: tok.rSymbol, rTokenPriceUsd: tok.priceUsd,
       referenceUsd: ref.price, gapPct, change24h: tok.change24h,
+      // Reference honesty (Phase 15): every reference carries source + capture + status.
+      referenceSource: "TwelveData (US native)",
+      referenceCapturedAt: ref.at || null,
+      referenceStatus: marketOpen ? "LIVE" : "FROZEN",
     };
     if (Math.abs(gapPct) > GAP_PLAUSIBLE_PCT) { row.outlier = true; flagged.push(row); }
     else gaps.push(row);
@@ -64,6 +68,11 @@ export async function bitgetArbUniverse() {
     market: { open: marketOpen, at: Date.now(), note: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — reference frozen, rToken 7×24 keeps trading (the arbitrage window)" },
     chain: "bitget", source: "bitget-uta-v3-rToken · twelvedata-reference",
     universe: US_UNIVERSE.length, marketFactorMovePct: marketMovePct, costModelPct: COST_MODEL.feePct + COST_MODEL.slippagePct + COST_MODEL.bufferPct,
+    reference: {
+      source: "TwelveData (US native)", status: marketOpen ? "LIVE" : "FROZEN",
+      capturedAt: Math.max(0, ...[...refCache.values()].map((c) => c.at || 0)) || null,
+      note: marketOpen ? "US market open — reference updates." : "US market closed — reference frozen at last capture (the arbitrage baseline).",
+    },
     gaps, flaggedCount: flagged.length, errors,
     generatedAt: Date.now(),
   };

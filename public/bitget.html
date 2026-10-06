@@ -59,6 +59,7 @@ table{font-size:13px;min-width:520px}
       <div class="meta"><span>rToken: <b id="tgT">…</b></span><span>Reference: <b id="tgRef">…</b></span></div>
       <div class="meta" style="margin-top:6px"><span>Raw gap: <b id="tgRaw">…</b></span><span>Market-adjusted: <b id="tgAdj">…</b></span><span>Est. costs: <b id="tgCost">…</b></span><span>NET EDGE: <b id="tgNet">…</b></span><span>Action: <b id="tgDir">…</b></span></div>
       <div id="tgWhy" class="mut" style="font-size:12px;margin-top:8px"></div>
+      <div id="tgRefMeta" class="mut" style="font-size:11px;margin-top:6px"></div>
     </div>
   </header>
 
@@ -118,6 +119,7 @@ async function load(){try{
     $('#tgNet').textContent=pct(top.netEdgePct); $('#tgDir').textContent=top.decision||'WAIT';
     $('#tgWhy').textContent=top.reason||'';
   }
+  const rm=$('#tgRefMeta'); if(d.reference){const r=d.reference; rm.textContent=`Reference: ${r.source} · captured ${r.capturedAt?new Date(r.capturedAt).toLocaleString():'—'} · ${r.status}`;}
   $('#body').innerHTML=(gaps||[]).map(g=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
     const cls=ne==null?'mut':(ne>=0.2?'up':(ne>0?'mut':'down'));
     const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');

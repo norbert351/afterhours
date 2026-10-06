@@ -510,6 +510,10 @@ app.get("/api/bnb/equity-quote", wrap(async (req, res) => {
 // BNB execution wallet (read-only address) + a bounded live-fill test harness.
 // Real money moves a few-dollars at most; bound keeps a runaway demo from draining.
 app.get("/api/bnb/exec/address", wrap(async (_req, res) => res.json({ address: bnbExecAddress(), chain: "BNB Smart Chain (BSC)" })));
+app.get("/api/bnb/execs", wrap(async (_req, res) => res.json({
+  count: listBnbExecs(50).length, configured: bnbExecConfigured(),
+  wallet: bnbExecConfigured() ? bnbExecAddress() : null, fills: listBnbExecs(20),
+})));
 app.post("/api/bnb/exec", wrap(async (req, res) => {
   if (!bnbWeb3Configured() || !process.env.AH_BNB_EXEC_PRIVATE_KEY) {
     return res.status(501).json({ error: "execution not configured (Web3 key or AH_BNB_EXEC_PRIVATE_KEY required)" });

@@ -59,6 +59,11 @@ export async function bnbUniverse() {
         actionableCount: actionable.length,
         marketFactorMovePct: marketMovePct,
         costModelPct: COST_MODEL.feePct + COST_MODEL.slippagePct + COST_MODEL.bufferPct,
+        reference: {
+          source: "Binance Web3 API · RWA underlying reference",
+          status: marketOpen ? "LIVE" : "FROZEN",
+          note: marketOpen ? "US market open — reference updates." : "US market closed — the RWA underlying reference is frozen (the weekend-gap baseline).",
+        },
         flagged: { count: flagged.length, rows: flagged.slice(0, 5) },
         gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact) — not reported as real.`,
         generatedAt: Date.now(),
