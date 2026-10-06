@@ -40,6 +40,15 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
 .tag.buy{color:var(--up);background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
 .tag.wait{color:var(--warn);background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
 .tag.blk{color:var(--mut);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
+/* Phase 11: mobile = cards (no horizontal scroll), desktop = table */
+.mobile-cards{display:none}
+@media(max-width:719px){ .desktop-only{display:none} .mobile-cards{display:block} }
+@media(min-width:720px){ .mobile-cards{display:none} }
+.mcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.mcard .mh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mcard .msym{font-weight:700;font-size:15px}
+.mcard .mrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:3px 0}
+.mcard .mrow b{color:var(--txt);font-weight:600}
 .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
 pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
 /* chain switcher */
@@ -75,8 +84,11 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
 
   <section>
     <h2>Weekend gap · BNB <span class="chip" id="gapMeta"></span></h2>
-    <div class="card" style="overflow-x:auto">
+    <div class="card">
+      <div class="desktop-only" style="overflow-x:auto">
       <table><thead><tr><th>Token</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th></tr></thead><tbody id="gapBody"></tbody></table>
+      </div>
+      <div class="mobile-cards" id="gapCards"></div>
       <p class="muted" id="gapNote" style="margin:8px 0 0;font-size:12px"></p>
     </div>
   </section>
@@ -168,6 +180,17 @@ async function loadGaps() {
         + `<td class="muted">${pctv(g.gapPct)}</td><td class="${cls}" style="font-weight:600">${pctv(g.netEdgePct)}</td>`
         + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span></td></tr>`;
     }).join("") || '<tr><td colspan="6" class="muted">no gaps computed (see note)</td></tr>';
+    $("#gapCards").innerHTML = rows.filter((g) => !g.error).map((g) => {
+      const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
+      const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
+      const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
+      return `<div class="mcard"><div class="mh"><span class="msym">${esc(g.symbol)}</span><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span></div>`
+        + `<div class="muted" style="font-size:11px;margin-bottom:4px">${esc(g.name || "")}</div>`
+        + `<div class="mrow"><span>On-chain</span><b>$${fmt(g.onChainPriceUsd ?? g.tokenPrice)}</b></div>`
+        + `<div class="mrow"><span>Reference</span><b>$${fmt(g.referencePriceUsd)}</b></div>`
+        + `<div class="mrow"><span>Raw gap</span><b>${pctv(g.gapPct)}</b></div>`
+        + `<div class="mrow"><span>Net edge</span><b class="${cls}">${pctv(g.netEdgePct)}</b></div></div>`;
+    }).join("") || '<div class="muted" style="padding:8px">no gaps</div>';
     const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — excluded.` : "";
     const mfNote = mfMove != null ? ` Market factor (SPY) ${pctv(mfMove)} removed; costs ${((u.costModelPct ?? 0.14)).toFixed(2)}% subtracted.` : "";
     $("#gapNote").textContent = "raw = (on-chain − frozen ref) / ref." + mfNote + " A raw gap that doesn't survive the market-factor adjustment + costs is a WAIT — not an opportunity." + flNote;
