@@ -37,6 +37,10 @@ table{font-size:13px;min-width:520px}
 .mcard .msym{font-weight:700;font-size:15px}
 .mcard .mrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut,#9a9aaa);padding:3px 0}
 .mcard .mrow b{color:var(--text,#fff);font-weight:600}
+.tline{border-left:2px solid var(--line,#26262f);padding:8px 0 8px 12px;margin-bottom:8px}
+.tline .th{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:3px;flex-wrap:wrap}
+.tline .t{color:var(--mut,#9a9aaa);font-size:11px;font-family:var(--mono,monospace)}
+.tline .mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut,#9a9aaa)}
 </style></head><body>
 <div id="ahnav"></div>
 <div class="wrap">
@@ -73,6 +77,11 @@ table{font-size:13px;min-width:520px}
       <div style="padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem" id="note">…</div>
       <div style="display:flex;gap:10px;padding:0 18px 16px;flex-wrap:wrap"><button class="btn" onclick="act()">Paper-act · top NET EDGE ($100)</button><button class="btn ghost" onclick="location.reload()">Refresh</button></div>
     </div>
+  </section>
+
+  <section class="section reveal">
+    <h2>Paper decision timeline</h2>
+    <div class="card" id="decisions"><span class="mut" style="font-size:12px">No decisions yet — press Paper-act to run the engine.</span></div>
   </section>
 
   <footer class="foot">AfterHours · Bitget UTA v3 rToken + US reference · paper decisions, no real money</footer>
@@ -117,9 +126,15 @@ async function load(){try{
       +`<div class="mrow"><span>Reference</span><b>${fmt(g.referenceUsd)}</b></div>`
       +`<div class="mrow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
       +`<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(g.netEdgePct)}</b></div></div>`;}).join('')||'<div class="mut" style="padding:8px">no gaps</div>';
+  loadDecisions();
 }catch(e){$('#body').innerHTML='<tr><td colspan="7"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
 async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
-  alert(d.acted?`${d.decision}: ${d.target} · net ${pct(d.netEdgePct)} · $${d.notionalUsd}\n${d.reason||''}`:`WAIT — ${d.reason||'no residual edge above costs'}`)}catch(e){alert(e.message)}}
+  alert(d.acted?`${d.decision}: ${d.target} · net ${pct(d.netEdgePct)} · $${d.notionalUsd}\n${d.reason||''}`:`WAIT — ${d.reason||'no residual edge above costs'}`); loadDecisions();}catch(e){alert(e.message)}}
+async function loadDecisions(){try{const d=await get('/api/bitget/decisions');const ds=d.decisions||[];
+  $('#decisions').innerHTML=ds.slice(0,8).map(x=>{const dec=x.decision||x.action||'WAIT';const ok=(dec==='BUY'||dec==='ROTATE');
+    return `<div class="tline"><div class="th"><span class="t">${new Date(x.at).toLocaleTimeString()}</span> <b>${esc(x.symbol)}</b> <span class="tag ${ok?'buy':(dec==='WAIT'?'wait':'blk')}">${esc(dec)}</span></div>`
+      +`<div class="mrow"><span>raw → residual → net</span><b>${pct(x.rawGapPct)} → ${pct(x.residualGapPct)} → ${pct(x.netEdgePct)}</b></div>`
+      +(x.reason?`<div class="mut" style="font-size:11px;line-height:1.4">${esc(x.reason)}</div>`:'')+`</div>`;}).join('')||'<span class="mut" style="font-size:12px">No decisions yet — press Paper-act to run the engine.</span>';}catch(e){}}
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
 load();

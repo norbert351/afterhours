@@ -49,6 +49,10 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
 .mcard .msym{font-weight:700;font-size:15px}
 .mcard .mrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:3px 0}
 .mcard .mrow b{color:var(--txt);font-weight:600}
+.tline{border-left:2px solid var(--line);padding:8px 0 8px 12px;margin-bottom:8px}
+.tline .th{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:3px;flex-wrap:wrap}
+.tline .t{color:var(--mut);font-size:11px;font-family:var(--mono)}
+.tline .mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut)}
 .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
 pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
 /* chain switcher */
@@ -240,7 +244,11 @@ async function loadRwa() {
   }
 }
 
-async function loadBnbDecisions(){try{const d=await getJSON('/api/bnb/decisions');const ds=d.decisions||[];const pv=(n)=>(n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`);$('#bnbDecisions').innerHTML=ds.slice(0,6).map(x=>{const dec=x.decision||x.action||'WAIT';const ok=(dec==='BUY'||dec==='ROTATE');return `<div style="font-size:12px;color:var(--mut);padding:3px 0"><span style="font-weight:600;color:var(--${ok?'up':'warn'})">${esc(dec)}</span> <b>${esc(x.symbol)}</b> · net ${pv(x.netEdgePct)} (raw ${pv(x.rawGapPct)}) · <span style="opacity:.6">${new Date(x.at).toLocaleTimeString()}</span></div>`;}).join('')||'<span class="muted" style="font-size:12px">No paper decisions yet — press Paper-act to run the engine.</span>';}catch(e){}}
+async function loadBnbDecisions(){try{const d=await getJSON('/api/bnb/decisions');const ds=d.decisions||[];const pv=(n)=>(n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`);
+  $('#bnbDecisions').innerHTML=ds.slice(0,8).map(x=>{const dec=x.decision||x.action||'WAIT';const ok=(dec==='BUY'||dec==='ROTATE');
+    return `<div class="tline"><div class="th"><span class="t">${new Date(x.at).toLocaleTimeString()}</span> <b>${esc(x.symbol)}</b> <span class="tag ${ok?'buy':(dec==='WAIT'?'wait':'blk')}">${esc(dec)}</span></div>`
+      +`<div class="mrow"><span>raw → residual → net</span><b>${pv(x.rawGapPct)} → ${pv(x.residualGapPct)} → ${pv(x.netEdgePct)}</b></div>`
+      +(x.reason?`<div class="muted" style="font-size:11px;line-height:1.4">${esc(x.reason)}</div>`:'')+`</div>`;}).join('')||'<span class="muted" style="font-size:12px">No decisions yet — press Paper-act to run the engine.</span>';}catch(e){}}
 $('#bnbActBtn').addEventListener('click',async()=>{const el=$('#bnbActOut'),b=$('#bnbActBtn');b.disabled=true;el.textContent='Evaluating residual edge…';try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());
   const pv=(n)=>(n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`);
   el.innerHTML=d.acted?`<span style="color:var(--up)">✓ ${esc(d.decision)} ${esc(d.target)} · net ${pv(d.netEdgePct)} (raw ${pv(d.rawGapPct)} − costs ${((d.costPct??0.14)).toFixed(2)}%) · $${d.notionalUsd}</span><br><span style="color:var(--mut);font-size:11px">${esc(d.reason||'')}</span>`:`<span style="color:var(--warn)">WAIT — ${esc(d.reason||'no residual edge above costs')}</span>`;

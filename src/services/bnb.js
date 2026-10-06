@@ -6,6 +6,7 @@
 import { listBnbTokenPrices, bnbGap, bnbRwaPrices, bnbWeb3Configured, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS, bnbRealTokens, bnbEquityGaps, bnbAggQuote } from "../adapters/bsc.js";
 import { listReferencePrices, isMarketOpen } from "../adapters/twelvedata.js";
 import { annotateGaps, byNetEdgeDesc, COST_MODEL } from "./fairvalue.js";
+import { recordDecision, listDecisions } from "./paper-log.js";
 
 export async function bnbStatus() {
   return {
@@ -116,7 +117,6 @@ export async function bnbEquityQuote({ tokenIn = USDT_BSC, tokenOut, amountAtoms
 
 // ---- Paper-action strategy engine (mirrors the Bitget surface; SPOT-ONLY) ----
 // Residual rule: take the largest NET EDGE; premium → ROTATE, discount → BUY, else WAIT.
-const _bnbDecisions = [];
 export function bnbPaperAction({ gaps = [], amountUsd = 100 } = {}) {
   const pool = (gaps || []).filter((g) => g && !g.error && Number.isFinite(g.netEdgePct));
   if (!pool.length) return { acted: false, venue: "bnb", decision: "WAIT", reason: "no tradable gap right now" };
@@ -127,12 +127,12 @@ export function bnbPaperAction({ gaps = [], amountUsd = 100 } = {}) {
   // Never short / hedge / leverage.
   if (top.decision !== "ROTATE" && top.decision !== "BUY") {
     const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
-    _bnbDecisions.push(rec);
+    recordDecision(rec);
     return { acted: false, venue: "bnb", decision: "WAIT", target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason: top.reason };
   }
   const action = top.decision; // ROTATE | BUY (spot)
   const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "residual-fairvalue-rule" };
-  _bnbDecisions.push(rec);
+  recordDecision(rec);
   return { acted: true, venue: "bnb", decision: action, target: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, price: rec.price, reason: top.reason };
 }
-export function listBnbDecisions(limit = 50) { return [..._bnbDecisions].reverse().slice(0, limit); }
+export function listBnbDecisions(limit = 50) { return listDecisions(limit, "bnb"); }
