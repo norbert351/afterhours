@@ -124,14 +124,16 @@ async function loadGaps() {
     const u = await getJSON("/api/bnb/universe");
     const fl = u.flagged || {};
     const elig = $(".elig");
-    if (u.configured) {
-      elig.style.display = "block";
-      elig.style.borderColor = "rgba(105,240,174,.35)";
-      elig.style.color = "#d7fbe7";
-      elig.style.background = "rgba(105,240,174,.07)";
-      elig.innerHTML = `🟢 <b>Live</b> — ${u.tokenCount} real BSC tokenized equities from the sanctioned RWA Data API (${u.platformCount.bstock} bStocks · ${u.platformCount.ondo} Ondo). on-chain vs underlying reference. ${u.market.open ? "US market <b>OPEN</b>" : "US market <b>CLOSED</b> — on-chain keeps trading against a frozen reference (the weekend gap)."} ${fl.count} on-chain price(s) flagged as implausible.`;
-    } else {
-      elig.innerHTML = `<b>Web3 API key not set</b> — real per-stock prices gated. See rail status below.`;
+    if (elig) {
+      if (u.configured) {
+        elig.style.display = "block";
+        elig.style.borderColor = "rgba(105,240,174,.35)";
+        elig.style.color = "#d7fbe7";
+        elig.style.background = "rgba(105,240,174,.07)";
+        elig.innerHTML = `🟢 <b>Live</b> — ${u.tokenCount} real BSC tokenized equities from the sanctioned RWA Data API (${u.platformCount.bstock} bStocks · ${u.platformCount.ondo} Ondo). on-chain vs underlying reference. ${u.market.open ? "US market <b>OPEN</b>" : "US market <b>CLOSED</b> — on-chain keeps trading against a frozen reference (the weekend gap)."} ${fl.count} on-chain price(s) flagged as implausible.`;
+      } else {
+        elig.innerHTML = `<b>Web3 API key not set</b> — real per-stock prices gated. See rail status below.`;
+      }
     }
     $("#gapMeta").textContent = u.configured ? "LIVE · " + u.tokenCount + " tokens · sorted by |gap|" : "keyless (gated values flagged)";
     const rows = u.bstockTop && u.bstockTop.length ? u.bstockTop : (u.gaps || []);
