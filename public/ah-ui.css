@@ -141,3 +141,16 @@ body.ah-lock{overflow:hidden}
 .btn.ghost:hover{background:rgba(255,255,255,.06);border-color:var(--accent2,#7a68ff);box-shadow:none}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;filter:none}
 @media (hover:none){.btn:hover{transform:none;box-shadow:none;filter:none}}
+
+/* Shared status + venue components (Phase 55) — one vocabulary across pages.
+   Falls back to literals so pages defining their own tokens still render. */
+.ah-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.02em;white-space:nowrap}
+.ah-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+.ah-badge.live{color:#69f0ae;background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+.ah-badge.paper{color:#f0b23c;background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.3)}
+.ah-badge.gate{color:#9c9cb6;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
+.ah-badge.err{color:#ff6b6b;background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.3)}
+.ah-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.03em}
+.ah-tag.buy{color:#69f0ae;background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+.ah-tag.wait{color:#f0b23c;background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
+.ah-tag.blk{color:#9c9cb6;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
