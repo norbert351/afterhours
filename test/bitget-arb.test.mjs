@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { bitgetPaperAction, listBitgetDecisions } from "../src/services/bitget-arb.js";
-import { evaluateGap, marketFactorMovePct, betaFor } from "../src/services/fairvalue.js";
+import { evaluateGap, marketFactorMovePct, betaFor, rotationLeg, actionLabel, annotateActions } from "../src/services/fairvalue.js";
 
 test("fairvalue: residual = raw − beta*market; net = residual − costs", () => {
   const ev = evaluateGap({ rawGapPct: 0.81, marketMovePct: 0.32, beta: 1, costPct: 0.14, minNetEdgePct: 0.2 });
@@ -54,4 +54,34 @@ test("bitgetPaperAction: no gaps → acted false, nothing logged", () => {
   const a = bitgetPaperAction({ gaps: [] });
   assert.equal(a.acted, false);
   assert.equal(listBitgetDecisions(1000).length, before);
+});
+
+// ── Brief §41: tests for the residual-model helpers (ROTATE leg / labels / no-edge) ──
+test("fairvalue: rotationLeg picks the best DISCOUNT as the TO leg and never invents one", () => {
+  const gaps = [
+    { symbol: "MSTR", gapPct: 1.2, netEdgePct: 0.6 },
+    { symbol: "AAPL", gapPct: -0.8, netEdgePct: 0.3 },
+    { symbol: "NVDA", gapPct: -1.5, netEdgePct: 0.1 },
+  ];
+  assert.equal(rotationLeg(gaps, "MSTR").symbol, "AAPL"); // best net edge among discounts
+  assert.equal(rotationLeg([{ symbol: "MSTR", gapPct: 1.2, netEdgePct: 0.6 }], "MSTR"), null); // nothing discount → no leg
+});
+
+test("fairvalue: actionLabel is explicit — ROTATE needs a real second leg", () => {
+  assert.equal(actionLabel({ decision: "ROTATE", symbol: "MSTR", leg: { symbol: "AAPL" }, amountUsd: 100 }), "ROTATE · Reduce MSTR → Increase AAPL ($100)");
+  assert.equal(actionLabel({ decision: "ROTATE", symbol: "MSTR", leg: null }), "REDUCE MSTR EXPOSURE · no valid second leg");
+  assert.equal(actionLabel({ decision: "BUY", symbol: "AAPL" }), "BUY AAPL");
+  assert.equal(actionLabel({ decision: "WAIT", symbol: "SPY" }), "WAIT · SPY");
+});
+
+test("fairvalue: annotateActions flags hasEdge/noEdge, keeps the leg, and never says short", () => {
+  const gaps = annotateActions([
+    { symbol: "MSTR", gapPct: 1.1, netEdgePct: 0.6, decision: "ROTATE" },
+    { symbol: "AAPL", gapPct: -0.9, netEdgePct: 0.3, decision: "BUY" },
+    { symbol: "TSLAB", gapPct: 0.01, netEdgePct: -0.13, decision: "WAIT" },
+  ]);
+  assert.equal(gaps[0].hasEdge, true);
+  assert.equal(gaps[2].noEdge, true); // ~zero raw dislocation → kept out of the actionable feed
+  assert.match(gaps[0].actionLabel, /ROTATE · Reduce MSTR → Increase AAPL/); // AAPL is the discount leg
+  assert.ok(!/short|hedge|perp|leverage/i.test(gaps.map((g) => g.actionLabel).join(" ")), "BNB/spot copy must never imply a derivative");
 });

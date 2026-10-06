@@ -107,6 +107,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
       <span class="chip" id="bnRef">Reference …</span>
       <span class="chip" id="bnNext">Next open …</span>
       <span class="chip" id="bnUpd">Data: updated …</span>
+      <span class="chip" id="bnFresh">LIVE · updating…</span>
     </div>
 
     <div class="topspot" id="bnbTopCard">
@@ -150,6 +151,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
       <table><thead><tr><th>Token</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th></tr></thead><tbody id="gapBody"></tbody></table>
       </div>
       <div class="mobile-cards" id="gapCards"></div>
+      <div id="gapNoEdge" style="margin-top:12px"></div>
       <p class="muted" id="gapNote" style="margin:8px 0 0;font-size:12px"></p>
     </div>
   </section>
@@ -205,6 +207,32 @@ const fmt = (n, d = 2) => (n == null || !Number.isFinite(n) ? "—" : n.toLocale
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 async function getJSON(p) { const r = await fetch(p); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status); return d; }
 
+// Phase 26: honest data freshness — LIVE while the feed is recent, STALE once it ages.
+function freshText(genAt, staleAfter = 90) {
+  if (!genAt) return "Data: live";
+  const s = Math.max(0, Math.round((Date.now() - genAt) / 1000));
+  return (s > staleAfter ? "STALE · updated " + s + "s ago" : "LIVE · updated " + s + "s ago");
+}
+function tickFresh() {
+  const el = document.getElementById("bnUpd"); if (!el || !window._bnbGenAt) return;
+  const age = Date.now() - window._bnbGenAt;
+  el.textContent = freshText(window._bnbGenAt);
+  el.style.color = age > 90_000 ? "var(--warn)" : "";
+  el.style.borderColor = age > 90_000 ? "rgba(240,178,60,.5)" : "";
+  const f = document.getElementById("bnFresh");
+  if (f) { const live = age <= 90_000; f.textContent = (live ? "LIVE" : "STALE") + " · " + Math.round(age / 1000) + "s ago"; f.style.color = live ? "var(--up)" : "var(--warn)"; f.style.borderColor = live ? "rgba(105,240,174,.4)" : "rgba(240,178,60,.5)"; }
+}
+function _betaLine(g) {
+  const fallback = /fallback/i.test(String(g.betaSource || ""));
+  const b = Number.isFinite(Number(g.beta)) ? Number(g.beta) : 1;
+  return `<div class="srow"><span>Beta (market factor)</span><b>${b.toFixed(2)} · ${fallback ? '<span class="muted">fallback assumption</span>' : "estimated"}</b></div>`;
+}
+// Phase 36: export / copy a receipt (the judge can take the evidence with them).
+function receiptText(o) { return Object.entries(o).map(([k, v]) => k + ": " + v).join("\n"); }
+function downloadText(name, text) { try { const b = new Blob([text + "\n"], { type: "text/plain" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u); } catch (e) {} }
+async function copyText(t, btn) { try { await navigator.clipboard.writeText(t); if (btn) { const o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => { btn.textContent = o; }, 1400); } } catch (e) { if (btn) btn.textContent = "Copy failed"; } }
+function exportReceipt(o, name) { const t = receiptText(o); window._lastReceipt = t; copyText(t); downloadText(name || "afterhours-receipt.txt", t); }
+
 function renderBnbHero(u) {
   const s = u.session || {}, ref = u.reference || {};
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -214,8 +242,9 @@ function renderBnbHero(u) {
   const top = rows[0] || null; window._bnbTop = top;
   const t = top && top.nextOpenTime ? new Date(top.nextOpenTime) : null;
   set("bnNext", t ? ("Next open: " + t.toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" }) + " ET") : "Next open: —");
-  const gen = u.generatedAt ? Math.max(0, Math.round((Date.now() - u.generatedAt) / 1000)) : null;
-  set("bnUpd", gen != null ? ("Data: updated " + gen + "s ago") : "Data: live");
+  const gen = u.generatedAt || Date.now();
+  window._bnbGenAt = gen;
+  set("bnUpd", freshText(gen));
   const net = document.getElementById("tcNet");
   if (top) {
     set("tcSym", top.symbol);
@@ -275,19 +304,28 @@ async function loadGaps() {
     const pctv = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
     const mfMove = u.marketFactorMovePct;
     const c = u.counts || {};
-    $("#gapMeta").textContent = u.configured ? `${c.tradeable ?? 0} tradeable · ${c.candidates ?? 0} candidates · ${c.signals ?? (u.gaps || []).length} signals · ${c.tracked ?? u.tokenCount} tracked` : "keyless (gated values flagged)";
-    $("#gapBody").innerHTML = rows.map((g, i) => {
-      if (g.error) return `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="5" class="muted">${esc(g.error)}</td></tr>`;
+    const clean = rows.filter((g) => !g.error);
+    const errRows = rows.filter((g) => g.error);
+    // Phase 27: zero-gap / no-edge rows are held OUT of the primary feed (still inspectable).
+    const withEdge = clean.filter((g) => !g.noEdge);
+    const zeroEdge = clean.filter((g) => g.noEdge);
+    window._bnbGaps = withEdge; window._bnbNoEdge = zeroEdge;
+    $("#gapMeta").textContent = u.configured
+      ? `${c.tradeable ?? 0} tradeable · ${c.candidates ?? 0} candidates · ${c.signals ?? (u.gaps || []).length} signals · ${c.tracked ?? u.tokenCount} tracked` + (zeroEdge.length ? ` · ${zeroEdge.length} no-edge (held back)` : "")
+      : "keyless (gated values flagged)";
+    const rowHtml = (g, i, arr, tbl) => {
       const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
       const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
       const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
       return `<tr><td><b>${esc(g.symbol)}</b><div class="muted" style="font-size:11px">${esc(g.name || "")}</div></td>`
         + `<td class="hide-sm">$${fmt(g.onChainPriceUsd ?? g.tokenPrice)}</td><td class="muted hide-sm">$${fmt(g.referencePriceUsd)}</td>`
         + `<td class="muted">${pctv(g.gapPct)}</td><td class="${cls}" style="font-weight:600">${pctv(g.netEdgePct)}</td>`
-        + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._bnbGaps[${i}]);return false">Review</a></td></tr>`;
-    }).join("") || '<tr><td colspan="6" class="muted">no gaps computed (see note)</td></tr>';
-    const _cards = rows.filter((g) => !g.error); window._bnbGaps = _cards;
-    $("#gapCards").innerHTML = _cards.map((g, i) => {
+        + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(${tbl}[${i}]);return false">Review</a></td></tr>`;
+    };
+    $("#gapBody").innerHTML = (withEdge.map((g, i) => rowHtml(g, i, withEdge, "window._bnbGaps")).join("")
+      + errRows.map((g) => `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="5" class="muted">${esc(g.error)}</td></tr>`).join(""))
+      || '<tr><td colspan="6" class="muted">No residual edge clears costs right now — the agent is on WAIT.</td></tr>';
+    $("#gapCards").innerHTML = withEdge.map((g, i) => {
       const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
       const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
       const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
@@ -297,7 +335,15 @@ async function loadGaps() {
         + `<div class="mrow"><span>Raw</span><b>${pctv(g.gapPct)}</b></div>`
         + `<div class="muted" style="font-size:11px;margin-top:4px">${esc(g.actionLabel || "")}</div>`
         + `<button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._bnbGaps[${i}])">Review opportunity</button></div>`;
-    }).join("") || '<div class="muted" style="padding:8px">no gaps</div>';
+    }).join("") || '<div class="muted" style="padding:8px">no actionable gaps</div>';
+    // Phase 27: the no-edge bucket stays on the page, just out of the opportunities feed.
+    $("#gapNoEdge").innerHTML = zeroEdge.length
+      ? `<details class="ah-details"><summary>${zeroEdge.length} asset${zeroEdge.length > 1 ? "s" : ""} with no edge (|raw| below threshold) — inspect</summary><div class="bd">`
+        + `<div class="desktop-only" style="overflow-x:auto"><table><thead><tr><th>Token</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th></tr></thead><tbody>`
+        + zeroEdge.map((g, i) => rowHtml(g, i, zeroEdge, "window._bnbNoEdge")).join("")
+        + `</tbody></table></div>`
+        + `<div class="mobile-cards">${zeroEdge.map((g, i) => `<div class="mcard"><div class="mh"><span class="msym">${esc(g.symbol)}</span><span class="tag blk">NO EDGE</span></div><div class="mrow"><span>Raw</span><b>${pctv(g.gapPct)}</b></div><div class="mrow"><span>Net edge</span><b class="muted">${pctv(g.netEdgePct)}</b></div><button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._bnbNoEdge[${i}])">Review</button></div>`).join("")}</div>`
+        + `</div></details>` : "";
     const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — excluded.` : "";
     const mfNote = mfMove != null ? ` Market factor (SPY) ${pctv(mfMove)} removed; costs ${((u.costModelPct ?? 0.14)).toFixed(2)}% subtracted.` : "";
     const refNote = u.reference ? `Reference: ${u.reference.source} · ${u.reference.status}. ` : "";
@@ -381,10 +427,12 @@ async function loadExec(){try{const d=await getJSON('/api/bnb/execs');const fill
   $('#execCard').innerHTML=h;}catch(e){$('#execCard').innerHTML=`<span class="muted" style="font-size:12px">${esc(e.message)}</span>`;}}
 async function loadReceipt(){try{const d=await getJSON('/api/sleep/decisions');const ds=d.decisions||d||[];const r=ds[0];
   if(!r||!r.signature){$('#receiptCard').innerHTML='<span class="muted" style="font-size:12px">No signed decision yet — arm Sleep Mode to generate a VIGIL audit receipt.</span>';return;}
+  window._vigilReceipt = { Receipt:'AfterHours · VIGIL audit receipt', Signature:r.signature, Decision:r.trigger||r.decision||'—', Venue:r.venue||'', Model:r.model||'', At:r.at?new Date(r.at).toISOString():'—' };
   $('#receiptCard').innerHTML=`<div class="mrow"><span>AUDIT RECEIPT (VIGIL)</span><b class="mono" style="font-size:11px">${esc(r.signature)}</b></div>`
     +`<div class="mrow"><span>Decision</span><b>${esc(r.trigger||r.decision||'—')}</b></div>`
     +`<div class="mrow"><span>Venue / model</span><b>${esc(r.venue||'')} · ${esc(r.model||'')}</b></div>`
-    +`<div class="mrow"><span>At</span><b>${r.at?new Date(r.at).toLocaleString():'—'}</b></div>`;}catch(e){$('#receiptCard').innerHTML=`<span class="muted" style="font-size:12px">Receipt unavailable: ${esc(e.message)}</span>`;}}
+    +`<div class="mrow"><span>At</span><b>${r.at?new Date(r.at).toLocaleString():'—'}</b></div>`
+    +`<div class="acts" style="margin-top:10px"><button class="btn ghost" onclick="exportReceipt(window._vigilReceipt,'afterhours-vigil-receipt.txt')">Copy / export receipt</button></div>`;}catch(e){$('#receiptCard').innerHTML=`<span class="muted" style="font-size:12px">Receipt unavailable: ${esc(e.message)}</span>`;}}
 function _pct(n){return n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`;}
 function closeSheet(){document.getElementById('sheet').classList.remove('open');document.getElementById('sheetBg').classList.remove('open');}
 function openSheet(h){const s=document.getElementById('sheet');s.innerHTML=h;document.getElementById('sheetBg').classList.add('open');s.classList.add('open');}
@@ -394,6 +442,7 @@ function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.net
     +`<div class="srow"><span>Raw gap</span><b>${_pct(g.gapPct)}</b></div>`
     +`<div class="srow"><span>Market-adjusted (residual)</span><b>${_pct(g.residualGapPct)}</b></div>`
     +`<div class="srow"><span>Estimated costs</span><b>${g.costPct!=null?'-'+Number(g.costPct).toFixed(2)+'%':'—'}</b></div>`
+    +_betaLine(g)
     +`<div class="srow"><span>NET EDGE</span><b class="${(ne!=null&&ne>=0.2)?'up':'down'}">${_pct(ne)}</b></div>`
     +`<div class="srow"><span>On-chain $</span><b>$${fmt(g.onChainPriceUsd??g.tokenPrice)}</b></div>`
     +`<div class="srow"><span>Reference $</span><b>$${fmt(g.referencePriceUsd)}</b></div>`
@@ -405,11 +454,13 @@ function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.net
 }
 function whyToggle(){const w=document.getElementById('whyBox');if(w)w.style.display=(w.style.display==='block')?'none':'block';}
 async function paperTradeBnb(){try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());
+  window._bnbReceipt = { Receipt:'AfterHours · BNB paper trade', At:new Date().toISOString(), Venue:'BNB (SPOT)', Action:d.actionLabel||d.decision||'WAIT', Amount:d.acted?`$${d.notionalUsd}`:'—', 'Net edge':_pct(d.netEdgePct), 'Raw gap':_pct(d.rawGapPct), Costs:d.costPct!=null?`${Number(d.costPct).toFixed(2)}%`:'—', Mode:'PAPER — no real funds move', DecisionId:d.id||'—' };
   openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted?'✓ Paper trade recorded':'WAIT — no trade'}</h3><div class="sub">${esc(d.actionLabel||d.decision||'WAIT')}</div>`
     +(d.acted?`<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${_pct(d.netEdgePct)}</b></div><div class="srow"><span>Execution</span><b><span class="tag wait">PAPER</span></b></div>`:`<div class="why" style="display:block">${esc(d.reason||'')}</div>`)
-    +`<div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button></div>`);loadBnbDecisions();}catch(e){openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div>`);}}
+    +`<div class="acts">${d.acted?`<button class="btn ghost" onclick="exportReceipt(window._bnbReceipt,'afterhours-bnb-receipt.txt')">Export receipt</button>`:''}<button class="btn ghost" onclick="closeSheet()">Close</button></div>`);loadBnbDecisions();}catch(e){openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div>`);}}
 loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions(); loadExec(); loadReceipt();
 setInterval(loadGaps, 45_000);
+setInterval(tickFresh, 1_000);
 
 // populate the collapsible rail chips
 (async function () {

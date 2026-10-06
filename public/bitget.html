@@ -66,6 +66,7 @@ table{font-size:13px;min-width:520px}
       <span class="chip"><span class="dot" style="background:#69f0ae"></span><span id="symChip">Bitget rToken · LIVE</span></span>
       <span class="chip" id="nyseChip">NYSE …</span>
       <span class="chip" id="mktChip">market factor …</span>
+      <span class="chip" id="freshChip">LIVE · updating…</span>
     </div>
     <div class="arb-card" id="topcard" style="margin-top:26px">
       <div class="k">BEST OPPORTUNITY <span style="font-weight:400;text-transform:none;letter-spacing:0">— ranked by net edge, not raw gap</span></div>
@@ -119,6 +120,14 @@ table{font-size:13px;min-width:520px}
 const $=s=>document.querySelector(s), fmt=n=>n==null?'—':'$'+Number(n).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
+// Phase 26 freshness + Phase 28 beta honesty + Phase 36 receipt export.
+function freshText(genAt,staleAfter=90){if(!genAt)return 'live';const s=Math.max(0,Math.round((Date.now()-genAt)/1000));return (s>staleAfter?'STALE · updated '+s+'s ago':'LIVE · updated '+s+'s ago');}
+function tickFresh(){const el=document.getElementById('freshChip');if(!el||!window._bgGenAt)return;const age=Date.now()-window._bgGenAt;const live=age<=90000;el.textContent=(live?'LIVE · updated ':'STALE · updated ')+Math.round(age/1000)+'s ago';el.style.color=live?'var(--up,#69f0ae)':'var(--warn,#f0b23c)';el.style.borderColor=live?'rgba(105,240,174,.4)':'rgba(240,178,60,.5)';}
+function _betaLine(g){const fallback=/fallback/i.test(String(g.betaSource||''));const b=Number.isFinite(Number(g.beta))?Number(g.beta):1;return `<div class="srow"><span>Beta (market factor)</span><b>${b.toFixed(2)} · ${fallback?'<span class="mut">fallback assumption</span>':'estimated'}</b></div>`;}
+function receiptText(o){return Object.entries(o).map(([k,v])=>k+': '+v).join('\n');}
+function downloadText(name,text){try{const b=new Blob([text+'\n'],{type:'text/plain'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}catch(e){}}
+async function copyText(t,btn){try{await navigator.clipboard.writeText(t);if(btn){const o=btn.textContent;btn.textContent='Copied ✓';setTimeout(()=>{btn.textContent=o;},1400);}}catch(e){if(btn)btn.textContent='Copy failed';}}
+function exportReceipt(o,name){const t=receiptText(o);copyText(t);downloadText(name||'afterhours-receipt.txt',t);}
 const pct=n=>n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`;
 async function load(){try{
   const d=await get('/api/bitget/arbitrage'); const gaps=d.gaps||[]; const top=gaps[0];
@@ -127,6 +136,7 @@ async function load(){try{
   $('#note').textContent=d.market.note+(mf!=null?` · market factor (SPY) ${pct(mf)}`:'')+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
   $('#nyseChip').textContent=d.market.open?'NYSE: OPEN · reference updating':'NYSE: CLOSED · reference frozen';
   const sc=$('#symChip'); if(sc) sc.textContent='LIVE · '+(c.tracked||gaps.length)+' symbols · 7×24';
+  window._bgGenAt=d.generatedAt||Date.now(); tickFresh();
   const mk=$('#mktChip'); mk.textContent=mf!=null?`market factor (SPY) ${pct(mf)}`:'market factor: n/a';
   if(top){
     $('#tgSym').textContent=top.symbol; $('#tgR').textContent=top.rSymbol;
@@ -186,6 +196,7 @@ function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.net
     +`<div class="srow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
     +`<div class="srow"><span>Market-adjusted (residual)</span><b>${pct(g.residualGapPct)}</b></div>`
     +`<div class="srow"><span>Estimated costs</span><b>${g.costPct!=null?'-'+Number(g.costPct).toFixed(2)+'%':'—'}</b></div>`
+    +_betaLine(g)
     +`<div class="srow"><span>NET EDGE</span><b class="${(ne!=null&&ne>=0.2)?'up':'down'}">${pct(ne)}</b></div>`
     +`<div class="srow"><span>On-chain $</span><b>${fmt(g.rTokenPriceUsd)}</b></div>`
     +`<div class="srow"><span>Reference $</span><b>${fmt(g.referenceUsd)}</b></div>`
@@ -200,9 +211,10 @@ function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.net
 function whyToggle(){const w=document.getElementById('whyBox');if(w)w.style.display=(w.style.display==='block')?'none':'block';}
 async function paperTrade(){const sheet=document.getElementById('sheet');const btns=sheet.querySelectorAll('.btn');btns.forEach(b=>b.disabled=true);
   try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
+    window._bgReceipt={Receipt:'AfterHours · Bitget paper trade',At:new Date().toISOString(),Venue:'Bitget (rToken)',Action:d.actionLabel||d.decision||'WAIT',Amount:d.acted?`$${d.notionalUsd}`:'—','Net edge':pct(d.netEdgePct),'Raw gap':pct(d.rawGapPct),Costs:d.costPct!=null?`${Number(d.costPct).toFixed(2)}%`:'—',Mode:'PAPER — no real funds move',DecisionId:d.id||'—'};
     openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted?'✓ Paper trade recorded':'WAIT — no trade'}</h3><div class="sub">${esc(d.actionLabel||d.decision||'WAIT')}</div>`
       +(d.acted?`<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${pct(d.netEdgePct)}</b></div><div class="srow"><span>Costs</span><b>${d.costPct!=null?'-'+Number(d.costPct).toFixed(2)+'%':'—'}</b></div><div class="srow"><span>Execution</span><b><span class="tag paper" style="background:rgba(240,178,60,.12);color:#ffd88a;border:1px solid rgba(240,178,60,.3)">PAPER</span></b></div><div class="srow"><span>At</span><b>${new Date().toLocaleTimeString()}</b></div>`:`<div class="why" style="display:block">${esc(d.reason||'')}</div>`)
-      +`<div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button><button class="btn ghost" onclick="closeSheet();location.hash='';">View receipt</button></div>`);
+      +`<div class="acts">${d.acted?`<button class="btn ghost" onclick="exportReceipt(window._bgReceipt,'afterhours-bitget-receipt.txt')">Export receipt</button>`:''}<button class="btn ghost" onclick="closeSheet()">Close</button></div>`);
     loadDecisions();}catch(e){openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div><div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button></div>`);}}
 async function act(){openReview((window._gaps||[])[0]);}
 async function loadDecisions(){try{const d=await get('/api/bitget/decisions');const ds=d.decisions||[];
@@ -213,5 +225,6 @@ async function loadDecisions(){try{const d=await get('/api/bitget/decisions');co
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
 load();
+setInterval(()=>{tickFresh();},1_000);
 </script>
 </body></html>
