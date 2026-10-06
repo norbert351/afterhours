@@ -78,6 +78,19 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <section>
+    <h2>Paper strategy engine <span class="chip" id="bnbActMeta">rule · top |gap|</span></h2>
+    <div class="card">
+      <p class="muted" style="margin:0 0 12px;font-size:12px">The same engine as the Bitget surface: take the largest-|gap| tokenized equity, short/hedge a premium, buy a discount. Paper decisions — no real money moves.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="bnbActBtn" type="button">▶ Paper-act · top |gap| ($100)</button>
+        <button class="btn ghost" id="bnbRefreshBtn" type="button">⟳ Refresh</button>
+      </div>
+      <p id="bnbActOut" class="muted" style="margin:12px 0 0;font-size:12px"></p>
+      <div id="bnbDecisions" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section>
     <h2>Keyless execution quote (KyberSwap, read-only)</h2>
     <div class="card">
       <form id="qForm" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -169,7 +182,10 @@ async function loadRwa() {
   }
 }
 
-loadStatus(); loadGaps(); loadRwa();
+async function loadBnbDecisions(){try{const d=await getJSON('/api/bnb/decisions');const ds=d.decisions||[];$('#bnbDecisions').innerHTML=ds.slice(0,6).map(x=>`<div style="font-size:12px;color:var(--mut);padding:3px 0">${x.side==='buy-discount'?'<span style="color:var(--up)">BUY</span>':'<span style="color:var(--down)">SHORT/hedge</span>'} <b>${esc(x.symbol)}</b> · gap ${Number(x.gapPct).toFixed(2)}% · $${x.notionalUsd} · <span style="opacity:.6">${new Date(x.at).toLocaleTimeString()}</span></div>`).join('')||'<span class="muted" style="font-size:12px">No paper decisions yet.</span>';}catch(e){}}
+$('#bnbActBtn').addEventListener('click',async()=>{const el=$('#bnbActOut'),b=$('#bnbActBtn');b.disabled=true;el.textContent='Executing paper decision…';try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());el.innerHTML=d.acted?`<span style="color:var(--up)">✓ ${esc(d.target)} · ${esc(d.side)} · $${d.notionalUsd} (gap ${Number(d.gapPct).toFixed(2)}%)</span>`:esc(d.reason||'No tradable gap right now.');loadBnbDecisions();}catch(e){el.textContent='Failed: '+e.message;}b.disabled=false;});
+$('#bnbRefreshBtn').addEventListener('click',()=>{loadGaps();loadBnbDecisions();});
+loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions();
 setInterval(loadGaps, 45_000);
 
 // populate the collapsible rail chips

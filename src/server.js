@@ -434,6 +434,12 @@ app.post("/api/prestocks/sim", wrap(async (req, res) => {
 // ---- BNB Chain port (tokenized stocks on BSC) ----
 app.get("/api/bnb/status", wrap(async (_req, res) => res.json(await bnb.bnbStatus())));
 app.get("/api/bnb/universe", wrap(async (_req, res) => res.json(await bnb.bnbUniverse())));
+app.post("/api/bnb/paper-act", wrap(async (req, res) => {
+  const amount = Math.max(1, Number(req.body?.amountUsd) || 100);
+  const uni = await bnb.bnbUniverse();
+  res.json(bnb.bnbPaperAction({ gaps: uni.gaps, amountUsd: amount }));
+}));
+app.get("/api/bnb/decisions", wrap(async (_req, res) => res.json({ count: bnb.listBnbDecisions().length, decisions: bnb.listBnbDecisions() })));
 // Keyless exec quote (KyberSwap) — read-only preview, no money moves.
 app.get("/api/bnb/quote", wrap(async (req, res) => {
   const amountAtoms = Number(req.query.amount) || 1e17; // default 0.1 BNB wei

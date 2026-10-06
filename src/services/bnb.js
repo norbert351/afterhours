@@ -103,3 +103,18 @@ export async function bnbQuote({ amountAtoms, tokenOut = USDT_BSC, tokenIn = WBN
 export async function bnbEquityQuote({ tokenIn = USDT_BSC, tokenOut, amountAtoms }) {
   return bnbAggQuote({ tokenIn, tokenOut, amount: amountAtoms });
 }
+
+// ---- Paper-action strategy engine (mirrors the Bitget surface) ----
+// Rule: take the largest-|gap| tokenized equity; premium (on-chain > reference)
+// → short/hedge, discount → buy. Paper decisions logged (no real money).
+const _bnbDecisions = [];
+export function bnbPaperAction({ gaps = [], amountUsd = 100 } = {}) {
+  const pool = (gaps || []).filter((g) => g && !g.error && Number.isFinite(g.gapPct) && !g.flagged);
+  if (!pool.length) return { acted: false, venue: "bnb", reason: "no tradable gap right now" };
+  const top = [...pool].sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))[0];
+  const side = top.gapPct >= 0 ? "short/hedge" : "buy-discount";
+  const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, side, gapPct: top.gapPct, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "arbitrage-rule" };
+  _bnbDecisions.push(rec);
+  return { acted: true, venue: "bnb", target: top.symbol, name: top.name, gapPct: top.gapPct, side, notionalUsd: amountUsd, price: rec.price };
+}
+export function listBnbDecisions(limit = 50) { return [..._bnbDecisions].reverse().slice(0, limit); }
