@@ -557,6 +557,19 @@ app.post("/api/sleep/arm", wrap(async (req, res) => {
   res.json({ ok: true, ...sleepAgent.arm({ venue: v, venues: Array.isArray(venues) ? venues : undefined, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }) });
 }));
 app.post("/api/sleep/disarm", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.disarm() })));
+// Hermes-agent fallback bridge: the Hermes agent injects reasoned orders when Qwen times out.
+app.get("/api/sleep/fallback-context", wrap(async (_req, res) => {
+  const s = sleepAgent.status();
+  const last = sleepAgent.listSleepDecisions(9);
+  res.json({ venues: s.venues, rules: s.rules, capitalUsd: s.capitalUsd, needsFallback: last.some((x) => String(x.model || "").includes("stub")), lastDecisions: last.map((x) => ({ venue: x.venue, model: x.model, trigger: x.trigger, at: x.at })) });
+}));
+app.post("/api/sleep/inject", wrap(async (req, res) => {
+  const tok = process.env.AH_INJECT_TOKEN || "";
+  const { venue, orders = [], rationale = "", source = "hermes-agent", token } = req.body || {};
+  if (!tok || token !== tok) return res.status(403).json({ error: "forbidden" });
+  const v = /^(solana|bnb|bitget)$/.test(venue || "") ? venue : "bitget";
+  res.json(await sleepAgent.injectDecision({ venue: v, orders: Array.isArray(orders) ? orders.slice(0, 12) : [], rationale, source: String(source).slice(0, 40) }));
+}));
 app.get("/api/sleep/decisions", wrap(async (_req, res) => res.json({ count: sleepAgent.listSleepDecisions().length, model: sleepAgent.status().model, decisions: sleepAgent.listSleepDecisions() })));
 app.get("/api/sleep/report", wrap(async (_req, res) => res.json(sleepAgent.nightReport())));
 app.get("/sleep", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "sleep.html")));

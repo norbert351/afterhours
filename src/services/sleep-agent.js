@@ -233,6 +233,25 @@ export function arm(cfg = {}) { state.armed = true; if (Array.isArray(cfg.venues
 export function disarm() { state.armed = false; return status(); }
 export function isArmed() { return state.armed; }
 export function venues() { return state.venues; }
+
+// Hermes-agent fallback: the Hermes agent reasons about the live state and injects
+// signed orders here when Qwen times out. Audited + executed identically.
+export async function injectDecision({ venue = "bitget", orders = [], rationale = "", source = "hermes-agent" } = {}) {
+  if (/^(solana|bnb|bitget)$/.test(venue)) state.venue = venue;
+  const gaps = await sense(state.venue);
+  if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
+  if (!state.seededVenues.has(state.venue)) seed(gaps, state.capitalUsd / Math.max(1, state.venues.length), state.venue);
+  const decision = { trigger: orders.length ? "rebalance" : "hold", rationale: String(rationale || "Hermes agent decision").slice(0, 400), orders };
+  const auditRes = await audit(decision);
+  let executed = [];
+  if (auditRes.verdict === "pass") executed = execute(orders, gaps);
+  const m = metrics(); state.nav.push({ at: Date.now(), nav: m.navUsd });
+  const rec = { at: Date.now(), venue: state.venue, model: source, rules: state.rules || "(hermes)", capitalUsd: state.capitalUsd, trigger: decision.trigger, rationale: decision.rationale, proposed: orders, audit: auditRes, executed, navAfter: m.navUsd };
+  rec.signature = sign({ at: rec.at, venue: rec.venue, trigger: rec.trigger, proposed: rec.proposed, executed: rec.executed });
+  state.decisions.push(rec);
+  return { ok: true, venue: state.venue, model: source, trigger: rec.trigger, rationale: rec.rationale, audit: auditRes, executed, signature: rec.signature, metrics: metrics() };
+}
+export function lastDecisionModel(venue) { const d = [...state.decisions].reverse().find(x => !venue || x.venue === venue); return d ? d.model : null; }
 export function status() { return { armed: state.armed, venue: state.venue, venues: state.venues, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({venue:String(s).split("|")[0],symbol:String(s).split("|").pop(),qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seededVenues: [...state.seededVenues], equity: state.nav.map(x=>({at:x.at,nav:x.nav})), ...metrics() }; }
 export function listSleepDecisions(limit = 30) { return [...state.decisions].reverse().slice(0, limit); }
 
