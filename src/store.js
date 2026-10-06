@@ -20,6 +20,10 @@ export function openStore(dbPath) {
 
   const db = new DatabaseSync(resolved);
   db.exec("PRAGMA journal_mode = WAL");
+  // Wait (don't error) if another connection holds the write lock — a watchdog
+  // restart racing the old instance previously crashed migrations with
+  // "database is locked" (SQLITE_BUSY).
+  db.exec("PRAGMA busy_timeout = 5000");
   migrate(db);
   return db;
 }
