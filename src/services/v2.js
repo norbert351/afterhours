@@ -12,8 +12,11 @@ function currentPrices(universe) {
   const fill = new Map();
   const mark = new Map();
   for (const i of universe.instruments) {
-    const token = typeof i.tokenPrice === "number" ? i.tokenPrice : null;
+    let token = typeof i.tokenPrice === "number" ? i.tokenPrice : null;
     const m = typeof i.markPrice === "number" ? i.markPrice : null;
+    // Sanity clamp: a token price wildly off its underlying mark is a feed glitch.
+    // Use the mark instead so a bad print can't create phantom P&L / runaway NAV.
+    if (token && m && (token > m * 3 || token < m / 3)) token = m;
     if (token) fill.set(i.symbol, toMicro(token));
     else if (m) fill.set(i.symbol, toMicro(m));
     if (m) mark.set(i.symbol, toMicro(m));

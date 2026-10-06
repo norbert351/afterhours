@@ -22,7 +22,12 @@ export async function buildUniverse() {
   if (tess.status === "fulfilled") sources.tessera = tess.value;
   else sourceErrors.tessera = tess.reason.message;
 
-  const instruments = [...sources.prestocks, ...sources.tessera];
+  // Tag each instrument with its issuer SOURCE so downstream (the paper engine)
+  // can exclude the volatile pre-IPO prestocks whose marks runaway overnight.
+  const instruments = [
+    ...sources.prestocks.map((i) => ({ ...i, source: i.source || "prestocks" })),
+    ...sources.tessera.map((i) => ({ ...i, source: i.source || "tessera" })),
+  ];
   return {
     market: { open: isMarketOpen(), at: Date.now() },
     instruments,
