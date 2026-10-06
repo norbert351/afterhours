@@ -58,6 +58,25 @@ labeled upstream gate.
 
 ---
 
+## Residual engine, cross-venue + proof (BNB + Bitget build)
+
+**Not every gap is an opportunity.** `src/services/fairvalue.js` decomposes each gap and ranks by **net edge**, never raw gap:
+```
+rawGap   = (onChain − frozen ref) / ref
+residual = rawGap − beta × marketFactor(SPY)     # beta = real estimate, or a LABELLED fallback
+netEdge  = residual − costs (0.14%)              # fees + slippage + buffer
+decision = BUY · ROTATE · WAIT · BLOCKED
+```
+The agent **explicitly returns WAIT** when the residual doesn't clear costs — live: `MSTR raw +1.10% → net +0.65% → ROTATE`; `SPY raw +0.31% → net −0.14% → WAIT`.
+
+- **BNB is spot-only** — premium → **ROTATE**, discount → **BUY**; zero short/hedge/perp language on the BNB surfaces.
+- **Cross-venue** (`GET /api/cross-venue`) — same underlying across Bitget rToken + BNB bStock vs the frozen reference; labelled `OBSERVATION` / `POTENTIAL EDGE` / `BLOCKED` — never "EXECUTABLE" unless both legs are verifiably tradeable (spot only).
+- **Proof** (`/proof` + `GET /api/proof`) — per-integration honest status; live BSC execution from **persisted** fills (`GET /api/bnb/execs`), else `READY — no live fill recorded yet`.
+- **Persistent paper ledger** (`src/services/paper-log.js`) — decisions survive restart; both pages show a `raw → residual → net → DECISION` timeline + a VIGIL audit receipt.
+- **Metrics labelled** OBSERVED / ESTIMATED / INSUFFICIENT SAMPLE — no fake precision.
+
+---
+
 ## Architecture
 
 ```
