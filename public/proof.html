@@ -106,7 +106,8 @@ async function load() {
     (a.last || []).map((x) => row(`${esc(x.venue || "")} ${esc(x.trigger || x.decision || "")}`, `source: ${esc(x.model || "—")} · ${badge(String(x.model || "").includes("stub") ? "PAPER" : "LIVE")}`)).join("");
 
   // SOURCES
-  $("#sourcesCard").innerHTML = (d.sources || []).map((s) => row(esc(s.name), badge(esc(s.status)))).join("");
+  $("#sourcesCard").innerHTML = (d.sources || []).map((s) => row(esc(s.name), badge(esc(s.status)))).join("")
+    + `<div class="muted" style="margin-top:8px">checked ${d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : "—"} · statuses reflect what each source returns right now</div>`;
 
   // MCP + SPONSOR
   const m = d.mcp || {};

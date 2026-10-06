@@ -202,11 +202,24 @@ export function metrics() {
   let peak = -Infinity, mdd = 0; for (const v of navs.length ? navs : [navUsd]) { peak = Math.max(peak, v); mdd = Math.min(mdd, v / peak - 1); }
   const wins = state.closed.filter(c => c.pnl > 0).length;
   const winRate = state.closed.length ? (wins / state.closed.length) * 100 : 0;
+  // Phase 24 — never fake precision. Every metric carries a label:
+  // OBSERVED (measured from real paper state) / ESTIMATED (model) / INSUFFICIENT SAMPLE.
+  const labels = {
+    navUsd: "OBSERVED", cashUsd: "OBSERVED", exposureUsd: "OBSERVED", capitalUsd: "OBSERVED",
+    returnPct: navs.length > 1 ? "OBSERVED" : "ESTIMATED",
+    turnoverUsd: "OBSERVED", trades: "OBSERVED", runs: "OBSERVED",
+    sharpe: navs.length > 30 ? "OBSERVED" : "INSUFFICIENT SAMPLE",
+    maxDrawdownPct: navs.length > 1 ? "OBSERVED" : "INSUFFICIENT SAMPLE",
+    winRate: state.closed.length >= 10 ? "OBSERVED" : "INSUFFICIENT SAMPLE",
+    feesUsd: "ESTIMATED", slippageUsd: "ESTIMATED",
+  };
   return {
     navUsd: usd(navUsd), cashUsd: usd(state.cash), exposureUsd: usd(exposureUsd()), capitalUsd: state.capitalUsd,
     returnPct: usd(ret), sharpe: usd(sharpe), maxDrawdownPct: usd(mdd * 100), winRate: usd(winRate),
     closedTrades: state.closed.length, turnoverUsd: usd(state.traded), feesUsd: usd(state.fees), slippageUsd: usd(state.slippage),
     trades: state.decisions.reduce((a, d) => a + (d.executed || []).length, 0), runs: state.decisions.length, sampledPoints: navs.length,
+    labels, sampleSize: { navPoints: navs.length, closedTrades: state.closed.length, decisions: state.decisions.length },
+    labelNote: "Sharpe / win-rate / max-DD are labelled INSUFFICIENT SAMPLE until enough observations exist; fees/slippage are model ESTIMATES, not measured fills.",
   };
 }
 
