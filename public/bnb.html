@@ -53,6 +53,20 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
 .tline .th{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:3px;flex-wrap:wrap}
 .tline .t{color:var(--mut);font-size:11px;font-family:var(--mono)}
 .tline .mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut)}
+.sheet-bg{position:fixed;inset:0;background:rgba(5,5,10,.6);backdrop-filter:blur(3px);z-index:200;opacity:0;pointer-events:none;transition:opacity .18s ease}
+.sheet-bg.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto;transform:translateY(102%);transition:transform .22s ease}
+.sheet.open{transform:translateY(0)}
+@media(min-width:720px){.sheet{left:50%;right:auto;transform:translate(-50%,102%);width:520px;border-radius:18px;bottom:16px}.sheet.open{transform:translate(-50%,0)}}
+.sheet h3{font-family:var(--display,'Space Grotesk',sans-serif);font-size:1.1rem;margin:0 0 2px}
+.sheet .sub{color:var(--mut);font-size:12px;margin-bottom:12px}
+.sheet .srow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
+.sheet .srow:last-of-type{border-bottom:0}
+.sheet .srow b{color:var(--txt)}
+.sheet .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sheet .why{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;color:var(--mut);margin-top:10px;display:none}
+.sheet .close{position:absolute;top:12px;right:14px;background:none;border:0;color:var(--mut);font-size:20px;cursor:pointer;line-height:1}
+.mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut);padding:3px 0}
 .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
 pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
 /* chain switcher */
@@ -87,7 +101,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <section>
-    <h2>Weekend gap · BNB <span class="chip" id="gapMeta"></span></h2>
+    <h2>Closed-market gap · BNB <span class="chip" id="gapMeta"></span></h2>
     <div class="card">
       <div class="desktop-only" style="overflow-x:auto">
       <table><thead><tr><th>Token</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th></tr></thead><tbody id="gapBody"></tbody></table>
@@ -138,6 +152,8 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <div class="foot" style="color:var(--mut);font-size:11px;margin-top:30px;padding-top:14px;border-top:1px solid var(--line)">AfterHours BNB · data: BSC RPC (verified) · GeckoTerminal bsc · KyberSwap · Binance Web3 API (keyed RWA) · TwelveData reference. Links become real per-stock gaps the moment the free Web3 API key is set; nothing fabricated.</div>
+  <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Opportunity"></div>
 </div>
 <script>
 "use strict";
@@ -178,10 +194,10 @@ async function loadGaps() {
     }
     const rows = u.bstockTop && u.bstockTop.length ? u.bstockTop : (u.gaps || []).slice(0, 25);
     const pctv = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
-    const actN = u.actionableCount != null ? u.actionableCount : rows.filter((g) => g.decision === "ROTATE" || g.decision === "BUY").length;
     const mfMove = u.marketFactorMovePct;
-    $("#gapMeta").textContent = u.configured ? `${actN} actionable · ${(u.gaps || []).length} dislocations · ${u.tokenCount} tracked` : "keyless (gated values flagged)";
-    $("#gapBody").innerHTML = rows.map((g) => {
+    const c = u.counts || {};
+    $("#gapMeta").textContent = u.configured ? `${c.tradeable ?? 0} tradeable · ${c.candidates ?? 0} candidates · ${c.signals ?? (u.gaps || []).length} signals · ${c.tracked ?? u.tokenCount} tracked` : "keyless (gated values flagged)";
+    $("#gapBody").innerHTML = rows.map((g, i) => {
       if (g.error) return `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="5" class="muted">${esc(g.error)}</td></tr>`;
       const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
       const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
@@ -189,18 +205,19 @@ async function loadGaps() {
       return `<tr><td><b>${esc(g.symbol)}</b><div class="muted" style="font-size:11px">${esc(g.name || "")}</div></td>`
         + `<td class="hide-sm">$${fmt(g.onChainPriceUsd ?? g.tokenPrice)}</td><td class="muted hide-sm">$${fmt(g.referencePriceUsd)}</td>`
         + `<td class="muted">${pctv(g.gapPct)}</td><td class="${cls}" style="font-weight:600">${pctv(g.netEdgePct)}</td>`
-        + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span></td></tr>`;
+        + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._bnbGaps[${i}]);return false">Review</a></td></tr>`;
     }).join("") || '<tr><td colspan="6" class="muted">no gaps computed (see note)</td></tr>';
-    $("#gapCards").innerHTML = rows.filter((g) => !g.error).map((g) => {
+    const _cards = rows.filter((g) => !g.error); window._bnbGaps = _cards;
+    $("#gapCards").innerHTML = _cards.map((g, i) => {
       const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
       const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
       const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
       return `<div class="mcard"><div class="mh"><span class="msym">${esc(g.symbol)}</span><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span></div>`
         + `<div class="muted" style="font-size:11px;margin-bottom:4px">${esc(g.name || "")}</div>`
-        + `<div class="mrow"><span>On-chain</span><b>$${fmt(g.onChainPriceUsd ?? g.tokenPrice)}</b></div>`
-        + `<div class="mrow"><span>Reference</span><b>$${fmt(g.referencePriceUsd)}</b></div>`
-        + `<div class="mrow"><span>Raw gap</span><b>${pctv(g.gapPct)}</b></div>`
-        + `<div class="mrow"><span>Net edge</span><b class="${cls}">${pctv(g.netEdgePct)}</b></div></div>`;
+        + `<div class="mrow"><span>Net edge</span><b class="${cls}">${pctv(g.netEdgePct)}</b></div>`
+        + `<div class="mrow"><span>Raw</span><b>${pctv(g.gapPct)}</b></div>`
+        + `<div class="muted" style="font-size:11px;margin-top:4px">${esc(g.actionLabel || "")}</div>`
+        + `<button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._bnbGaps[${i}])">Review opportunity</button></div>`;
     }).join("") || '<div class="muted" style="padding:8px">no gaps</div>';
     const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — excluded.` : "";
     const mfNote = mfMove != null ? ` Market factor (SPY) ${pctv(mfMove)} removed; costs ${((u.costModelPct ?? 0.14)).toFixed(2)}% subtracted.` : "";
@@ -286,6 +303,29 @@ async function loadReceipt(){try{const d=await getJSON('/api/sleep/decisions');c
     +`<div class="mrow"><span>Decision</span><b>${esc(r.trigger||r.decision||'—')}</b></div>`
     +`<div class="mrow"><span>Venue / model</span><b>${esc(r.venue||'')} · ${esc(r.model||'')}</b></div>`
     +`<div class="mrow"><span>At</span><b>${r.at?new Date(r.at).toLocaleString():'—'}</b></div>`;}catch(e){$('#receiptCard').innerHTML=`<span class="muted" style="font-size:12px">Receipt unavailable: ${esc(e.message)}</span>`;}}
+function _pct(n){return n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`;}
+function closeSheet(){document.getElementById('sheet').classList.remove('open');document.getElementById('sheetBg').classList.remove('open');}
+function openSheet(h){const s=document.getElementById('sheet');s.innerHTML=h;document.getElementById('sheetBg').classList.add('open');s.classList.add('open');}
+function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');
+  openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${esc(g.symbol)} <span class="muted" style="font-size:12px">${esc(g.name||'')}</span></h3>`
+    +`<div class="sub">BNB · <span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span> ${ne!=null?`<b>${_pct(ne)} NET EDGE</b>`:''} <span class="chip">SPOT</span></div>`
+    +`<div class="srow"><span>Raw gap</span><b>${_pct(g.gapPct)}</b></div>`
+    +`<div class="srow"><span>Market-adjusted (residual)</span><b>${_pct(g.residualGapPct)}</b></div>`
+    +`<div class="srow"><span>Estimated costs</span><b>${g.costPct!=null?'-'+Number(g.costPct).toFixed(2)+'%':'—'}</b></div>`
+    +`<div class="srow"><span>NET EDGE</span><b class="${(ne!=null&&ne>=0.2)?'up':'down'}">${_pct(ne)}</b></div>`
+    +`<div class="srow"><span>On-chain $</span><b>$${fmt(g.onChainPriceUsd??g.tokenPrice)}</b></div>`
+    +`<div class="srow"><span>Reference $</span><b>$${fmt(g.referencePriceUsd)}</b></div>`
+    +`<div class="srow"><span>Action</span><b>${esc(g.actionLabel||g.decision||'WAIT')}</b></div>`
+    +`<div class="acts"><button class="btn" onclick="paperTradeBnb()">Paper trade $100</button><button class="btn ghost" onclick="whyToggle()">Why?</button>`
+    +`<button class="btn ghost" disabled title="Live BSC spot execution requires a funded exec wallet + Web3 key (spot only)">Execute on BSC</button>`
+    +`<button class="btn ghost" onclick="closeSheet()">Close</button></div>`
+    +`<div class="why" id="whyBox"><b>Why ${esc(g.decision||'WAIT')}?</b><br>${esc(g.reason||'')}<br>Net edge ${_pct(ne)} vs 0.20% minimum.</div>`);
+}
+function whyToggle(){const w=document.getElementById('whyBox');if(w)w.style.display=(w.style.display==='block')?'none':'block';}
+async function paperTradeBnb(){try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());
+  openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted?'✓ Paper trade recorded':'WAIT — no trade'}</h3><div class="sub">${esc(d.actionLabel||d.decision||'WAIT')}</div>`
+    +(d.acted?`<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${_pct(d.netEdgePct)}</b></div><div class="srow"><span>Execution</span><b><span class="tag wait">PAPER</span></b></div>`:`<div class="why" style="display:block">${esc(d.reason||'')}</div>`)
+    +`<div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button></div>`);loadBnbDecisions();}catch(e){openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div>`);}}
 loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions(); loadExec(); loadReceipt();
 setInterval(loadGaps, 45_000);
 
