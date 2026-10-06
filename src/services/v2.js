@@ -114,16 +114,19 @@ export async function runEngine(db, { userId = 0, strategies = null } = {}) {
   if (invested > funded + budget) {
     guardTripped = true;
     const excess = invested - funded;
-    if (funded >= costBasisMicro) {
-      // Reconcile the phantom excess out of CASH — keeps every position, restores
-      // invested == funded, and (unlike a wipe-to-seed) can never re-trip.
+    // A SMALL excess is transient valuation drift → reconcile. A LARGE excess
+    // (runaway from volatile marks compounding) means the book is corrupted →
+    // reset to the funded pool (clean slate). Both end with invested == funded.
+    if (excess > funded * 0.5) {
+      console.error("[ledger-guard] runaway drift → reset book to funded:", funded, "micro (was invested", invested, ")");
+      store.clearAllPositions(db, userId);
+      book.positions.clear();
+      book.cashMicro = funded;
+      wiped = true;
+    } else if (funded >= costBasisMicro) {
       console.error("[ledger-guard] reconciled cost-basis drift:", excess, "micro (invested", invested, "→ funded", funded, ")");
       book.cashMicro = funded - costBasisMicro;
     } else {
-      // costBasis alone exceeds funded (transient phantom from a valuation/rebases
-      // race). Reconcile by scaling every position's COST BASIS down (qty preserved)
-      // so Σ costBasis + cash == funded exactly. The book survives; the invariant
-      // holds; it can never re-trip. No wipe.
       const targetBasis = Math.max(0, funded - Math.min(book.cashMicro, funded));
       const scale = costBasisMicro > 0 ? targetBasis / costBasisMicro : 0;
       for (const p of book.positions.values()) p.avgCostMicro = Math.max(0, Math.floor(p.avgCostMicro * scale));
