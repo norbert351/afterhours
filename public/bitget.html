@@ -41,6 +41,20 @@ table{font-size:13px;min-width:520px}
 .tline .th{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:3px;flex-wrap:wrap}
 .tline .t{color:var(--mut,#9a9aaa);font-size:11px;font-family:var(--mono,monospace)}
 .tline .mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--mut,#9a9aaa)}
+/* Review bottom sheet (no window.alert for product interactions) */
+.sheet-bg{position:fixed;inset:0;background:rgba(5,5,10,.6);backdrop-filter:blur(3px);z-index:200;opacity:0;pointer-events:none;transition:opacity .18s ease}
+.sheet-bg.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--panel,#14141c);border-top:1px solid var(--line,#26262f);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto;transform:translateY(102%);transition:transform .22s ease}
+.sheet.open{transform:translateY(0)}
+@media(min-width:720px){.sheet{left:50%;right:auto;transform:translate(-50%,102%);width:520px;border-radius:18px;bottom:16px}.sheet.open{transform:translate(-50%,0)}}
+.sheet h3{font-family:var(--display,'Space Grotesk',sans-serif);font-size:1.1rem;margin:0 0 2px}
+.sheet .sub{color:var(--mut,#9a9aaa);font-size:12px;margin-bottom:12px}
+.sheet .srow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line,#26262f)}
+.sheet .srow:last-of-type{border-bottom:0}
+.sheet .srow b{color:var(--text,#fff)}
+.sheet .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sheet .why{background:var(--panel2,#0e0e15);border:1px solid var(--line,#26262f);border-radius:10px;padding:10px;font-size:12px;color:var(--mut,#9a9aaa);margin-top:10px;display:none}
+.sheet .close{position:absolute;top:12px;right:14px;background:none;border:0;color:var(--mut,#9a9aaa);font-size:20px;cursor:pointer;line-height:1}
 </style></head><body>
 <div id="ahnav"></div>
 <div class="wrap">
@@ -54,12 +68,13 @@ table{font-size:13px;min-width:520px}
       <span class="chip" id="mktChip">market factor …</span>
     </div>
     <div class="arb-card" id="topcard" style="margin-top:26px">
-      <div class="k">Top NET EDGE now <span style="font-weight:400;text-transform:none;letter-spacing:0">— ranked by net edge, not raw gap</span></div>
+      <div class="k">BEST OPPORTUNITY <span style="font-weight:400;text-transform:none;letter-spacing:0">— ranked by net edge, not raw gap</span></div>
       <div class="big"><span class="sym" id="tgSym">—</span><span class="mut" id="tgR" style="font-family:var(--mono);font-size:.8rem"></span><span class="gap" id="tgGap">…</span></div>
       <div class="meta"><span>rToken: <b id="tgT">…</b></span><span>Reference: <b id="tgRef">…</b></span></div>
       <div class="meta" style="margin-top:6px"><span>Raw gap: <b id="tgRaw">…</b></span><span>Market-adjusted: <b id="tgAdj">…</b></span><span>Est. costs: <b id="tgCost">…</b></span><span>NET EDGE: <b id="tgNet">…</b></span><span>Action: <b id="tgDir">…</b></span></div>
       <div id="tgWhy" class="mut" style="font-size:12px;margin-top:8px"></div>
       <div id="tgRefMeta" class="mut" style="font-size:11px;margin-top:6px"></div>
+      <div style="margin-top:12px"><button class="btn" onclick="openReview((window._gaps||[])[0])">Review opportunity</button></div>
     </div>
   </header>
 
@@ -95,6 +110,8 @@ table{font-size:13px;min-width:520px}
   </section>
 
   <footer class="foot">AfterHours · Bitget UTA v3 rToken + US reference · paper decisions, no real money</footer>
+  <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Opportunity"></div>
 </div>
 <script>window.AH = { route: "bitget", chain: "bga", action: "wallet", showChain: true };</script>
 <script src="/ah-shell.js"></script>
@@ -106,7 +123,7 @@ const pct=n=>n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}$
 async function load(){try{
   const d=await get('/api/bitget/arbitrage'); const gaps=d.gaps||[]; const top=gaps[0];
   const cm=d.costModelPct!=null?Number(d.costModelPct):0.14, mf=d.marketFactorMovePct;
-  $('#meta').textContent=`${d.universe} symbols · ${gaps.length} gaps · cost model ${cm.toFixed(2)}%`;
+  const c=d.counts||{}; $('#meta').textContent=`${c.tracked||d.universe} tracked · ${c.signals||gaps.length} signals · ${c.candidates||0} candidates · ${c.tradeable||0} tradeable`;
   $('#note').textContent=d.market.note+(mf!=null?` · market factor (SPY) ${pct(mf)}`:'')+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
   $('#nyseChip').textContent=d.market.open?'NYSE: OPEN':'NYSE: CLOSED · reference frozen';
   const mk=$('#mktChip'); mk.textContent=mf!=null?`market factor (SPY) ${pct(mf)}`:'market factor: n/a';
@@ -116,27 +133,28 @@ async function load(){try{
     $('#tgT').textContent=fmt(top.rTokenPriceUsd); $('#tgRef').textContent=fmt(top.referenceUsd);
     $('#tgRaw').textContent=pct(top.gapPct); $('#tgAdj').textContent=pct(top.residualGapPct);
     $('#tgCost').textContent=(top.costPct!=null?'−'+Number(top.costPct).toFixed(2)+'%':'—');
-    $('#tgNet').textContent=pct(top.netEdgePct); $('#tgDir').textContent=top.decision||'WAIT';
+    $('#tgNet').textContent=pct(top.netEdgePct); $('#tgDir').textContent=top.actionLabel||top.decision||'WAIT';
     $('#tgWhy').textContent=top.reason||'';
   }
   const rm=$('#tgRefMeta'); if(d.reference){const r=d.reference; rm.textContent=`Reference: ${r.source} · captured ${r.capturedAt?new Date(r.capturedAt).toLocaleString():'—'} · ${r.status}`;}
-  $('#body').innerHTML=(gaps||[]).map(g=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
+  $('#body').innerHTML=(gaps||[]).map((g,i)=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
     const cls=ne==null?'mut':(ne>=0.2?'up':(ne>0?'mut':'down'));
     const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');
     return `<tr><td><b>${esc(g.symbol)}</b></td><td class="mut">${esc(g.rSymbol)}</td>
       <td class="hide-sm">${fmt(g.rTokenPriceUsd)}</td><td class="mut hide-sm">${fmt(g.referenceUsd)}</td>
       <td class="mut hide-sm">${pct(g.gapPct)}</td>
-      <td><span class="${cls}" style="font-weight:600">${pct(g.netEdgePct)}</span></td>
-      <td><span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span></td></tr>`;}).join('')||'<tr><td colspan="7" class="mut">no gaps</td></tr>';
-  $('#cards').innerHTML=(gaps||[]).map(g=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
+      <td><span class="${cls}" style="font-weight:600">${pct(ne)}</span></td>
+      <td><span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._gaps[${i}]);return false">Review</a></td></tr>`;}).join('')||'<tr><td colspan="7" class="mut">no gaps</td></tr>';
+  window._gaps=gaps;
+  $('#cards').innerHTML=(gaps||[]).map((g,i)=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
     const cls=ne==null?'mut':(ne>=0.2?'up':(ne>0?'mut':'down'));
     const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');
     return `<div class="mcard"><div class="mh"><span class="msym">${esc(g.symbol)}</span><span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span></div>`
       +`<div class="mrow"><span>rToken</span><b>${esc(g.rSymbol)}</b></div>`
-      +`<div class="mrow"><span>Price</span><b>${fmt(g.rTokenPriceUsd)}</b></div>`
-      +`<div class="mrow"><span>Reference</span><b>${fmt(g.referenceUsd)}</b></div>`
-      +`<div class="mrow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
-      +`<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(g.netEdgePct)}</b></div></div>`;}).join('')||'<div class="mut" style="padding:8px">no gaps</div>';
+      +`<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(g.netEdgePct)}</b></div>`
+      +`<div class="mrow"><span>Raw</span><b>${pct(g.gapPct)}</b></div>`
+      +`<div class="mut" style="font-size:11px;margin-top:4px">${esc(g.actionLabel||'')}</div>`
+      +`<button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._gaps[${i}])">Review opportunity</button></div>`;}).join('')||'<div class="mut" style="padding:8px">no gaps</div>';
   loadDecisions();
   loadCross();
 }catch(e){$('#body').innerHTML='<tr><td colspan="7"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
@@ -156,8 +174,36 @@ async function loadCross(){try{const d=await get('/api/cross-venue');const ps=d.
     +`<div class="mrow"><span>Cross-venue spread</span><b>${pct(p.crossVenueSpreadPct)}</b></div>`
     +(p.note?`<div class="mut" style="font-size:11px;margin-top:4px">${esc(p.note)}</div>`:'')+`</div>`).join('');
 }catch(e){$('#crossNote').textContent='Cross-venue unavailable: '+e.message;}}
-async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
-  alert(d.acted?`${d.decision}: ${d.target} · net ${pct(d.netEdgePct)} · $${d.notionalUsd}\n${d.reason||''}`:`WAIT — ${d.reason||'no residual edge above costs'}`); loadDecisions();}catch(e){alert(e.message)}}
+function closeSheet(){document.getElementById('sheet').classList.remove('open');document.getElementById('sheetBg').classList.remove('open');}
+function openSheet(html){const s=document.getElementById('sheet');s.innerHTML=html;document.getElementById('sheetBg').classList.add('open');s.classList.add('open');}
+function openReview(g){if(!g)return;const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
+  const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');
+  const exec=!!g.hasEdge;
+  openSheet(`<button class="close" onclick="closeSheet()" aria-label="Close">×</button>`
+    +`<h3>${esc(g.symbol)} <span class="mut" style="font-size:12px">${esc(g.rSymbol||'')}</span></h3>`
+    +`<div class="sub">Bitget rToken · <span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span> ${ne!=null?`<b>${pct(ne)} NET EDGE</b>`:''}</div>`
+    +`<div class="srow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
+    +`<div class="srow"><span>Market-adjusted (residual)</span><b>${pct(g.residualGapPct)}</b></div>`
+    +`<div class="srow"><span>Estimated costs</span><b>${g.costPct!=null?'-'+Number(g.costPct).toFixed(2)+'%':'—'}</b></div>`
+    +`<div class="srow"><span>NET EDGE</span><b class="${(ne!=null&&ne>=0.2)?'up':'down'}">${pct(ne)}</b></div>`
+    +`<div class="srow"><span>On-chain $</span><b>${fmt(g.rTokenPriceUsd)}</b></div>`
+    +`<div class="srow"><span>Reference $</span><b>${fmt(g.referenceUsd)}</b></div>`
+    +`<div class="srow"><span>Reference status</span><b>${esc(g.referenceStatus||'—')} · ${esc(g.referenceSource||'—')}</b></div>`
+    +`<div class="srow"><span>Action</span><b>${esc(g.actionLabel||g.decision||'WAIT')}</b></div>`
+    +`<div class="acts"><button class="btn" onclick="paperTrade()">Paper trade $100</button>`
+    +`<button class="btn ghost" onclick="whyToggle()">Why?</button>`
+    +`<button class="btn ghost" disabled title="${exec?'Live Bitget execution is not enabled in this build (paper only)':'Not executable — edge does not clear costs'}">Execute</button>`
+    +`<button class="btn ghost" onclick="closeSheet()">Close</button></div>`
+    +`<div class="why" id="whyBox"><b>Why ${esc(g.decision||'WAIT')}?</b><br>${esc(g.reason||'')}<br>Net edge ${pct(ne)} vs ${g.minNetEdgePct!=null?g.minNetEdgePct:0.2}% minimum.</div>`);
+}
+function whyToggle(){const w=document.getElementById('whyBox');if(w)w.style.display=(w.style.display==='block')?'none':'block';}
+async function paperTrade(){const sheet=document.getElementById('sheet');const btns=sheet.querySelectorAll('.btn');btns.forEach(b=>b.disabled=true);
+  try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
+    openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted?'✓ Paper trade recorded':'WAIT — no trade'}</h3><div class="sub">${esc(d.actionLabel||d.decision||'WAIT')}</div>`
+      +(d.acted?`<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${pct(d.netEdgePct)}</b></div><div class="srow"><span>Costs</span><b>${d.costPct!=null?'-'+Number(d.costPct).toFixed(2)+'%':'—'}</b></div><div class="srow"><span>Execution</span><b><span class="tag paper" style="background:rgba(240,178,60,.12);color:#ffd88a;border:1px solid rgba(240,178,60,.3)">PAPER</span></b></div><div class="srow"><span>At</span><b>${new Date().toLocaleTimeString()}</b></div>`:`<div class="why" style="display:block">${esc(d.reason||'')}</div>`)
+      +`<div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button><button class="btn ghost" onclick="closeSheet();location.hash='';">View receipt</button></div>`);
+    loadDecisions();}catch(e){openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div><div class="acts"><button class="btn ghost" onclick="closeSheet()">Close</button></div>`);}}
+async function act(){openReview((window._gaps||[])[0]);}
 async function loadDecisions(){try{const d=await get('/api/bitget/decisions');const ds=d.decisions||[];
   $('#decisions').innerHTML=ds.slice(0,8).map(x=>{const dec=x.decision||x.action||'WAIT';const ok=(dec==='BUY'||dec==='ROTATE');
     return `<div class="tline"><div class="th"><span class="t">${new Date(x.at).toLocaleTimeString()}</span> <b>${esc(x.symbol)}</b> <span class="tag ${ok?'buy':(dec==='WAIT'?'wait':'blk')}">${esc(dec)}</span></div>`

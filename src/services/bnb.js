@@ -5,7 +5,7 @@
 // rails and flags every gated value — never a fabricated number.
 import { listBnbTokenPrices, bnbGap, bnbRwaPrices, bnbWeb3Configured, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS, bnbRealTokens, bnbEquityGaps, bnbAggQuote } from "../adapters/bsc.js";
 import { listReferencePrices, isMarketOpen } from "../adapters/twelvedata.js";
-import { annotateGaps, byNetEdgeDesc, COST_MODEL } from "./fairvalue.js";
+import { annotateGaps, byNetEdgeDesc, COST_MODEL, annotateActions, rotationLeg, actionLabel } from "./fairvalue.js";
 import { recordDecision, listDecisions } from "./paper-log.js";
 
 export async function bnbStatus() {
@@ -42,9 +42,10 @@ export async function bnbUniverse() {
       // estimated execution costs, rank by NET EDGE (SPYB = market factor). A raw gap
       // that does not survive adjustment + costs is a WAIT, never an "opportunity".
       const { marketMovePct } = annotateGaps(gaps, { marketRe: /^(R?SPY(USDT)?|SPYB|SPYx|SPY)$/i });
+      annotateActions(gaps);
       gaps.sort(byNetEdgeDesc);
       const bstockGaps = gaps.filter((g) => g.platform === "bstock");
-      const actionable = gaps.filter((g) => g.decision === "ROTATE" || g.decision === "BUY");
+      const actionable = gaps.filter((g) => g.hasEdge);
       const out = {
         market: { open: marketOpen, at: Date.now() },
         chain: "bnb", configured: true,
@@ -62,7 +63,18 @@ export async function bnbUniverse() {
         reference: {
           source: "Binance Web3 API · RWA underlying reference",
           status: marketOpen ? "LIVE" : "FROZEN",
-          note: marketOpen ? "US market open — reference updates." : "US market closed — the RWA underlying reference is frozen (the weekend-gap baseline).",
+          note: marketOpen ? "US market open — reference updates." : "US market closed — the RWA underlying reference is frozen (the closed-market gap baseline).",
+        },
+        counts: {
+          tracked: tokens.length, signals: gaps.length,
+          candidates: gaps.filter((g) => Number.isFinite(g.netEdgePct) && g.netEdgePct > 0).length,
+          tradeable: actionable.length,
+          noEdge: gaps.filter((g) => g.noEdge).length,
+        },
+        session: {
+          state: marketOpen ? "OPEN" : "CLOSED",
+          label: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — closed-market gap",
+          note: marketOpen ? "US market open — reference updating." : "US market closed — the reference is frozen; the on-chain token keeps trading (the dislocation window).",
         },
         flagged: { count: flagged.length, rows: flagged.slice(0, 5) },
         gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact) — not reported as real.`,
@@ -131,13 +143,15 @@ export function bnbPaperAction({ gaps = [], amountUsd = 100 } = {}) {
   // rotate into a cheaper eligible spot asset); discount → BUY (increase exposure).
   // Never short / hedge / leverage.
   if (top.decision !== "ROTATE" && top.decision !== "BUY") {
-    const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
+    const rec = { at: Date.now(), id: `WAIT-${top.symbol}-${Date.now()}`, venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
     recordDecision(rec);
     return { acted: false, venue: "bnb", decision: "WAIT", target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason: top.reason };
   }
   const action = top.decision; // ROTATE | BUY (spot)
-  const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "residual-fairvalue-rule" };
+  const leg = action === "ROTATE" ? rotationLeg(pool, top.symbol) : null;
+  const label = actionLabel({ decision: action, symbol: top.symbol, leg, amountUsd });
+  const rec = { at: Date.now(), id: `${action}-${top.symbol}-${Date.now()}`, venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, from: top.symbol, to: leg ? leg.symbol : null, actionLabel: label, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "residual-fairvalue-rule" };
   recordDecision(rec);
-  return { acted: true, venue: "bnb", decision: action, target: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, price: rec.price, reason: top.reason };
+  return { acted: true, venue: "bnb", decision: action, target: top.symbol, name: top.name, from: top.symbol, to: leg ? leg.symbol : null, actionLabel: label, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, price: rec.price, reason: top.reason };
 }
 export function listBnbDecisions(limit = 50) { return listDecisions(limit, "bnb"); }

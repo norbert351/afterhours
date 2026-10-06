@@ -7,6 +7,7 @@
 import { isMarketOpen, getReferencePrice, batchReferencePrices } from "../adapters/twelvedata.js";
 import { bitgetRPrice, US_UNIVERSE } from "../adapters/bitget-r.js";
 import { annotateGaps, byNetEdgeDesc, COST_MODEL } from "./fairvalue.js";
+import { annotateActions, rotationLeg, actionLabel } from "./fairvalue.js";
 import { recordDecision, listDecisions } from "./paper-log.js";
 import fs from "node:fs";
 
@@ -63,6 +64,7 @@ export async function bitgetArbUniverse() {
   // estimated execution costs, and rank by NET EDGE (never by raw gap). SPY rToken
   // is the market factor; the agent may WAIT when no residual edge survives costs.
   const { marketMovePct } = annotateGaps(gaps, { marketRe: /^(R?SPY(USDT)?|SPYB|SPYx)$/i });
+  annotateActions(gaps);
   gaps.sort(byNetEdgeDesc);
   return {
     market: { open: marketOpen, at: Date.now(), note: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — reference frozen, rToken 7×24 keeps trading (the arbitrage window)" },
@@ -72,6 +74,17 @@ export async function bitgetArbUniverse() {
       source: "TwelveData (US native)", status: marketOpen ? "LIVE" : "FROZEN",
       capturedAt: Math.max(0, ...[...refCache.values()].map((c) => c.at || 0)) || null,
       note: marketOpen ? "US market open — reference updates." : "US market closed — reference frozen at last capture (the arbitrage baseline).",
+    },
+    counts: {
+      tracked: US_UNIVERSE.length, signals: gaps.length,
+      candidates: gaps.filter((g) => Number.isFinite(g.netEdgePct) && g.netEdgePct > 0).length,
+      tradeable: gaps.filter((g) => g.hasEdge).length,
+      noEdge: gaps.filter((g) => g.noEdge).length,
+    },
+    session: {
+      state: marketOpen ? "OPEN" : "CLOSED",
+      label: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — closed-market gap",
+      note: marketOpen ? "US market open — reference updating." : "US market closed — the reference is frozen, the rToken keeps trading 7×24 (the dislocation window).",
     },
     gaps, flaggedCount: flagged.length, errors,
     generatedAt: Date.now(),
@@ -88,12 +101,14 @@ export function bitgetPaperAction({ gaps, amountUsd = 100 } = {}) {
   // is NOT an opportunity. SPOT-ONLY: premium → ROTATE (reduce exposure / rotate to
   // a cheaper eligible spot asset); discount → BUY. Never "short"/"hedge".
   if (top.decision !== "ROTATE" && top.decision !== "BUY") {
-    const rec = { at: Date.now(), venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
+    const rec = { at: Date.now(), id: `WAIT-${top.symbol}-${Date.now()}`, venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
     recordDecision(rec);
     return { acted: false, decision: "WAIT", target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason: top.reason };
   }
   const action = top.decision; // ROTATE | BUY (spot)
-  recordDecision({ at: Date.now(), venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, notionalUsd: amountUsd, model: "residual-fairvalue-rule" });
-  return { acted: true, decision: action, target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, reason: top.reason };
+  const leg = action === "ROTATE" ? rotationLeg(pool, top.symbol) : null;
+  const label = actionLabel({ decision: action, symbol: top.symbol, leg, amountUsd });
+  recordDecision({ at: Date.now(), id: `${action}-${top.symbol}-${Date.now()}`, venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, from: top.symbol, to: leg ? leg.symbol : null, actionLabel: label, notionalUsd: amountUsd, model: "residual-fairvalue-rule" });
+  return { acted: true, decision: action, target: top.symbol, from: top.symbol, to: leg ? leg.symbol : null, actionLabel: label, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, reason: top.reason };
 }
 export function listBitgetDecisions(limit = 50) { return listDecisions(limit, "bitget"); }
