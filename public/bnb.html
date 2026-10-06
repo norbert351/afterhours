@@ -103,10 +103,10 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <section>
-    <h2>Sanctioned surface — Binance Web3 API RWA</h2>
-    <div class="card">
-      <p class="muted" id="rwaNote" style="font-size:12px"></p>
-      <pre id="rwaOut" style="margin-top:10px"></pre>
+    <h2>Sanctioned surface — Binance Web3 API RWA <span class="chip" id="rwaMeta"></span></h2>
+    <div class="card" style="overflow-x:auto">
+      <p class="muted" id="rwaNote" style="font-size:12px;margin:0 0 10px"></p>
+      <table><thead><tr><th>Token</th><th>On-chain $</th><th>Ref $</th><th>Gap</th></tr></thead><tbody id="rwaBody"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody></table>
     </div>
   </section>
 
@@ -135,6 +135,7 @@ async function loadStatus() {
 async function loadGaps() {
   try {
     const u = await getJSON("/api/bnb/universe");
+    window._bnbAddrMap = new Map((u.tokens || []).map((t) => [String(t.tokenContractAddress || "").toLowerCase(), t.tokenSymbol || t.tokenName || ""]));
     const fl = u.flagged || {};
     const elig = $(".elig");
     if (elig) {
@@ -173,12 +174,30 @@ $("#qForm").addEventListener("submit", async (ev) => {
 
 async function loadRwa() {
   try {
+    if (!window._bnbAddrMap) { try { const u = await getJSON("/api/bnb/universe"); window._bnbAddrMap = new Map((u.tokens || []).map((t) => [String(t.tokenContractAddress || "").toLowerCase(), t.tokenSymbol || t.tokenName || ""])); } catch (e) {} }
     const d = await getJSON("/api/bnb/web3/rwa-price");
-    $("#rwaOut").textContent = JSON.stringify(d, null, 2);
-    $("#rwaNote").textContent = "Web3 API RWA price surface (on-chain + underlying reference).";
+    if (d.code && d.code !== 0) throw new Error(d.msg || ("API code " + d.code));
+    const items = Array.isArray(d.data) ? d.data : [];
+    if (!items.length) {
+      $("#rwaBody").innerHTML = `<tr><td colspan="4" class="muted">No RWA rows returned.</td></tr>`;
+      $("#rwaMeta").textContent = "";
+    } else {
+      $("#rwaBody").innerHTML = items.map((r) => {
+        const addr = String(r.tokenContractAddress || "");
+        const sym = (window._bnbAddrMap && addr && window._bnbAddrMap.get(addr.toLowerCase())) || r.tokenSymbol || r.tokenName || "";
+        const tok = sym || (addr ? addr.slice(0, 6) + "…" + addr.slice(-4) : (r.platformId || "—"));
+        const on = Number(r.tokenPrice), ref = Number(r.referencePrice);
+        const gap = (Number.isFinite(on) && Number.isFinite(ref) && ref) ? (on - ref) / ref * 100 : null;
+        const cls = gap == null ? "" : (gap >= 0 ? "up" : "down");
+        return `<tr><td><b>${esc(r.platformId || "")}</b> ${esc(tok)}</td><td>$${fmt(on)}</td><td class="muted">$${fmt(ref)}</td><td class="${cls}">${gap == null ? "—" : (gap >= 0 ? "+" : "") + gap.toFixed(2) + "%"}</td></tr>`;
+      }).join("");
+      $("#rwaMeta").textContent = items.length + " · live";
+    }
+    $("#rwaNote").textContent = "Real per-token on-chain price vs underlying reference — straight from the sanctioned Binance Web3 API (RWA Data).";
   } catch (e) {
     $("#rwaNote").textContent = "Web3 API RWA needs the free key — register at web3.binance.com dev-portal, set AH_BNB_WEB3_KEY/SECRET.";
-    $("#rwaOut").textContent = "Error: " + e.message;
+    $("#rwaMeta").textContent = "";
+    $("#rwaBody").innerHTML = `<tr><td colspan="4" class="muted">${esc(e.message)}</td></tr>`;
   }
 }
 
