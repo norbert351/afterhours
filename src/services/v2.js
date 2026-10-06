@@ -110,25 +110,37 @@ export async function runEngine(db, { userId = 0, strategies = null } = {}) {
   const funded = acc.seedMicro + nextRealizedMicro;           // what we actually put in
   const budget = store.PRICE_SCALE;                            // $1 rounding tolerance
   let guardTripped = false;
+  let wiped = false;
   if (invested > funded + budget) {
     guardTripped = true;
-    console.error("[ledger-guard] cost-basis violation:", invested, "invested >", funded, "funded — reset to cash");
-    store.clearAllPositions(db, userId);   // hard-delete EVERY persisted position
-    book.positions.clear();
-    book.cashMicro = acc.seedMicro; // clean slate
+    const excess = invested - funded;
+    if (funded >= costBasisMicro) {
+      // Reconcile the phantom excess out of CASH — keeps every position, restores
+      // invested == funded, and (unlike a wipe-to-seed) can never re-trip.
+      console.error("[ledger-guard] reconciled cost-basis drift:", excess, "micro (invested", invested, "→ funded", funded, ")");
+      book.cashMicro = funded - costBasisMicro;
+    } else {
+      // funded can't even cover the cost basis → the book is genuinely broken.
+      // Full reset to funded (not seed) so the invariant holds after reset.
+      console.error("[ledger-guard] unrecoverable drift → reset to funded:", funded, "micro");
+      store.clearAllPositions(db, userId);
+      book.positions.clear();
+      book.cashMicro = funded;
+      wiped = true;
+    }
   }
 
-  const peakRealized = guardTripped ? 0 : nextRealizedMicro;
-  const peak = Math.max(book.peakNavMicro, guardTripped ? acc.seedMicro : navAfter);
+  const peakRealized = nextRealizedMicro;
+  const peak = Math.max(book.peakNavMicro, guardTripped ? funded : navAfter);
   book.peakNavMicro = peak;
   const drawdownPct = peak > 0 ? (peak - navAfter) / peak : 0;
 
   // Persist book + cash + realized.
-  if (guardTripped) for (const p of [...book.positions.keys()]) store.deletePosition(db, userId, p);
+  if (wiped) for (const p of [...book.positions.keys()]) store.deletePosition(db, userId, p);
   for (const p of book.positions.values()) store.upsertPosition(db, userId, p);
   // clean zero rows (positions fully sold)
   for (const row of store.listPositions(db, userId)) if (row.qtyMicro === 0) store.deletePosition(db, userId, row.symbol);
-  store.setCash(db, userId, book.cashMicro, guardTripped ? acc.seedMicro : navAfter, peakRealized);
+  store.setCash(db, userId, book.cashMicro, guardTripped ? funded : navAfter, peakRealized);
 
   const seq = store.lastSeq(db, userId) + 1;
   const reason = guardTripped
