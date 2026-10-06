@@ -28,7 +28,7 @@ test("fairvalue: market factor is the broad-market token's own raw gap", () => {
 });
 
 test("bitgetPaperAction: picks the top NET EDGE (spot ROTATE on a premium), not the top raw gap", () => {
-  const before = listBitgetDecisions().length;
+  const before = listBitgetDecisions(1000).length;
   const gaps = [
     { symbol: "MSTR", rSymbol: "RMSTRUSDT", gapPct: 2.02, residualGapPct: 1.0, netEdgePct: 0.86, costPct: 0.14, decision: "ROTATE", outlier: false },
     { symbol: "TSLA", rSymbol: "RTSLAUSDT", gapPct: 3.5, residualGapPct: 0.2, netEdgePct: 0.06, costPct: 0.14, decision: "WAIT", outlier: false },
@@ -38,20 +38,20 @@ test("bitgetPaperAction: picks the top NET EDGE (spot ROTATE on a premium), not 
   assert.equal(a.target, "MSTR"); // top NET EDGE, not the 3.5% raw gap
   assert.equal(a.decision, "ROTATE"); // spot-only; never "short"
   assert.equal(a.notionalUsd, 100);
-  assert.equal(listBitgetDecisions().length, before + 1);
+  assert.equal(listBitgetDecisions(1000).length, before + 1);
 });
 
 test("bitgetPaperAction: no residual edge above costs → WAIT logged (agent refuses)", () => {
-  const before = listBitgetDecisions().length;
+  const before = listBitgetDecisions(1000).length;
   const a = bitgetPaperAction({ gaps: [{ symbol: "AAPL", rSymbol: "RAAPLUSDT", gapPct: 0.4, residualGapPct: 0.1, netEdgePct: -0.04, costPct: 0.14, decision: "WAIT", outlier: false }] });
   assert.equal(a.acted, false);
   assert.equal(a.decision, "WAIT");
-  assert.equal(listBitgetDecisions().length, before + 1); // the WAIT is logged, not a trade
+  assert.equal(listBitgetDecisions(1000).length, before + 1); // the WAIT is logged, not a trade
 });
 
 test("bitgetPaperAction: no gaps → acted false, nothing logged", () => {
-  const before = listBitgetDecisions().length;
+  const before = listBitgetDecisions(1000).length;
   const a = bitgetPaperAction({ gaps: [] });
   assert.equal(a.acted, false);
-  assert.equal(listBitgetDecisions().length, before);
+  assert.equal(listBitgetDecisions(1000).length, before);
 });

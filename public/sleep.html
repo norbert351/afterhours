@@ -187,7 +187,7 @@ function drawEquity(eq){
   }).join(' '));
 }
 async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.lastSignature)}</p>`;}catch(e){}}
-async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const q=String(x.model||'').includes('qwen');return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${q?' live':''}" style="padding:1px 8px;font-size:10px">${q?'Qwen decided':'deterministic fallback'}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const s=_srcLine(x.model);return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${s.c?' live':''}" style="padding:1px 8px;font-size:10px">${esc(s.t)}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
 function composeRules(){
   const base=$('#rules').value||'';
   const minEdge=Number($('#minEdge')&&$('#minEdge').value)||0.2;
@@ -204,12 +204,25 @@ function body(o){return {method:'POST',headers:{'Content-Type':'application/json
 function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;}
 $('#gateConnect').addEventListener('click',()=>{location.href='/app';});
 async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
-$('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';el.textContent='Qwen deciding → auditing → executing…';$('#runBtn').disabled=true;
+function _srcLine(model){const m=String(model||'').toLowerCase();if(m.includes('hermes'))return{t:'Hermes fallback',c:'live'};if(m.includes('stub')||m.includes('deterministic')||m.includes('unavailable'))return{t:'deterministic safety engine',c:''};if(m.includes('qwen'))return{t:'Qwen',c:'live'};return{t:model||'agent',c:''};}
+$('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';$('#runBtn').disabled=true;
+  const t0=Date.now();
+  const progress=()=>{const s=Math.max(0,Math.round((Date.now()-t0)/1000));
+    if(s<12) el.innerHTML=`<span class="badge">AGENT DECISION</span> Qwen is evaluating… ${s}s <span class="mut" style="font-size:12px">· audit = 2nd Qwen pass</span>`;
+    else if(s<20) el.innerHTML=`<span class="badge" style="border-color:rgba(240,178,60,.5);color:var(--warn,#f0b23c)">AGENT DECISION</span> Qwen is taking longer than expected (${s}s) — fallback: Hermes`;
+    else el.innerHTML=`<span class="badge live">AGENT DECISION</span> <b>Fallback: Hermes evaluating…</b> (${s}s)`;
+  };
+  progress(); const iv=setInterval(progress,1000);
   try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:composeRules(),capitalUsd:Number($('#cap').value)||500})).then(r=>r.json());
+    clearInterval(iv);
     if(r.needAuth){gate(true);el.textContent='Connect your wallet to run the agent.';await checkAuth();}
-    else if(r.executed&&r.executed.length){const q=String(r.model||'').includes('qwen');el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed fill(s) · decided by ${q?'Qwen':'the deterministic safety engine (Qwen was slow)'}</span><br>${esc(r.rationale||'')}`;}
-    else {const q=String(r.model||'').includes('qwen');el.innerHTML=`${esc(r.trigger||'')} · decided by ${q?'Qwen':'the safety engine (Qwen was slow)'} — ${esc(r.rationale||r.reason||'')}`;}
-    await refresh();}catch(e){el.textContent='Run failed: '+e.message;}
+    else{const s=_srcLine(r.model);const audit=(r.audit&&r.audit.verdict)||'—';const fills=(r.executed&&r.executed.length)||0;
+      el.innerHTML=`<div class="mrow"><span>Decision source</span><b><span class="badge ${s.c}" style="padding:1px 8px;font-size:11px">${esc(s.t)}</span></b></div>`
+        +`<div class="mrow"><span>Audit (2nd pass)</span><b>${esc(audit)}</b></div>`
+        +`<div class="mrow"><span>Execution</span><b>${fills?fills+' signed fill(s)':'WAIT — no fill'} · <span style="color:var(--warn,#f0b23c);border:1px solid rgba(240,178,60,.4);border-radius:999px;padding:1px 8px;font-size:11px">PAPER</span></b></div>`
+        +(r.trigger?`<div class="mrow"><span>Trigger</span><b>${esc(r.trigger)}</b></div>`:'')
+        +(r.rationale?`<div class="mut" style="font-size:12px;margin-top:4px">${esc(r.rationale)}</div>`:'');}
+    await refresh();}catch(e){clearInterval(iv);el.textContent='Run failed: '+e.message;}
   $('#runBtn').disabled=false;});
 $('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:composeRules(),capitalUsd:Number($('#cap').value)||500})).then(r=>r.json());if(r.needAuth){gate(true);await checkAuth();return;}$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
 checkAuth();refresh();setInterval(refresh,20000);

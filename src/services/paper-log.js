@@ -4,7 +4,10 @@
 // A small JSON file is enough and keeps this honest + inspectable.
 import fs from "node:fs";
 
-const LOG = new URL("../../data/paper-decisions.json", import.meta.url).pathname;
+// Tests must NOT pollute the judge-facing decision timeline (Phase 48 — no fake
+// data). Under `node --test` (argv[1] is the *.test.mjs file) use an isolated log.
+const IS_TEST = /\.test\.(mjs|js|cjs)$/.test(process.argv[1] || "");
+const LOG = new URL(IS_TEST ? "../../data/paper-decisions.test.json" : "../../data/paper-decisions.json", import.meta.url).pathname;
 
 function read() { try { return JSON.parse(fs.readFileSync(LOG, "utf8")); } catch { return []; } }
 

@@ -59,11 +59,11 @@ table{font-size:13px;min-width:520px}
 <div id="ahnav"></div>
 <div class="wrap">
   <header class="hero reveal in">
-    <span class="ah-eyebrow"><span class="dot"></span>Bitget AI S2 · Arbitrage</span>
-    <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px;overflow-wrap:anywhere">While the NYSE sleeps, rTokens keep printing.</h1>
-    <p class="ah-lead">Bitget's tokenized US stocks (like <span class="mono" style="color:var(--text)">RMSTRUSDT</span>) trade round the clock — even when their market is closed. See the live gap between the token price and its frozen reference.</p>
+    <span class="ah-eyebrow"><span class="dot"></span>Bitget · 24/7 Tokenized Equities</span>
+    <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px;overflow-wrap:anywhere">While the NYSE sleeps, rTokens keep trading.</h1>
+    <p class="ah-lead">AfterHours compares live Bitget rToken prices with the latest available U.S. reference, adjusts for broad market movement, estimates execution costs, and lets the agent decide whether the residual spread is actually actionable.</p>
     <div class="badge-row" id="statusRow">
-      <span class="chip"><span class="dot" style="background:#69f0ae"></span>Bitget rToken · LIVE</span>
+      <span class="chip"><span class="dot" style="background:#69f0ae"></span><span id="symChip">Bitget rToken · LIVE</span></span>
       <span class="chip" id="nyseChip">NYSE …</span>
       <span class="chip" id="mktChip">market factor …</span>
     </div>
@@ -125,7 +125,8 @@ async function load(){try{
   const cm=d.costModelPct!=null?Number(d.costModelPct):0.14, mf=d.marketFactorMovePct;
   const c=d.counts||{}; $('#meta').textContent=`${c.tracked||d.universe} tracked · ${c.signals||gaps.length} signals · ${c.candidates||0} candidates · ${c.tradeable||0} tradeable`;
   $('#note').textContent=d.market.note+(mf!=null?` · market factor (SPY) ${pct(mf)}`:'')+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
-  $('#nyseChip').textContent=d.market.open?'NYSE: OPEN':'NYSE: CLOSED · reference frozen';
+  $('#nyseChip').textContent=d.market.open?'NYSE: OPEN · reference updating':'NYSE: CLOSED · reference frozen';
+  const sc=$('#symChip'); if(sc) sc.textContent='LIVE · '+(c.tracked||gaps.length)+' symbols · 7×24';
   const mk=$('#mktChip'); mk.textContent=mf!=null?`market factor (SPY) ${pct(mf)}`:'market factor: n/a';
   if(top){
     $('#tgSym').textContent=top.symbol; $('#tgR').textContent=top.rSymbol;
