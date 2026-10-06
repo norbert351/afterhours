@@ -41,7 +41,9 @@ export class PaperBook {
   // Rebalance toward targets (symbol -> weight 0..1 of NAV). Self-funding:
   // process sells BEFORE buys in the same batch. Returns { actions, newBook }.
   rebalance(pricesMicro, targets, { top = 20, tolerance = 0.0015 } = {}) {
-    const nav = this.navMicro(pricesMicro);
+    // Size targets off the SEED-limited NAV, not the mark-spiked NAV: a volatile
+    // mark must never inflate targets and compound the book (runaway drift).
+    const nav = Math.min(this.navMicro(pricesMicro), this.seedMicro || this.navMicro(pricesMicro));
     const actions = [];
     // Deviation tolerance: skip rebalancing a leg whose drift is within this
     // fraction of NAV, so fees/slippage dust never cause per-run churn.

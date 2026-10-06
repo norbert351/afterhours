@@ -41,6 +41,15 @@ function targetsFor(strategy, dislocations, universe, topN = 6) {
   const capN = Number(p.topN) > 0 ? Number(p.topN) : topN;
 
   let pool = dislocations.filter((d) => d.type === "issuer_premium");
+  // Exclude the volatile pre-IPO prestocks: their marks have no market reference
+  // and swing wildly while the US market is shut, compounding the paper book into
+  // phantom value every run. Trade only names with a reliable reference.
+  const norm = (s) => String(s || "").replace(/^T-/, "").replace(/-/g, "").toLowerCase();
+  const prestockKeys = new Set();
+  for (const inst of (universe?.instruments || [])) {
+    if (String(inst.source || "").toLowerCase().includes("prestock")) { prestockKeys.add(norm(inst.symbol)); prestockKeys.add(String(inst.symbol).toUpperCase()); }
+  }
+  if (prestockKeys.size) pool = pool.filter((d) => !prestockKeys.has(norm(d.symbol)) && !prestockKeys.has(String(d.underlying || "").toUpperCase()) && !prestockKeys.has(String(d.symbol).toUpperCase()));
   // Direction select: a "premium" has gapBps>0, a "discount" has gapBps<0.
   pool = pool.filter((d) => wantPremium ? d.gapBps > 0 : d.gapBps < 0);
   // Abs-gap threshold.
