@@ -39,7 +39,8 @@ export async function bnbUniverse() {
         source: "rwa-data-api",
         tokenCount: tokens.length,
         platformCount: { bstock: bstock.length, ondo: ondo.length, xstock: stocks.length },
-        tokens,
+        tokens: bstock, // only the ~25 bStocks (for RWA addresses) — NOT the full 5k-token array (was a 4.4MB payload)
+        tokenCountTotal: tokens.length,
         gaps,
         topGaps: gaps.slice(0, 25),
         bstockTop: bstockGaps.slice(0, 25),
