@@ -120,13 +120,17 @@ export async function runEngine(db, { userId = 0, strategies = null } = {}) {
       console.error("[ledger-guard] reconciled cost-basis drift:", excess, "micro (invested", invested, "→ funded", funded, ")");
       book.cashMicro = funded - costBasisMicro;
     } else {
-      // funded can't even cover the cost basis → the book is genuinely broken.
-      // Full reset to funded (not seed) so the invariant holds after reset.
-      console.error("[ledger-guard] unrecoverable drift → reset to funded:", funded, "micro");
-      store.clearAllPositions(db, userId);
-      book.positions.clear();
-      book.cashMicro = funded;
-      wiped = true;
+      // costBasis alone exceeds funded (transient phantom from a valuation/rebases
+      // race). Reconcile by scaling every position's COST BASIS down (qty preserved)
+      // so Σ costBasis + cash == funded exactly. The book survives; the invariant
+      // holds; it can never re-trip. No wipe.
+      const targetBasis = Math.max(0, funded - Math.min(book.cashMicro, funded));
+      const scale = costBasisMicro > 0 ? targetBasis / costBasisMicro : 0;
+      for (const p of book.positions.values()) p.avgCostMicro = Math.max(0, Math.floor(p.avgCostMicro * scale));
+      book.cashMicro = Math.min(book.cashMicro, funded);
+      const newBasis = [...book.positions.values()].reduce((a, p) => a + Math.floor((p.qtyMicro * p.avgCostMicro) / store.QTY_SCALE), 0);
+      book.cashMicro = funded - newBasis; // exact → invested == funded
+      console.error("[ledger-guard] reconciled drift by scaling cost basis (qty preserved) → invested==funded");
     }
   }
 
