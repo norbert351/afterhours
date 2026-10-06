@@ -165,3 +165,48 @@ Pulled from the live **Stocklana / Solana Foundation** rubric (`docs/rubric.md`)
 ## PART 5 — ONE-PARAGRAPH SUMMARY (paste-ready)
 
 AfterHours is an autonomous **weekend-gap capture agent for tokenized equities**. When the NYSE closes, the reference price of every tokenized stock freezes — but the on-chain token keeps trading 24/7 — so the token drifts away from that frozen reference. AfterHours measures that dislocation in real time and puts capital to work on the largest one. It's live on **three venues** with the same engine: **Bitget** (rTokens, `R<SYM>USDT`, via the Bitget UTA v3 spot market — with an **autonomous Qwen agent** that decides, audits its own decisions with a second pass, and signs every fill), **BNB Chain** (bStocks + Ondo via the sanctioned **Binance Web3 API** RWA Data — real on-chain vs reference gaps, bounded real spot execution, and an **MCP server** for the Binance Agentic Wallet / BNB Agent Studio specials), and **Solana** (xStocks via a real on-chain vault that has settled verified mainnet fills). Nothing is fabricated: implausible prices are flagged, not reported; when a data source is gated the surface says so; and every decision is labelled with who made it.
+
+---
+
+## PART 6 — WHAT CHANGED IN THE LATEST BUILD (docs must match code)
+
+These are implemented + live-verified. Where a claim can't be proven from code, it is marked.
+
+### The core change: not every gap is an opportunity
+New `src/services/fairvalue.js`. Every gap is decomposed, and **opportunities are ranked by NET EDGE, never by raw gap**:
+```
+rawGap        = (onChainPrice − frozenReferencePrice) / reference
+marketMove    = broad-market token's own gap (SPY / RSPYUSDT / SPYB)
+expectedMove  = beta × marketMove      (beta = real estimate OR a LABELLED fallback — never faked)
+residualGap   = rawGap − expectedMove
+costPct       = fees + slippage + buffer (0.14% model)
+netEdge       = residualGap − costPct
+decision      = BUY · ROTATE · WAIT · BLOCKED
+```
+**The agent can — and does — say WAIT.** Example (live): MSTR raw **+1.10%** → market-adjusted **+0.79%** → costs −0.14% → **NET +0.65% → ROTATE**; SPY raw +0.31% → net **−0.14% → WAIT**. If `netEdge` doesn't clear the threshold, the decision is **WAIT** with the reason shown.
+
+### BNB is SPOT-ONLY
+A premium becomes **ROTATE** (reduce exposure / rotate into a cheaper eligible spot asset), a discount becomes **BUY**. No "short", "hedge", "perp", "leverage" language anywhere on the BNB surfaces (repo-swept, zero hits).
+
+### Cross-venue (same underlying, two venues)
+`src/services/cross-venue.js` + `GET /api/cross-venue` — Bitget rToken vs BNB bStock for the **same underlying** vs the frozen reference. Labels: `OBSERVATION` / `POTENTIAL EDGE` / `BLOCKED`. It **never claims `EXECUTABLE EDGE`** unless both legs are verifiably tradeable — cross-venue execution is analysed, not automated (spot only). Live: 8 overlapping underlyings.
+
+### Proof (`/proof` + `GET /api/proof`)
+A judge-facing surface: LIVE EXECUTION (BNB exec wallet + **persisted** fills → BscScan, else `READY — no live fill recorded yet`), Bitget data, autonomous agent, **data sources** (each LIVE / DEGRADED / NOT CONFIGURED), and **sponsor integrations** (MCP `AVAILABLE` with tools; Agent Studio / Agentic Wallet **`COMPATIBLE`** — not falsely "registered").
+
+### Honest metrics
+`/api/sleep/metrics` labels every field: **OBSERVED / ESTIMATED / INSUFFICIENT SAMPLE**, with `sampleSize`. Sharpe / win-rate / max-DD show **`INSUFFICIENT SAMPLE`** until enough observations exist.
+
+### Binance Web3 API reliability
+`bnbWeb3Call` now **dedups in-flight requests + caches reads (10s TTL)** — the API rejects two identical signed calls in the same second as a "duplicate request", and the page fires the RWA price from several places. The panel now reads `BINANCE WEB3 API ● LIVE · updated <time>` — never a contradictory `KEYED` + "needs key".
+
+### Paper ledger persistence + decision timeline
+`src/services/paper-log.js` persists every BNB/Bitget paper decision to `data/paper-decisions.json` → **survives a restart**. Both pages render a timeline: `raw → residual → net → DECISION` + reason.
+
+### Honest gaps (unchanged)
+- ⚠️ Cross-venue execution is analysed, **not automated**.
+- ⚠️ Bitget **mint/redeem arbitrage is NOT executed** — the strategy is secondary-market + cross-venue dislocation only.
+- ⚠️ ERC-8004 on-chain identity mint is registrar-gated (JSON ready at `/agent/afterhours-bnb.json`).
+- ⚠️ BNB live spot exec is bounded ($0.05–$0.50); thin bStocks liquidity means illiquid tickers need RFQ (unwired).
+- ❌ Compliant X posts (`#BitgetHackathon` + `@Bitget_AI`) are user-gated.
+

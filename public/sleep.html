@@ -77,6 +77,11 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
   </section>
 
   <section class="reveal" style="margin-top:24px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Decision pipeline</h2>
+    <div class="card" id="pipeline"><span class="mut" style="font-size:12px">…</span></div>
+  </section>
+
+  <section class="reveal" style="margin-top:24px">
     <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Live event stream</h2>
     <div class="card log" id="stream"><div class="mut">No events yet — arm Sleep Mode or run a pass.</div></div>
   </section>
@@ -142,9 +147,18 @@ async function status(){
       ['Last decision', s.lastTrigger?esc(s.lastTrigger):'—',''],
     ].map(([k,v,c])=>`<div class="mrow"><span class="k">${k}</span><b class="${c}">${esc(v)}</b></div>`).join('');
     drawEquity(s.equity||[]);
-    try{const dd=await get('/api/sleep/decisions');renderStream(dd.decisions||[]);}catch(e){}
+    try{const dd=await get('/api/sleep/decisions');renderStream(dd.decisions||[]);renderPipeline(dd.decisions||[]);}catch(e){}
     if(typeof composeRules==='function')composeRules();
   }catch(e){}
+}
+function renderPipeline(decs){
+  const el=$('#pipeline'); if(!el)return;
+  const d=decs&&decs[0];
+  if(!d){el.innerHTML='<span class="mut" style="font-size:12px">No run yet — arm Sleep Mode or run a pass.</span>';return;}
+  const audit=(d.audit&&d.audit.verdict)||'—';
+  const filled=(d.executed&&d.executed.length);
+  const stages=[['1 · Strategy','residual / net-edge rule','ok'],['2 · Agent decision',d.trigger||'—','ok'],['3 · Risk check','caps · allowlist · rate-limited','ok'],['4 · Audit (2nd Qwen pass)',audit,audit==='pass'?'ok':'warn'],['5 · Execution',filled?filled+' filled':'WAIT — no fill',filled?'ok':'mut'],['6 · Receipt',d.signature||'—','ok']];
+  el.innerHTML=stages.map(([k,v,c])=>`<div class="mrow" style="border-left:2px solid var(--line);padding-left:10px"><span class="k">${k}</span><b class="${c==='ok'?'up':c==='warn'?'down':'mut'}">${esc(v)}</b></div>`).join('');
 }
 function renderStream(decs){
   const el=$('#stream'); if(!el)return;
