@@ -111,14 +111,15 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <section>
-    <h2>Keyless execution quote (KyberSwap, read-only)</h2>
+    <h2>DEX infrastructure demo · BNB → USDT <span class="chip">KyberSwap · read-only</span></h2>
     <div class="card">
+      <p class="muted" style="font-size:12px;margin:0 0 10px">Infrastructure demo — quotes BNB→USDT on KyberSwap to show the DEX path is wired. It is <b>not</b> the tokenized-equity opportunity above.</p>
       <form id="qForm" style="display:flex;gap:8px;flex-wrap:wrap">
         <input id="qAmount" type="number" value="0.1" step="0.01" min="0.01" style="flex:1;min-width:140px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:10px 13px;border-radius:9px;font-family:var(--sans)" />
         <span class="muted" style="align-self:center;font-size:12px">BNB → USDT</span>
-        <button type="submit" style="background:var(--acc);color:#fff;border:0;padding:10px 16px;border-radius:9px;font-weight:700;cursor:pointer">Quote</button>
+        <button type="submit" style="background:var(--acc);color:#fff;border:0;padding:10px 16px;border-radius:9px;font-weight:700;cursor:pointer">Get quote</button>
       </form>
-      <pre id="qOut" style="margin-top:10px"></pre>
+      <div id="qOut" style="margin-top:12px"><span class="muted" style="font-size:12px">Enter an amount and get a quote.</span></div>
     </div>
   </section>
 
@@ -214,8 +215,18 @@ $("#qForm").addEventListener("submit", async (ev) => {
   const wei = Math.round(amt * 1e18);
   try {
     const d = await getJSON("/api/bnb/quote?amount=" + wei);
-    $("#qOut").textContent = JSON.stringify(d, null, 2);
-  } catch (e) { $("#qOut").textContent = "quote error: " + e.message; }
+    const outUsd = d.outputUsd ?? d.amountOutUsd ?? d.outUsd ?? (d.data && (d.data.outputUsd || d.data.amountOutUsd));
+    const recv = d.amountOut ?? d.outputAmount ?? (d.data && d.data.amountOut);
+    const impact = d.priceImpact ?? (d.data && d.data.priceImpact);
+    $("#qOut").innerHTML =
+      `<div class="mrow"><span>Input</span><b>${amt} BNB</b></div>`
+      + `<div class="mrow"><span>Expected output</span><b>${outUsd != null ? "$" + Number(outUsd).toFixed(2) + " USDT" : (recv != null ? recv + " (raw units)" : "—")}</b></div>`
+      + `<div class="mrow"><span>Route</span><b>BNB → USDT · KyberSwap</b></div>`
+      + `<div class="mrow"><span>Price impact</span><b>${impact != null ? Number(impact).toFixed(2) + "%" : "—"}</b></div>`
+      + `<div class="mrow"><span>Chain</span><b>BSC mainnet · chain 56</b></div>`
+      + `<div class="mrow"><span>Status</span><b style="color:var(--up)">✓ Quote ready</b></div>`
+      + `<details style="margin-top:8px"><summary class="muted" style="font-size:11px;cursor:pointer">View raw API response</summary><pre style="margin-top:6px;font-size:11px">${esc(JSON.stringify(d, null, 2)).slice(0, 2000)}</pre></details>`;
+  } catch (e) { $("#qOut").innerHTML = `<div class="muted" style="font-size:12px">Quote unavailable — ${esc(e.message)} <button class="btn ghost" style="min-height:34px;margin-left:8px" onclick="document.getElementById('qForm').requestSubmit()">Retry</button></div>`; }
 });
 
 async function loadRwa() {
