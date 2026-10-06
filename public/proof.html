@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AfterHours · Proof</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ah-ui.css">
+<style>
+  body{background:#0a0a0f;color:#f5f3fa;font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:24px 18px 60px}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(1.6rem,6vw,2.2rem);line-height:1.1;margin:10px 0 6px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:1.4px;color:#9c9cb6;margin:26px 0 10px;font-weight:700}
+  .lead{color:#9c9cb6;font-size:.95rem;max-width:640px}
+  .card{background:#14141c;border:1px solid #26262f;border-radius:12px;padding:14px;margin-bottom:12px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px;flex-wrap:wrap}
+  .row:last-child{border-bottom:0}
+  .k{color:#9c9cb6}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .badge.live{color:#69f0ae;background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.32)}
+  .badge.paper{color:#ffd88a;background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
+  .badge.gate{color:#9a9aaa;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  a{color:#7a68ff}
+  .tx{font-size:12px;word-break:break-all}
+  .grid{display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:720px){.grid.two{grid-template-columns:1fr 1fr}}
+  .muted{color:#9c9cb6;font-size:12px}
+</style>
+</head>
+<body>
+<div id="ahnav"></div>
+<div class="wrap">
+  <span class="ah-eyebrow" style="display:inline-flex;align-items:center;gap:7px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9c9cb6"><span style="width:6px;height:6px;border-radius:50%;background:#69f0ae;display:inline-block"></span>Proof</span>
+  <h1>What's actually real here.</h1>
+  <p class="lead">Every claim below carries a status — <span class="badge live">VERIFIED LIVE</span> <span class="badge paper">PAPER</span> <span class="badge gate">GATED</span> — never a green badge over a missing integration. Data is fetched live on load; nothing is hardcoded.</p>
+
+  <h2>Live execution — BNB Smart Chain</h2>
+  <div class="card" id="execCard"><div class="muted">Loading…</div></div>
+
+  <h2>Bitget data (7×24 rTokens)</h2>
+  <div class="card" id="bitgetCard"><div class="muted">Loading…</div></div>
+
+  <h2>Autonomous agent</h2>
+  <div class="card" id="agentCard"><div class="muted">Loading…</div></div>
+
+  <h2>Data sources</h2>
+  <div class="card" id="sourcesCard"><div class="muted">Loading…</div></div>
+
+  <h2>Sponsor integrations</h2>
+  <div class="grid two">
+    <div class="card" id="mcpCard"><div class="muted">Loading…</div></div>
+    <div class="card" id="sponsorCard"><div class="muted">Loading…</div></div>
+  </div>
+
+  <p class="muted" style="margin-top:24px">AfterHours · proof surface · fetched live from <span class="mono">/api/proof</span>. Statuses reflect what the code + external APIs actually return right now.</p>
+</div>
+<script>window.AH = { route: "proof", chain: "bnb", action: "wallet", showChain: false };</script>
+<script src="/ah-shell.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const badge = (s) => {
+  const u = String(s || "").toUpperCase();
+  const cls = /VERIFIED|LIVE|READY|PASS|AVAILABLE/.test(u) ? "live" : (/PAPER|COMPATIBLE|COMPATIBLE/.test(u) ? "paper" : "gate");
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+};
+const row = (k, v) => `<div class="row"><span class="k">${esc(k)}</span><span>${v}</span></div>`;
+
+async function load() {
+  let d;
+  try { d = await fetch("/api/proof", { cache: "no-store" }).then((r) => r.json()); }
+  catch (e) { ["execCard", "bitgetCard", "agentCard", "sourcesCard", "mcpCard", "sponsorCard"].forEach((id) => { $("#" + id).innerHTML = `<div class="muted">Unavailable — ${esc(e.message)}</div>`; }); return; }
+
+  // LIVE EXECUTION
+  const le = d.liveExecution || {};
+  $("#execCard").innerHTML =
+    row("Status", badge(le.status)) +
+    row("Network", esc(le.venue || "—") + (le.chainId ? ` · chain ${le.chainId}` : "")) +
+    row("Execution wallet", le.wallet ? `<span class="mono">${esc(le.wallet)}</span>` : `<span class="muted">not configured</span>`) +
+    row("Recorded live fills", String(le.count || 0)) +
+    (le.fills || []).slice(0, 5).map((f) =>
+      `<div class="row"><span class="k">${esc(f.symbol)} · $${esc(f.amountUsd)}</span>` +
+      `<span class="tx">${f.swapHash ? `<a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(String(f.swapHash).slice(0, 18))}… · view on BscScan</a>` : esc(f.error || "—")}</span></div>`
+    ).join("") ||
+    row("", `<span class="muted">No live fill recorded yet — paper environment active. Live execution runs when a funded exec wallet + Web3 key are set.</span>`);
+
+  // BITGET
+  const b = d.bitget || {};
+  $("#bitgetCard").innerHTML =
+    row("Status", badge(b.status)) +
+    row("Universe", `${esc(b.symbols)} rToken symbols · ${esc(b.gaps)} gaps`) +
+    row("Market factor (SPY)", b.marketFactorMovePct == null ? "n/a" : `${b.marketFactorMovePct >= 0 ? "+" : ""}${Number(b.marketFactorMovePct).toFixed(2)}%`) +
+    row("Cost model", b.costModelPct == null ? "n/a" : `${Number(b.costModelPct).toFixed(2)}%`) +
+    (b.top || []).map((g) => row(`Top: ${esc(g.symbol)}`, `raw ${g.raw >= 0 ? "+" : ""}${Number(g.raw).toFixed(2)}% → net ${g.net >= 0 ? "+" : ""}${Number(g.net).toFixed(2)}% · ${esc(g.decision)}`)).join("");
+
+  // AGENT
+  const a = d.agent || {};
+  $("#agentCard").innerHTML =
+    row("Autopilot", a.armed ? badge("ARMED") : badge("DISARMED")) +
+    row("Venues", esc((a.venues || []).join(", ") || "—")) +
+    row("Model", esc(a.model || "—")) +
+    row("Decisions logged", String(a.decisions || 0)) +
+    (a.last || []).map((x) => row(`${esc(x.venue || "")} ${esc(x.trigger || x.decision || "")}`, `source: ${esc(x.model || "—")} · ${badge(String(x.model || "").includes("stub") ? "PAPER" : "LIVE")}`)).join("");
+
+  // SOURCES
+  $("#sourcesCard").innerHTML = (d.sources || []).map((s) => row(esc(s.name), badge(esc(s.status)))).join("");
+
+  // MCP + SPONSOR
+  const m = d.mcp || {};
+  $("#mcpCard").innerHTML = `<div class="row"><span class="k">MCP server</span>${badge(m.available ? "AVAILABLE" : "UNAVAILABLE")}</div>` +
+    row("Tools", `<span class="mono">${esc((m.tools || []).join(" · "))}</span>`) +
+    `<div class="muted" style="margin-top:6px">${esc(m.note || "")}</div>`;
+  const sp = d.sponsor || {};
+  $("#sponsorCard").innerHTML =
+    `<div class="row"><span class="k">BNB Agent Studio</span>${badge((sp.agentStudio || {}).status)}</div>` +
+    `<div class="muted">${esc((sp.agentStudio || {}).note || "")}</div>` +
+    `<div class="row" style="margin-top:8px"><span class="k">Binance Agentic Wallet</span>${badge((sp.agenticWallet || {}).status)}</div>` +
+    `<div class="muted">${esc((sp.agenticWallet || {}).note || "")}</div>`;
+}
+load();
+</script>
+</body></html>

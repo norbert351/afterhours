@@ -63,16 +63,16 @@
       '<button class="hm-close" id="ahMenuClose" aria-label="Close menu" type="button">✕</button>' +
     "</div>" +
     '<nav aria-label="Primary">' +
+      '<p class="mi-sec">Product</p>' +
       '<a class="mi' + (route === "home" ? " active" : "") + '" href="/">Home</a>' +
-      '<a class="mi' + (route === "app" ? " active" : "") + '" href="/app">App · Dashboard</a>' +
-      '<a class="mi' + (route === "bnb" ? " active" : "") + '" href="/bnb">App · BNB</a>' +
       '<a class="mi' + (route === "sleep" ? " active" : "") + '" href="/sleep">Sleep Mode · Autopilot</a>' +
-      '<p class="mi-sec">Chains</p>' +
+      '<a class="mi' + (route === "proof" ? " active" : "") + '" href="/proof">Proof</a>' +
+      '<p class="mi-sec">Venues</p>' +
       '<a class="mi chain-sol' + (chain === "sol" ? " active" : "") + '" href="/app"><span class="swatch"></span><span class="mi-label">Solana</span></a>' +
       '<a class="mi chain-bnb' + (chain === "bnb" ? " active" : "") + '" href="/bnb"><span class="swatch"></span><span class="mi-label">BNB</span></a>' +
       '<a class="mi chain-bitget' + (chain === "bga" ? " active" : "") + '" href="/bitget"><span class="swatch"></span><span class="mi-label">Bitget</span></a>' +
       '<p class="mi-sec">Resources</p>' +
-      '<a class="mi' + (route === "docs" ? " active" : "") + '" href="/docs">Docs · How it works</a>' +
+      '<a class="mi' + (route === "docs" ? " active" : "") + '" href="/docs">How it works · Docs</a>' +
       '<button class="hm-connect" id="ahMenuConnect" type="button">Connect wallet</button>' +
     "</nav>" +
     '<div class="ah-menu-foot">AfterHours · Tokenized equities, 24/7</div>';

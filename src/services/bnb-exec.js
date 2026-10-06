@@ -6,6 +6,15 @@ import { createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { bsc } from "viem/chains";
 import { bnbWeb3Call, USDT_BSC, BSC_RPC } from "../adapters/bsc.js";
+import fs from "node:fs";
+
+// Live-execution proof log — every real BSC fill is persisted here so the Proof
+// page can surface it. Never fabricated: only records an actual broadcast result.
+const EXEC_LOG = new URL("../../data/bnb-exec.json", import.meta.url).pathname;
+function readExecLog() { try { return JSON.parse(fs.readFileSync(EXEC_LOG, "utf8")); } catch { return []; } }
+function appendExecLog(rec) { try { const l = readExecLog(); l.unshift(rec); fs.writeFileSync(EXEC_LOG, JSON.stringify(l.slice(0, 100), null, 2)); } catch { /* non-fatal */ } }
+export function listBnbExecs(limit = 20) { return readExecLog().slice(0, limit); }
+export function bnbExecConfigured() { return !!String(process.env.AH_BNB_EXEC_PRIVATE_KEY || "").trim(); }
 
 const ERC20_APPROVE = [{ name: "approve", type: "function", stateMutability: "nonpayable",
   inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] }];
@@ -57,8 +66,10 @@ export async function bnbExecuteSwap({ symbol, amountUsd = 0.15, slippagePercent
   const swapHash = await wc.sendTransaction({
     to: tx.to, data: tx.data, value: 0n, gas: 500000n,
   });
-  return {
+  const out = {
     symbol: sym, amountUsd, mint, router: tx.to, approveHash, swapHash,
     explorer: `https://bscscan.com/tx/${swapHash}`, liveLedger: true,
   };
+  appendExecLog({ at: Date.now(), chain: "BNB Smart Chain", chainId: 56, ...out });
+  return out;
 }
