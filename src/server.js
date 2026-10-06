@@ -28,6 +28,7 @@ import { bnbExecuteSwap, bnbExecAddress, listBnbExecs, bnbExecConfigured } from 
 import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
 import * as bnbAgent from "./services/bnb-agent.js";
 import * as bitgetArb from "./services/bitget-arb.js";
+import * as crossVenue from "./services/cross-venue.js";
 import * as sleepAgent from "./services/sleep-agent.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -440,6 +441,9 @@ app.post("/api/bnb/paper-act", wrap(async (req, res) => {
   res.json(bnb.bnbPaperAction({ gaps: uni.gaps, amountUsd: amount }));
 }));
 app.get("/api/bnb/decisions", wrap(async (_req, res) => res.json({ count: bnb.listBnbDecisions().length, decisions: bnb.listBnbDecisions() })));
+
+// ---- Cross-venue (Phase 5/39): same underlying across Bitget + BNB ----
+app.get("/api/cross-venue", wrap(async (_req, res) => res.json(await crossVenue.crossVenue())));
 
 // ---- Proof (Phase 23): judge-facing honest status across every surface ----
 app.get("/api/proof", wrap(async (_req, res) => {

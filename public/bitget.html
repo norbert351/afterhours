@@ -80,6 +80,15 @@ table{font-size:13px;min-width:520px}
   </section>
 
   <section class="section reveal">
+    <h2>Cross-venue · same underlying <span class="chip" id="crossMeta"></span></h2>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="desktop-only" style="overflow-x:auto"><table><thead><tr><th>Underlying</th><th>Bitget</th><th>BNB</th><th class="hide-sm">Reference</th><th>Spread</th><th>Status</th></tr></thead><tbody id="crossBody"><tr><td colspan="6" class="mut" style="padding:12px">Loading…</td></tr></tbody></table></div>
+      <div class="mobile-cards" id="crossCards" style="padding:12px"></div>
+      <div style="padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem" id="crossNote">…</div>
+    </div>
+  </section>
+
+  <section class="section reveal">
     <h2>Paper decision timeline</h2>
     <div class="card" id="decisions"><span class="mut" style="font-size:12px">No decisions yet — press Paper-act to run the engine.</span></div>
   </section>
@@ -127,7 +136,24 @@ async function load(){try{
       +`<div class="mrow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
       +`<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(g.netEdgePct)}</b></div></div>`;}).join('')||'<div class="mut" style="padding:8px">no gaps</div>';
   loadDecisions();
+  loadCross();
 }catch(e){$('#body').innerHTML='<tr><td colspan="7"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
+async function loadCross(){try{const d=await get('/api/cross-venue');const ps=d.pairs||[];
+  $('#crossMeta').textContent=d.available?(ps.length?ps.length+' pairs':'no overlap'):'unavailable';
+  $('#crossNote').textContent=d.note||'';
+  const tag=(st)=>st==='POTENTIAL EDGE'?'buy':(st==='OBSERVATION'?'wait':'blk');
+  $('#crossBody').innerHTML=ps.map(p=>`<tr><td><b>${esc(p.underlying)}</b></td>`
+    +`<td class="mut">${esc(p.bitget.symbol)} $${Number(p.bitget.priceUsd).toFixed(2)}<div class="mut" style="font-size:11px">${pct(p.bitget.premiumPct)}</div></td>`
+    +`<td class="mut">${esc(p.bnb.symbol)} $${Number(p.bnb.priceUsd).toFixed(2)}<div class="mut" style="font-size:11px">${pct(p.bnb.premiumPct)}</div></td>`
+    +`<td class="mut hide-sm">$${Number(p.referenceUsd).toFixed(2)}</td>`
+    +`<td style="font-weight:600">${pct(p.crossVenueSpreadPct)}</td>`
+    +`<td><span class="tag ${tag(p.status)}">${esc(p.status)}</span></td></tr>`).join('')||'<tr><td colspan="6" class="mut" style="padding:12px">No underlying is listed on both Bitget and BNB right now — nothing to spread.</td></tr>';
+  $('#crossCards').innerHTML=ps.map(p=>`<div class="mcard"><div class="mh"><span class="msym">${esc(p.underlying)}</span><span class="tag ${tag(p.status)}">${esc(p.status)}</span></div>`
+    +`<div class="mrow"><span>Bitget</span><b>${esc(p.bitget.symbol)} $${Number(p.bitget.priceUsd).toFixed(2)}</b></div>`
+    +`<div class="mrow"><span>BNB</span><b>${esc(p.bnb.symbol)} $${Number(p.bnb.priceUsd).toFixed(2)}</b></div>`
+    +`<div class="mrow"><span>Cross-venue spread</span><b>${pct(p.crossVenueSpreadPct)}</b></div>`
+    +(p.note?`<div class="mut" style="font-size:11px;margin-top:4px">${esc(p.note)}</div>`:'')+`</div>`).join('');
+}catch(e){$('#crossNote').textContent='Cross-venue unavailable: '+e.message;}}
 async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
   alert(d.acted?`${d.decision}: ${d.target} · net ${pct(d.netEdgePct)} · $${d.notionalUsd}\n${d.reason||''}`:`WAIT — ${d.reason||'no residual edge above costs'}`); loadDecisions();}catch(e){alert(e.message)}}
 async function loadDecisions(){try{const d=await get('/api/bitget/decisions');const ds=d.decisions||[];
