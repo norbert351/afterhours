@@ -64,9 +64,9 @@ export async function appendSnapshot(db, now = Date.now()) {
   if (last && now - last < 60_000) return { appended: 0, skipped: "too soon" };
   const live = await listPreStocks();
   for (const t of live) {
-    // mark_price is NOT NULL in the schema and is the valuation anchor — snapshots
-    // without one are meaningless, so skip rather than crash the whole append.
-    if (t.markPrice == null) continue;
+    // mark_price AND token_price are both NOT NULL in the schema. Skip rows missing
+    // either (a snapshot with no price is meaningless) rather than crash the append.
+    if (t.markPrice == null || t.tokenPrice == null) continue;
     store.insertPrestocksSnapshot(db, {
       ts: now, symbol: t.symbol,
       markPrice: t.markPrice, tokenPrice: t.tokenPrice,
@@ -74,7 +74,7 @@ export async function appendSnapshot(db, now = Date.now()) {
       supply: t.supply,
     });
   }
-  return { appended: live.filter((t) => t.markPrice != null).length };
+  return { appended: live.filter((t) => t.markPrice != null && t.tokenPrice != null).length };
 }
 
 export function deskHistory(db, symbol, limit = 40) {
