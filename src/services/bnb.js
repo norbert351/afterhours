@@ -17,6 +17,10 @@ export async function bnbStatus() {
   };
 }
 
+// Cache the last SUCCESSFUL universe so an intermittent upstream (RWA API) failure
+// serves the last good data instead of a broken "undefined tokens" page.
+let lastGoodUniverse = { at: 0, data: null };
+
 // Build the BNB weekend-gap surface. With the Web3 API key, this is REAL data:
 // every bStocks/Ondo token's on-chain price vs its underlying reference, from
 // the sponsor's sanctioned RWA Data API. Without it, an honest skeleton.
@@ -33,7 +37,7 @@ export async function bnbUniverse() {
       const { gaps: raw, flagged } = bnbEquityGaps(tokens);
       const gaps = raw.filter((g) => !g.error).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
       const bstockGaps = gaps.filter((g) => g.platform === "bstock").sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
-      return {
+      const out = {
         market: { open: marketOpen, at: Date.now() },
         chain: "bnb", configured: true,
         source: "rwa-data-api",
@@ -48,11 +52,21 @@ export async function bnbUniverse() {
         gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact) — not reported as real.`,
         generatedAt: Date.now(),
       };
+      lastGoodUniverse = { at: Date.now(), data: out };
+      return out;
     } catch (e) {
+      // Serve the last good universe if recent; else a well-formed object with the
+      // SAME fields so the page never renders "undefined tokens".
+      if (lastGoodUniverse.data && Date.now() - lastGoodUniverse.at < 600_000) {
+        return { ...lastGoodUniverse.data, stale: true, staleAgeMs: Date.now() - lastGoodUniverse.at, note: `serving cached universe (upstream hiccup: ${e.message})` };
+      }
       return {
         market: { open: marketOpen, at: Date.now() },
         chain: "bnb", configured: true, error: `RWA fetch failed: ${e.message}`,
-        tokens: [], gaps: [], generatedAt: Date.now(),
+        tokenCount: 0, platformCount: { bstock: 0, ondo: 0, xstock: 0 },
+        tokens: [], gaps: [], topGaps: [], bstockTop: [], flagged: { count: 0, rows: [] },
+        gapNote: "RWA data API temporarily unreachable — retry shortly.",
+        generatedAt: Date.now(),
       };
     }
   }
