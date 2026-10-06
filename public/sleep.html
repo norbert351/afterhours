@@ -34,6 +34,11 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
   </header>
 
   <section class="config reveal">
+    <div id="authGate" style="display:none;background:linear-gradient(180deg,rgba(240,178,60,.12),rgba(240,178,60,.02));border:1px solid rgba(240,178,60,.4);border-radius:12px;padding:14px;margin-bottom:14px">
+      <b style="color:var(--warn,#f0b23c)">🔒 Connect your wallet to run the agent</b>
+      <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">The agent manages <b>your</b> capital and signs fills against your account — so a pass can't run until a wallet is connected.</p>
+      <button class="ah-btn" id="gateConnect" style="min-height:44px">Connect wallet</button>
+    </div>
     <div class="ctl">
       <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option><option value="solana">Solana</option></select></div>
       <div><label for="cap">Capital (USD)</label><input id="cap" type="number" inputmode="decimal" value="1000" min="1"></div>
@@ -117,13 +122,17 @@ async function report(){try{const r=await get('/api/sleep/report');$('#reportCar
 async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const q=String(x.model||'').includes('qwen');return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${q?' live':''}" style="padding:1px 8px;font-size:10px">${q?'Qwen decided':'deterministic fallback'}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
+function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;}
+$('#gateConnect').addEventListener('click',()=>{location.href='/app';});
+async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
 $('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';el.textContent='Qwen deciding → auditing → executing…';$('#runBtn').disabled=true;
   try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());
-    if(r.executed&&r.executed.length)el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed fill(s)</span> · ${esc(r.rationale||'')}`;
-    else el.innerHTML=`${esc(r.trigger||'')} · ${esc(r.rationale||r.reason||'')}`;
+    if(r.needAuth){gate(true);el.textContent='Connect your wallet to run the agent.';await checkAuth();}
+    else if(r.executed&&r.executed.length){const q=String(r.model||'').includes('qwen');el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed fill(s) · decided by ${q?'Qwen':'the deterministic safety engine (Qwen was slow)'}</span><br>${esc(r.rationale||'')}`;}
+    else {const q=String(r.model||'').includes('qwen');el.innerHTML=`${esc(r.trigger||'')} · decided by ${q?'Qwen':'the safety engine (Qwen was slow)'} — ${esc(r.rationale||r.reason||'')}`;}
     await refresh();}catch(e){el.textContent='Run failed: '+e.message;}
   $('#runBtn').disabled=false;});
-$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
-refresh();setInterval(refresh,20000);
+$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());if(r.needAuth){gate(true);await checkAuth();return;}$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
+checkAuth();refresh();setInterval(refresh,20000);
 </script>
 </body></html>

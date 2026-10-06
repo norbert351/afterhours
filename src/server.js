@@ -545,11 +545,13 @@ app.post("/api/bitget/paper-act", wrap(async (req, res) => {
 app.get("/api/sleep/status", wrap(async (_req, res) => res.json({ ok: true, ...sleepAgent.status() })));
 app.get("/api/sleep/metrics", wrap(async (_req, res) => res.json(sleepAgent.metrics())));
 app.post("/api/sleep/run", wrap(async (req, res) => {
+  if (!currentUser(req)) return res.status(401).json({ error: "Connect your wallet to run the agent", needAuth: true });
   const { venue, rules = "", capitalUsd = 100, deep } = req.body || {};
   const v = /^(solana|bnb|bitget)$/.test(venue || "") ? venue : "bitget";
   res.json(await sleepAgent.runSleep({ venue: v, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100), deep: !!deep }));
 }));
 app.post("/api/sleep/arm", wrap(async (req, res) => {
+  if (!currentUser(req)) return res.status(401).json({ error: "Connect your wallet to arm the agent", needAuth: true });
   const { venue = "bitget", rules = "", capitalUsd = 100, venues } = req.body || {};
   const v = /^(solana|bnb|bitget)$/.test(venue) ? venue : "bitget";
   res.json({ ok: true, ...sleepAgent.arm({ venue: v, venues: Array.isArray(venues) ? venues : undefined, rules: String(rules).slice(0, 500), capitalUsd: Math.max(1, Number(capitalUsd) || 100) }) });
