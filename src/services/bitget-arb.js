@@ -6,6 +6,7 @@
 // open; reused while closed because it cannot move); implausible gaps flagged.
 import { isMarketOpen, getReferencePrice, batchReferencePrices } from "../adapters/twelvedata.js";
 import { bitgetRPrice, US_UNIVERSE } from "../adapters/bitget-r.js";
+import { annotateGaps, byNetEdgeDesc, COST_MODEL } from "./fairvalue.js";
 import fs from "node:fs";
 
 const GAP_PLAUSIBLE_PCT = 10;
@@ -53,11 +54,16 @@ export async function bitgetArbUniverse() {
     if (Math.abs(gapPct) > GAP_PLAUSIBLE_PCT) { row.outlier = true; flagged.push(row); }
     else gaps.push(row);
   }
-  gaps.sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+  // Residual/fair-value layer: adjust each gap for the broad-market move, subtract
+  // estimated execution costs, and rank by NET EDGE (never by raw gap). SPY rToken
+  // is the market factor; the agent may WAIT when no residual edge survives costs.
+  const { marketMovePct } = annotateGaps(gaps, { marketRe: /^(R?SPY(USDT)?|SPYB|SPYx)$/i });
+  gaps.sort(byNetEdgeDesc);
   return {
     market: { open: marketOpen, at: Date.now(), note: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — reference frozen, rToken 7×24 keeps trading (the arbitrage window)" },
     chain: "bitget", source: "bitget-uta-v3-rToken · twelvedata-reference",
-    universe: US_UNIVERSE.length, gaps, flaggedCount: flagged.length, errors,
+    universe: US_UNIVERSE.length, marketFactorMovePct: marketMovePct, costModelPct: COST_MODEL.feePct + COST_MODEL.slippagePct + COST_MODEL.bufferPct,
+    gaps, flaggedCount: flagged.length, errors,
     generatedAt: Date.now(),
   };
 }
@@ -66,12 +72,19 @@ export async function bitgetArbUniverse() {
 // paper action (no real money — Bitget S2 accepts paper). Auditable decision log.
 const decisions = [];
 export function bitgetPaperAction({ gaps, amountUsd = 100 } = {}) {
-  const pool = gaps.filter((g) => !g.outlier);
-  if (!pool.length) return { acted: false, reason: "no tradable gap right now" };
-  const top = pool[0];
-  const side = top.gapPct >= 0 ? "short/hedge" : "buy-discount"; // premium→hedge, discount→buy
-  const notional = amountUsd;
-  decisions.push({ at: Date.now(), symbol: top.symbol, rSymbol: top.rSymbol, gapPct: top.gapPct, side, notionalUsd: notional, model: "arbitrage-rule" });
-  return { acted: true, target: top.symbol, gapPct: top.gapPct, side, notionalUsd: notional };
+  const pool = (gaps || []).filter((g) => g && !g.outlier && !g.error && Number.isFinite(g.netEdgePct));
+  if (!pool.length) return { acted: false, decision: "WAIT", reason: "no tradable gap right now" };
+  const top = [...pool].sort((a, b) => b.netEdgePct - a.netEdgePct)[0];
+  // The agent may WAIT — a raw gap that does not survive market-adjustment + costs
+  // is NOT an opportunity. SPOT-ONLY: premium → ROTATE (reduce exposure / rotate to
+  // a cheaper eligible spot asset); discount → BUY. Never "short"/"hedge".
+  if (top.decision !== "ROTATE" && top.decision !== "BUY") {
+    const rec = { at: Date.now(), venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
+    decisions.push(rec);
+    return { acted: false, decision: "WAIT", target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason: top.reason };
+  }
+  const action = top.decision; // ROTATE | BUY (spot)
+  decisions.push({ at: Date.now(), venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, notionalUsd: amountUsd, model: "residual-fairvalue-rule" });
+  return { acted: true, decision: action, target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, reason: top.reason };
 }
 export function listBitgetDecisions(limit = 50) { return [...decisions].reverse().slice(0, limit); }

@@ -36,6 +36,10 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
 .pill.down{background:rgba(255,122,138,.14);color:var(--down)}
 .pill.warn{background:rgba(240,178,60,.14);color:var(--warn)}
 .pill.key{background:rgba(240,185,11,.14);color:var(--gold)}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;letter-spacing:.3px}
+.tag.buy{color:var(--up);background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+.tag.wait{color:var(--warn);background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
+.tag.blk{color:var(--mut);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
 .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:2px 8px;border-radius:999px;color:var(--mut)}
 pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto;font-family:var(--mono);font-size:12px}
 /* chain switcher */
@@ -72,7 +76,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   <section>
     <h2>Weekend gap · BNB <span class="chip" id="gapMeta"></span></h2>
     <div class="card" style="overflow-x:auto">
-      <table><thead><tr><th>Token</th><th>On-chain $</th><th>Ref $</th><th>Gap</th><th class="hide-sm">Verification</th></tr></thead><tbody id="gapBody"></tbody></table>
+      <table><thead><tr><th>Token</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th></tr></thead><tbody id="gapBody"></tbody></table>
       <p class="muted" id="gapNote" style="margin:8px 0 0;font-size:12px"></p>
     </div>
   </section>
@@ -149,17 +153,25 @@ async function loadGaps() {
         elig.innerHTML = `<b>Web3 API key not set</b> — real per-stock prices gated. See rail status below.`;
       }
     }
-    $("#gapMeta").textContent = u.configured ? "LIVE · " + u.tokenCount + " tokens · sorted by |gap|" : "keyless (gated values flagged)";
-    const rows = u.bstockTop && u.bstockTop.length ? u.bstockTop : (u.gaps || []);
+    const rows = u.bstockTop && u.bstockTop.length ? u.bstockTop : (u.gaps || []).slice(0, 25);
+    const pctv = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
+    const actN = u.actionableCount != null ? u.actionableCount : rows.filter((g) => g.decision === "ROTATE" || g.decision === "BUY").length;
+    const mfMove = u.marketFactorMovePct;
+    $("#gapMeta").textContent = u.configured ? `${actN} actionable · ${(u.gaps || []).length} dislocations · ${u.tokenCount} tracked` : "keyless (gated values flagged)";
     $("#gapBody").innerHTML = rows.map((g) => {
-      if (g.error) return `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="4" class="muted">${esc(g.error)}</td></tr>`;
-      const cls = g.gapPct >= 0 ? "up" : "down";
-      const sign = g.gapPct >= 0 ? "+" : "";
-      return `<tr><td><b>${esc(g.symbol)}</b></td><td>${esc(g.name || "")}</td><td>$${fmt(g.onChainPriceUsd)}</td><td class="muted">$${fmt(g.referencePriceUsd)}</td><td class="${cls}">${sign}${g.gapPct.toFixed(2)}%</td></tr>`;
-    }).join("") || '<tr><td colspan="5" class="muted">no gaps computed (see note)</td></tr>';
-    const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — not reported as tradable.` : "";
-    $("#gapNote").textContent = "gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. Real weekend divergence while the US market is shut." + flNote;
-  } catch (e) { $("#gapBody").innerHTML = `<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`; }
+      if (g.error) return `<tr><td><b>${esc(g.symbol)}</b></td><td colspan="5" class="muted">${esc(g.error)}</td></tr>`;
+      const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
+      const cls = ne == null ? "muted" : (ne >= 0.2 ? "up" : (ne > 0 ? "muted" : "down"));
+      const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
+      return `<tr><td><b>${esc(g.symbol)}</b><div class="muted" style="font-size:11px">${esc(g.name || "")}</div></td>`
+        + `<td class="hide-sm">$${fmt(g.onChainPriceUsd ?? g.tokenPrice)}</td><td class="muted hide-sm">$${fmt(g.referencePriceUsd)}</td>`
+        + `<td class="muted">${pctv(g.gapPct)}</td><td class="${cls}" style="font-weight:600">${pctv(g.netEdgePct)}</td>`
+        + `<td><span class="tag ${dcls}">${esc(g.decision || "WAIT")}</span></td></tr>`;
+    }).join("") || '<tr><td colspan="6" class="muted">no gaps computed (see note)</td></tr>';
+    const flNote = fl.count ? ` ${fl.count} on-chain price(s) (e.g. ${(fl.rows || []).map(r => r.symbol).slice(0, 3).join(", ")}) flagged as implausible (wrapper/denomination artifact) — excluded.` : "";
+    const mfNote = mfMove != null ? ` Market factor (SPY) ${pctv(mfMove)} removed; costs ${((u.costModelPct ?? 0.14)).toFixed(2)}% subtracted.` : "";
+    $("#gapNote").textContent = "raw = (on-chain − frozen ref) / ref." + mfNote + " A raw gap that doesn't survive the market-factor adjustment + costs is a WAIT — not an opportunity." + flNote;
+  } catch (e) { $("#gapBody").innerHTML = `<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`; }
 }
 
 $("#qForm").addEventListener("submit", async (ev) => {
@@ -201,8 +213,11 @@ async function loadRwa() {
   }
 }
 
-async function loadBnbDecisions(){try{const d=await getJSON('/api/bnb/decisions');const ds=d.decisions||[];$('#bnbDecisions').innerHTML=ds.slice(0,6).map(x=>`<div style="font-size:12px;color:var(--mut);padding:3px 0">${x.side==='buy-discount'?'<span style="color:var(--up)">BUY</span>':'<span style="color:var(--down)">SHORT/hedge</span>'} <b>${esc(x.symbol)}</b> · gap ${Number(x.gapPct).toFixed(2)}% · $${x.notionalUsd} · <span style="opacity:.6">${new Date(x.at).toLocaleTimeString()}</span></div>`).join('')||'<span class="muted" style="font-size:12px">No paper decisions yet.</span>';}catch(e){}}
-$('#bnbActBtn').addEventListener('click',async()=>{const el=$('#bnbActOut'),b=$('#bnbActBtn');b.disabled=true;el.textContent='Executing paper decision…';try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());el.innerHTML=d.acted?`<span style="color:var(--up)">✓ ${esc(d.target)} · ${esc(d.side)} · $${d.notionalUsd} (gap ${Number(d.gapPct).toFixed(2)}%)</span>`:esc(d.reason||'No tradable gap right now.');loadBnbDecisions();}catch(e){el.textContent='Failed: '+e.message;}b.disabled=false;});
+async function loadBnbDecisions(){try{const d=await getJSON('/api/bnb/decisions');const ds=d.decisions||[];const pv=(n)=>(n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`);$('#bnbDecisions').innerHTML=ds.slice(0,6).map(x=>{const dec=x.decision||x.action||'WAIT';const ok=(dec==='BUY'||dec==='ROTATE');return `<div style="font-size:12px;color:var(--mut);padding:3px 0"><span style="font-weight:600;color:var(--${ok?'up':'warn'})">${esc(dec)}</span> <b>${esc(x.symbol)}</b> · net ${pv(x.netEdgePct)} (raw ${pv(x.rawGapPct)}) · <span style="opacity:.6">${new Date(x.at).toLocaleTimeString()}</span></div>`;}).join('')||'<span class="muted" style="font-size:12px">No paper decisions yet — press Paper-act to run the engine.</span>';}catch(e){}}
+$('#bnbActBtn').addEventListener('click',async()=>{const el=$('#bnbActOut'),b=$('#bnbActBtn');b.disabled=true;el.textContent='Evaluating residual edge…';try{const d=await fetch('/api/bnb/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amountUsd:100})}).then(r=>r.json());
+  const pv=(n)=>(n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`);
+  el.innerHTML=d.acted?`<span style="color:var(--up)">✓ ${esc(d.decision)} ${esc(d.target)} · net ${pv(d.netEdgePct)} (raw ${pv(d.rawGapPct)} − costs ${((d.costPct??0.14)).toFixed(2)}%) · $${d.notionalUsd}</span><br><span style="color:var(--mut);font-size:11px">${esc(d.reason||'')}</span>`:`<span style="color:var(--warn)">WAIT — ${esc(d.reason||'no residual edge above costs')}</span>`;
+  loadBnbDecisions();}catch(e){el.textContent='Failed: '+e.message;}b.disabled=false;});
 $('#bnbRefreshBtn').addEventListener('click',()=>{loadGaps();loadBnbDecisions();});
 loadStatus(); loadGaps(); loadRwa(); loadBnbDecisions();
 setInterval(loadGaps, 45_000);

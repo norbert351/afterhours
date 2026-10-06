@@ -5,6 +5,7 @@
 // rails and flags every gated value — never a fabricated number.
 import { listBnbTokenPrices, bnbGap, bnbRwaPrices, bnbWeb3Configured, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS, bnbRealTokens, bnbEquityGaps, bnbAggQuote } from "../adapters/bsc.js";
 import { listReferencePrices, isMarketOpen } from "../adapters/twelvedata.js";
+import { annotateGaps, byNetEdgeDesc, COST_MODEL } from "./fairvalue.js";
 
 export async function bnbStatus() {
   return {
@@ -35,8 +36,14 @@ export async function bnbUniverse() {
       ]);
       const tokens = [...bstock, ...ondo, ...stocks];
       const { gaps: raw, flagged } = bnbEquityGaps(tokens);
-      const gaps = raw.filter((g) => !g.error).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
-      const bstockGaps = gaps.filter((g) => g.platform === "bstock").sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+      const gaps = raw.filter((g) => !g.error);
+      // Residual/fair-value layer — adjust each gap for the broad-market move, subtract
+      // estimated execution costs, rank by NET EDGE (SPYB = market factor). A raw gap
+      // that does not survive adjustment + costs is a WAIT, never an "opportunity".
+      const { marketMovePct } = annotateGaps(gaps, { marketRe: /^(R?SPY(USDT)?|SPYB|SPYx|SPY)$/i });
+      gaps.sort(byNetEdgeDesc);
+      const bstockGaps = gaps.filter((g) => g.platform === "bstock");
+      const actionable = gaps.filter((g) => g.decision === "ROTATE" || g.decision === "BUY");
       const out = {
         market: { open: marketOpen, at: Date.now() },
         chain: "bnb", configured: true,
@@ -48,6 +55,9 @@ export async function bnbUniverse() {
         gaps,
         topGaps: gaps.slice(0, 25),
         bstockTop: bstockGaps.slice(0, 25),
+        actionableCount: actionable.length,
+        marketFactorMovePct: marketMovePct,
+        costModelPct: COST_MODEL.feePct + COST_MODEL.slippagePct + COST_MODEL.bufferPct,
         flagged: { count: flagged.length, rows: flagged.slice(0, 5) },
         gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact) — not reported as real.`,
         generatedAt: Date.now(),
@@ -104,17 +114,25 @@ export async function bnbEquityQuote({ tokenIn = USDT_BSC, tokenOut, amountAtoms
   return bnbAggQuote({ tokenIn, tokenOut, amount: amountAtoms });
 }
 
-// ---- Paper-action strategy engine (mirrors the Bitget surface) ----
-// Rule: take the largest-|gap| tokenized equity; premium (on-chain > reference)
-// → short/hedge, discount → buy. Paper decisions logged (no real money).
+// ---- Paper-action strategy engine (mirrors the Bitget surface; SPOT-ONLY) ----
+// Residual rule: take the largest NET EDGE; premium → ROTATE, discount → BUY, else WAIT.
 const _bnbDecisions = [];
 export function bnbPaperAction({ gaps = [], amountUsd = 100 } = {}) {
-  const pool = (gaps || []).filter((g) => g && !g.error && Number.isFinite(g.gapPct) && !g.flagged);
-  if (!pool.length) return { acted: false, venue: "bnb", reason: "no tradable gap right now" };
-  const top = [...pool].sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))[0];
-  const side = top.gapPct >= 0 ? "short/hedge" : "buy-discount";
-  const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, side, gapPct: top.gapPct, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "arbitrage-rule" };
+  const pool = (gaps || []).filter((g) => g && !g.error && Number.isFinite(g.netEdgePct));
+  if (!pool.length) return { acted: false, venue: "bnb", decision: "WAIT", reason: "no tradable gap right now" };
+  const top = [...pool].sort((a, b) => b.netEdgePct - a.netEdgePct)[0];
+  // SPOT-ONLY. A raw gap that does not survive market-adjustment + costs is a WAIT,
+  // not an opportunity. Premium (on-chain > fair value) → ROTATE (reduce exposure /
+  // rotate into a cheaper eligible spot asset); discount → BUY (increase exposure).
+  // Never short / hedge / leverage.
+  if (top.decision !== "ROTATE" && top.decision !== "BUY") {
+    const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision: "WAIT", reason: top.reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
+    _bnbDecisions.push(rec);
+    return { acted: false, venue: "bnb", decision: "WAIT", target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason: top.reason };
+  }
+  const action = top.decision; // ROTATE | BUY (spot)
+  const rec = { at: Date.now(), venue: "bnb", symbol: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, action, notionalUsd: amountUsd, price: top.onChainPriceUsd ?? top.tokenPrice, model: "residual-fairvalue-rule" };
   _bnbDecisions.push(rec);
-  return { acted: true, venue: "bnb", target: top.symbol, name: top.name, gapPct: top.gapPct, side, notionalUsd: amountUsd, price: rec.price };
+  return { acted: true, venue: "bnb", decision: action, target: top.symbol, name: top.name, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, costPct: top.costPct, netEdgePct: top.netEdgePct, side: action, notionalUsd: amountUsd, price: rec.price, reason: top.reason };
 }
 export function listBnbDecisions(limit = 50) { return [..._bnbDecisions].reverse().slice(0, limit); }

@@ -24,6 +24,9 @@
 td .tag{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
 .tag.hedge{color:#ff96a4;background:rgba(255,122,138,.14);border:1px solid rgba(255,122,138,.35)}
 .tag.buy{color:var(--good);background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+.tag.wait{color:#ffd88a;background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
+.tag.blk{color:#9a9aaa;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
+.badge-row .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px;background:#69f0ae;vertical-align:middle}
 table{font-size:13px;min-width:520px}
 </style></head><body>
 <div id="ahnav"></div>
@@ -32,13 +35,17 @@ table{font-size:13px;min-width:520px}
     <span class="ah-eyebrow"><span class="dot"></span>Bitget AI S2 · Arbitrage</span>
     <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px;overflow-wrap:anywhere">While the NYSE sleeps, rTokens keep printing.</h1>
     <p class="ah-lead">Bitget's tokenized US stocks (like <span class="mono" style="color:var(--text)">RMSTRUSDT</span>) trade round the clock — even when their market is closed. See the live gap between the token price and its frozen reference.</p>
-    <div class="badge-row">
-      <span class="chip">LIVE data</span><span class="chip">7×24</span><span class="chip">verified live</span>
+    <div class="badge-row" id="statusRow">
+      <span class="chip"><span class="dot" style="background:#69f0ae"></span>Bitget rToken · LIVE</span>
+      <span class="chip" id="nyseChip">NYSE …</span>
+      <span class="chip" id="mktChip">market factor …</span>
     </div>
     <div class="arb-card" id="topcard" style="margin-top:26px">
-      <div class="k">Top arbitrage signal now</div>
+      <div class="k">Top NET EDGE now <span style="font-weight:400;text-transform:none;letter-spacing:0">— ranked by net edge, not raw gap</span></div>
       <div class="big"><span class="sym" id="tgSym">—</span><span class="mut" id="tgR" style="font-family:var(--mono);font-size:.8rem"></span><span class="gap" id="tgGap">…</span></div>
-      <div class="meta"><span>rToken: <b id="tgT">…</b></span><span>Reference: <b id="tgRef">…</b></span><span>Action: <b id="tgDir">…</b></span></div>
+      <div class="meta"><span>rToken: <b id="tgT">…</b></span><span>Reference: <b id="tgRef">…</b></span></div>
+      <div class="meta" style="margin-top:6px"><span>Raw gap: <b id="tgRaw">…</b></span><span>Market-adjusted: <b id="tgAdj">…</b></span><span>Est. costs: <b id="tgCost">…</b></span><span>NET EDGE: <b id="tgNet">…</b></span><span>Action: <b id="tgDir">…</b></span></div>
+      <div id="tgWhy" class="mut" style="font-size:12px;margin-top:8px"></div>
     </div>
   </header>
 
@@ -47,8 +54,8 @@ table{font-size:13px;min-width:520px}
     <div class="card" style="padding:0;overflow:hidden">
       <div class="row" style="padding:14px 18px;border-bottom:1px solid var(--line)"><b style="font-size:.95rem">rToken vs native reference</b><span class="mut" id="meta" style="font-size:12px">…</span></div>
       <div style="overflow-x:auto"><table><thead><tr>
-        <th>Symbol</th><th>rToken</th><th class="hide-sm">rToken $</th><th class="hide-sm">Ref $</th><th>Gap</th><th>Direction</th>
-      </tr></thead><tbody id="body"><tr><td colspan="6" style="padding:10px 16px">
+        <th>Symbol</th><th>rToken</th><th class="hide-sm">rToken $</th><th class="hide-sm">Ref $</th><th class="hide-sm">Raw</th><th>Net edge</th><th>Action</th>
+      </tr></thead><tbody id="body"><tr><td colspan="7" style="padding:10px 16px">
         <div class="ah-skel" style="height:16px;margin:7px 0"></div>
         <div class="ah-skel" style="height:16px;margin:7px 0"></div>
         <div class="ah-skel" style="height:16px;margin:7px 0"></div>
@@ -66,22 +73,34 @@ table{font-size:13px;min-width:520px}
 const $=s=>document.querySelector(s), fmt=n=>n==null?'—':'$'+Number(n).toFixed(2);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
+const pct=n=>n==null||!Number.isFinite(Number(n))?'—':`${Number(n)>=0?'+':''}${Number(n).toFixed(2)}%`;
 async function load(){try{
   const d=await get('/api/bitget/arbitrage'); const gaps=d.gaps||[]; const top=gaps[0];
-  $('#meta').textContent=`${d.universe} symbols · ${gaps.length} gaps`;
-  $('#note').textContent=d.market.note+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
-  if(top){const up=top.gapPct>=0;
+  const cm=d.costModelPct!=null?Number(d.costModelPct):0.14, mf=d.marketFactorMovePct;
+  $('#meta').textContent=`${d.universe} symbols · ${gaps.length} gaps · cost model ${cm.toFixed(2)}%`;
+  $('#note').textContent=d.market.note+(mf!=null?` · market factor (SPY) ${pct(mf)}`:'')+(d.flaggedCount?` · ${d.flaggedCount} flagged`:'');
+  $('#nyseChip').textContent=d.market.open?'NYSE: OPEN':'NYSE: CLOSED · reference frozen';
+  const mk=$('#mktChip'); mk.textContent=mf!=null?`market factor (SPY) ${pct(mf)}`:'market factor: n/a';
+  if(top){
     $('#tgSym').textContent=top.symbol; $('#tgR').textContent=top.rSymbol;
-    const g=$('#tgGap'); g.textContent=`${up?'+':''}${top.gapPct.toFixed(2)}%`; g.className='gap '+(up?'up':'down');
+    const g=$('#tgGap'); g.textContent=pct(top.netEdgePct); g.className='gap '+(Number(top.netEdgePct)>=0?'up':'down');
     $('#tgT').textContent=fmt(top.rTokenPriceUsd); $('#tgRef').textContent=fmt(top.referenceUsd);
-    $('#tgDir').textContent=up?'Hedge / sell premium':'Buy discount';}
-  $('#body').innerHTML=(gaps||[]).map(g=>{const up=g.gapPct>=0,abs=Math.min(Math.abs(g.gapPct)/6*100,100);
+    $('#tgRaw').textContent=pct(top.gapPct); $('#tgAdj').textContent=pct(top.residualGapPct);
+    $('#tgCost').textContent=(top.costPct!=null?'−'+Number(top.costPct).toFixed(2)+'%':'—');
+    $('#tgNet').textContent=pct(top.netEdgePct); $('#tgDir').textContent=top.decision||'WAIT';
+    $('#tgWhy').textContent=top.reason||'';
+  }
+  $('#body').innerHTML=(gaps||[]).map(g=>{const ne=Number.isFinite(g.netEdgePct)?g.netEdgePct:null;
+    const cls=ne==null?'mut':(ne>=0.2?'up':(ne>0?'mut':'down'));
+    const dcls=(g.decision==='ROTATE'||g.decision==='BUY')?'buy':(g.decision==='WAIT'?'wait':'blk');
     return `<tr><td><b>${esc(g.symbol)}</b></td><td class="mut">${esc(g.rSymbol)}</td>
       <td class="hide-sm">${fmt(g.rTokenPriceUsd)}</td><td class="mut hide-sm">${fmt(g.referenceUsd)}</td>
-      <td><span class="${up?'up':'down'}" style="font-weight:600">${up?'+':''}${g.gapPct.toFixed(2)}%</span><div class="gbar ${up?'':'down'}"><i style="width:${abs}%"></i></div></td>
-      <td><span class="tag ${up?'hedge':'buy'}">${up?'HEDGE':'BUY'}</span></td></tr>`;}).join('')||'<tr><td colspan="6" class="mut">no gaps</td></tr>';
-}catch(e){$('#body').innerHTML='<tr><td colspan="6"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
-async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());alert(d.acted?`Paper: ${d.target} · ${d.side} · $${d.notionalUsd} (gap ${d.gapPct.toFixed(2)}%)`:`No tradable gap right now.`)}catch(e){alert(e.message)}}
+      <td class="mut hide-sm">${pct(g.gapPct)}</td>
+      <td><span class="${cls}" style="font-weight:600">${pct(g.netEdgePct)}</span></td>
+      <td><span class="tag ${dcls}">${esc(g.decision||'WAIT')}</span></td></tr>`;}).join('')||'<tr><td colspan="7" class="mut">no gaps</td></tr>';
+}catch(e){$('#body').innerHTML='<tr><td colspan="7"><div class="ah-state"><span style="color:var(--muted)">Couldn\'t load live data.</span><br><button class="ah-btn ghost" style="min-height:40px;padding:0 16px;font-size:13px" onclick="load()">Retry</button></div></td></tr>'; $('#note').textContent='Live feed unavailable — retry.'}}
+async function act(){try{const d=await fetch('/api/bitget/paper-act',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
+  alert(d.acted?`${d.decision}: ${d.target} · net ${pct(d.netEdgePct)} · $${d.notionalUsd}\n${d.reason||''}`:`WAIT — ${d.reason||'no residual edge above costs'}`)}catch(e){alert(e.message)}}
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
 load();
