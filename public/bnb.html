@@ -107,7 +107,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   </section>
 
   <section>
-    <h2>Sanctioned surface — Binance Web3 API RWA <span class="chip" id="rwaMeta"></span></h2>
+    <h2>Binance Web3 API · RWA data <span class="chip" id="rwaMeta"></span></h2>
     <div class="card" style="overflow-x:auto">
       <p class="muted" id="rwaNote" style="font-size:12px;margin:0 0 10px"></p>
       <table><thead><tr><th>Token</th><th>On-chain $</th><th>Ref $</th><th>Gap</th></tr></thead><tbody id="rwaBody"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody></table>
@@ -205,11 +205,15 @@ async function loadRwa() {
       }).join("");
       $("#rwaMeta").textContent = items.length + " · live";
     }
-    $("#rwaNote").textContent = "Real per-token on-chain price vs underlying reference — straight from the sanctioned Binance Web3 API (RWA Data).";
+    $("#rwaNote").textContent = `BINANCE WEB3 API ● LIVE · real on-chain price vs underlying reference · updated ${new Date().toLocaleTimeString()}`;
   } catch (e) {
-    $("#rwaNote").textContent = "Web3 API RWA needs the free key — register at web3.binance.com dev-portal, set AH_BNB_WEB3_KEY/SECRET.";
-    $("#rwaMeta").textContent = "";
-    $("#rwaBody").innerHTML = `<tr><td colspan="4" class="muted">${esc(e.message)}</td></tr>`;
+    const msg = String((e && e.message) || "unavailable");
+    const keyMissing = /40101|key is required|not set/i.test(msg);
+    $("#rwaNote").textContent = keyMissing
+      ? "BINANCE WEB3 API ● NOT CONFIGURED — set AH_BNB_WEB3_KEY / SECRET (free at web3.binance.com dev-portal)."
+      : `BINANCE WEB3 API ● DEGRADED — upstream: ${msg}`;
+    $("#rwaMeta").textContent = keyMissing ? "not configured" : "degraded";
+    $("#rwaBody").innerHTML = `<tr><td colspan="4" class="muted">${esc(msg)}</td></tr>`;
   }
 }
 

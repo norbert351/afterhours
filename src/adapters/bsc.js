@@ -121,7 +121,27 @@ export async function bnbGap(prices, referenceBySymbol = {}, { requireRealPrice 
 //   signature = Base64( HMAC-SHA256(preHash, secret) )
 import { createHmac, createHash } from "node:crypto";
 
-export async function bnbWeb3Call(path, { params = {}, method = "GET", body } = {}) {
+// Request dedup + short TTL cache. The Binance Web3 API rejects two identical
+// signed calls within the same second as a "duplicate request" (the ISO-8601
+// timestamp has second precision → identical signature). The page fires the RWA
+// price from several places on load, so we coalesce in-flight + cache reads.
+const _w3cache = new Map();
+const _w3inflight = new Map();
+export function _clearW3CacheForTest() { _w3cache.clear(); _w3inflight.clear(); }
+export function bnbWeb3Call(path, opts = {}) {
+  const { params = {}, method = "GET", body, ttlMs } = opts;
+  const key = String(method).toUpperCase() + " " + path + " " + JSON.stringify(params) + " " + (body || "");
+  if (_w3inflight.has(key)) return _w3inflight.get(key);
+  const ttl = ttlMs != null ? ttlMs : (String(method).toUpperCase() === "GET" ? 10_000 : 5_000);
+  const hit = _w3cache.get(key);
+  if (hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.data);
+  const p = _bnbWeb3CallRaw(path, opts)
+    .then((out) => { if (out && out.code === 0) _w3cache.set(key, { at: Date.now(), data: out }); return out; })
+    .finally(() => _w3inflight.delete(key));
+  _w3inflight.set(key, p);
+  return p;
+}
+async function _bnbWeb3CallRaw(path, { params = {}, method = "GET", body } = {}) {
   const key = String(process.env.AH_BNB_WEB3_KEY || "").trim();
   const secret = String(process.env.AH_BNB_WEB3_SECRET || "").trim();
   if (!key || !secret) {
