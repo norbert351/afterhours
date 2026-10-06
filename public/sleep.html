@@ -17,6 +17,12 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
 .mgrid .m .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
 .mgrid .m .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:4px}
 .mgrid .m .v.up{color:var(--good)}.mgrid .m .v.down{color:var(--bad)}
+.mgrid .m .k .mlab{display:block;font-size:8px;color:var(--faint,#6a6a80);letter-spacing:.03em;margin-top:2px;text-transform:uppercase;font-weight:700}
+.rulesbox{margin-top:8px;background:var(--panel3);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;color:var(--muted)}
+.tline{border-left:2px solid var(--line);padding:8px 0 8px 12px;margin-bottom:8px}
+.tline .th{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:3px;flex-wrap:wrap}
+.tline .t{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.mrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:3px 0}
 .log{max-height:300px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted)}
 .log .d{padding:9px 2px;border-bottom:1px solid var(--line)}
 .log b{color:var(--text)}.log .up{color:var(--good)}.log .down{color:var(--bad)}
@@ -45,15 +51,34 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
     </div>
     <div class="ctl">
       <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option><option value="solana">Solana</option></select></div>
-      <div><label for="cap">Capital (USD)</label><input id="cap" type="number" inputmode="decimal" value="1000" min="1"></div>
+      <div><label for="cap">Budget (USD)</label><input id="cap" type="number" inputmode="decimal" value="500" min="1"></div>
+    </div>
+    <div class="ctl">
+      <div><label for="minEdge">Min net edge %</label><input id="minEdge" type="number" step="0.05" value="0.20" min="0"></div>
+      <div><label for="maxLoss">Max daily loss %</label><input id="maxLoss" type="number" step="0.5" value="2" min="0"></div>
+    </div>
+    <div class="ctl">
+      <div><label for="turnover">Max turnover (USD)</label><input id="turnover" type="number" value="500" min="0"></div>
+      <div><label for="mode">Mode</label><select id="mode"><option value="paper">Paper — no real money</option></select></div>
     </div>
     <label for="rules">Rules (plain English)</label>
     <input id="rules" type="text" value="trim any holding trading more than 0.5% above its frozen reference; buy the biggest discount with the proceeds; cap 25% of NAV">
+    <div class="rulesbox" id="rulesPreview"></div>
     <div class="armrow">
       <button class="ah-btn" id="runBtn">▶ Run a pass</button>
-      <button class="ah-btn ghost" id="armBtn">⟳ Arm autopilot</button>
+      <button class="ah-btn ghost" id="armBtn">⟳ Arm Sleep Mode</button>
     </div>
     <div class="ah-state" id="runState" style="display:none"></div>
+  </section>
+
+  <section class="reveal" style="margin-top:26px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Agent status</h2>
+    <div class="card" id="agentStatus"><span class="mut" style="font-size:12px">…</span></div>
+  </section>
+
+  <section class="reveal" style="margin-top:24px">
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Live event stream</h2>
+    <div class="card log" id="stream"><div class="mut">No events yet — arm Sleep Mode or run a pass.</div></div>
   </section>
 
   <section class="reveal" style="margin-top:26px">
@@ -94,21 +119,46 @@ async function status(){
     $('#armBadge').textContent=s.armed?('● armed: '+(s.venues||[]).join(' + ')):'● disarmed';
     $('#armBadge').className='badge'+(s.armed?' live':'');
     const m=s;
+    const L=(k)=>m.labels&&m.labels[k]?`<span class="mlab">${esc(m.labels[k])}</span>`:'';
     $('#metrics').innerHTML=[
-      ['NAV',money(m.navUsd),''],
-      ['Return',(m.returnPct>=0?'+':'')+m.returnPct+'%',m.returnPct>=0?'up':'down'],
-      ['Sharpe',m.sharpe,''],
-      ['Max DD',m.maxDrawdownPct+'%','down'],
-      ['Win rate',m.winRate+'%',m.winRate>=50?'up':''],
-      ['Trades',m.trades+' ('+m.closedTrades+' closed)',''],
-      ['Turnover',money(m.turnoverUsd),''],
-      ['Fees',money(m.feesUsd),''],
-      ['Slippage',money(m.slippageUsd),''],
-    ].map(([k,v,c])=>`<div class="m"><div class="k">${k}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
+      ['NAV',money(m.navUsd),'',L('navUsd')],
+      ['Return',(m.returnPct>=0?'+':'')+m.returnPct+'%',m.returnPct>=0?'up':'down',L('returnPct')],
+      ['Sharpe',m.sharpe,'',L('sharpe')],
+      ['Max DD',m.maxDrawdownPct+'%','down',L('maxDrawdownPct')],
+      ['Win rate',m.winRate+'%',m.winRate>=50?'up':'',L('winRate')],
+      ['Trades',m.trades+' ('+m.closedTrades+' closed)','',L('trades')],
+      ['Turnover',money(m.turnoverUsd),'',L('turnoverUsd')],
+      ['Fees',money(m.feesUsd),'',L('feesUsd')],
+      ['Slippage',money(m.slippageUsd),'',L('slippageUsd')],
+    ].map(([k,v,c,lab])=>`<div class="m"><div class="k">${k}${lab}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
     const b=(s.book||[]);
     $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.venue||'')}·${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
+    $('#agentStatus').innerHTML=[
+      ['State', s.armed?'● ARMED':'○ disarmed', s.armed?'up':''],
+      ['Venues', (s.venues||[]).join(', ')||'—',''],
+      ['Agent (decision)', s.model||'—', s.qwen==='live'?'up':''],
+      ['Audit', 'second Qwen pass',''],
+      ['Execution', 'Paper (no real money)',''],
+      ['Last decision', s.lastTrigger?esc(s.lastTrigger):'—',''],
+    ].map(([k,v,c])=>`<div class="mrow"><span class="k">${k}</span><b class="${c}">${esc(v)}</b></div>`).join('');
     drawEquity(s.equity||[]);
+    try{const dd=await get('/api/sleep/decisions');renderStream(dd.decisions||[]);}catch(e){}
+    if(typeof composeRules==='function')composeRules();
   }catch(e){}
+}
+function renderStream(decs){
+  const el=$('#stream'); if(!el)return;
+  if(!decs.length){el.innerHTML='<div class="mut">No events yet — arm Sleep Mode or run a pass.</div>';return;}
+  el.innerHTML=decs.slice(0,10).map(d=>{
+    const t=d.at?new Date(d.at).toLocaleTimeString():'—';
+    const sig=d.signature?` · <span class="mono" style="font-size:10px">${esc(d.signature)}</span>`:'';
+    const ex=(d.executed&&d.executed.length)?`${d.executed.length} filled`:'no fill';
+    return `<div class="tline"><div class="th"><span class="t">${t}</span> <b>${esc((d.venue||'')+' '+(d.trigger||''))}</b></div>`
+      +`<div class="mrow"><span>model</span><b>${esc(d.model||'—')}</b></div>`
+      +`<div class="mrow"><span>audit</span><b>${esc((d.audit&&d.audit.verdict)||'—')} · ${ex}</b></div>`
+      +(d.rationale?`<div class="mut" style="font-size:11px">${esc(d.rationale)}</div>`:'')
+      +`<div class="mut" style="font-size:10px">${sig}</div></div>`;
+  }).join('');
 }
 function drawEquity(eq){
   const poly=document.querySelector('#eqSvg polyline'); if(!poly)return;
@@ -124,19 +174,30 @@ function drawEquity(eq){
 }
 async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.lastSignature)}</p>`;}catch(e){}}
 async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const q=String(x.model||'').includes('qwen');return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${q?' live':''}" style="padding:1px 8px;font-size:10px">${q?'Qwen decided':'deterministic fallback'}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+function composeRules(){
+  const base=$('#rules').value||'';
+  const minEdge=Number($('#minEdge')&&$('#minEdge').value)||0.2;
+  const maxLoss=Number($('#maxLoss')&&$('#maxLoss').value)||2;
+  const turnover=Number($('#turnover')&&$('#turnover').value)||0;
+  const mode=($('#mode')&&$('#mode').value)||'paper';
+  const composed=`${base}; require net edge >= ${minEdge}% after costs; max daily loss ${maxLoss}%; max turnover $${turnover}; mode ${mode} (spot only)`;
+  const el=$('#rulesPreview'); if(el) el.innerHTML=`<b>Exact rules that will run</b><br>${esc(composed)}`;
+  return composed;
+}
+['minEdge','maxLoss','turnover','mode','rules'].forEach(id=>{const e=document.getElementById(id);if(e){e.addEventListener('change',composeRules);e.addEventListener('input',composeRules);}});
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
 function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;}
 $('#gateConnect').addEventListener('click',()=>{location.href='/app';});
 async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
 $('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style.display='block';el.textContent='Qwen deciding → auditing → executing…';$('#runBtn').disabled=true;
-  try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());
+  try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:composeRules(),capitalUsd:Number($('#cap').value)||500})).then(r=>r.json());
     if(r.needAuth){gate(true);el.textContent='Connect your wallet to run the agent.';await checkAuth();}
     else if(r.executed&&r.executed.length){const q=String(r.model||'').includes('qwen');el.innerHTML=`<span style="color:var(--good)">✓ ${r.executed.length} signed fill(s) · decided by ${q?'Qwen':'the deterministic safety engine (Qwen was slow)'}</span><br>${esc(r.rationale||'')}`;}
     else {const q=String(r.model||'').includes('qwen');el.innerHTML=`${esc(r.trigger||'')} · decided by ${q?'Qwen':'the safety engine (Qwen was slow)'} — ${esc(r.rationale||r.reason||'')}`;}
     await refresh();}catch(e){el.textContent='Run failed: '+e.message;}
   $('#runBtn').disabled=false;});
-$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:$('#rules').value,capitalUsd:Number($('#cap').value)||1000})).then(r=>r.json());if(r.needAuth){gate(true);await checkAuth();return;}$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
+$('#armBtn').addEventListener('click',async()=>{const r=await fetch('/api/sleep/arm',body({venues:['bitget','bnb','solana'],rules:composeRules(),capitalUsd:Number($('#cap').value)||500})).then(r=>r.json());if(r.needAuth){gate(true);await checkAuth();return;}$('#armBtn').textContent=r.armed?'✓ armed on all venues':'⟳ Arm autopilot';await refresh();});
 checkAuth();refresh();setInterval(refresh,20000);
 </script>
 </body></html>
