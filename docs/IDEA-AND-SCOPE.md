@@ -13,7 +13,7 @@
 - The reference price of every tokenized equity (Bitget `R<SYM>USDT`, BNB bStocks/Ondo, Solana xStocks) is **frozen** from Friday's close to Monday's open — ~135.5 hours a week.
 - The **on-chain token keeps trading** those same 135.5 hours.
 - So the token **drifts away from the frozen reference**. That drift *is* the arbitrage signal — and it's live right now (this weekend the Bitget rTokens printed +0.2% to +2.0% over their frozen refs; bStocks printed +0.5%).
-- AfterHours computes `gapPct = (on-chain price − frozen reference) / reference` per token, then **acts** on the largest dislocation: premium → short/hedge, discount → buy.
+- AfterHours computes `rawGapPct = (on-chain price − frozen reference) / reference` per token, then subtracts the broad-market move (the market factor) and the cost of acting to get the **net edge** — and only acts when it survives: residual premium → **ROTATE** (spot), residual discount → **BUY**, no residual edge → **WAIT**.
 
 **The same engine, three venues.** One product core, ported to the three places tokenized equities actually trade:
 | Venue | Token | Reference | Sponsor tech |
@@ -43,10 +43,11 @@ BNB Chain hosts the **largest** tokenized-equity venue (bStocks + Ondo). The wee
 ### What's LIVE today (verified this session)
 | Endpoint / surface | What it does | Status |
 |---|---|---|
-| `/bnb` page | Live weekend-gap dashboard + rail status + RWA table + **Paper strategy engine** | ✅ 200 |
-| `GET /api/bnb/universe` | **Real** on-chain vs reference gap per BSC equity — **5,350 tokens** (46 bStocks + Ondo), **476 gaps**, sorted by \|gap\|, plausibility-filtered | ✅ real data |
-| `GET /api/bnb/web3/rwa-price` | Real per-token `tokenPrice` vs `referencePrice` from the sanctioned RWA Data API | ✅ `code:0`, 8 rows |
-| `POST /api/bnb/paper-act` | **Paper strategy engine** (added this session): largest-\|gap\| → premium = short/hedge, discount = buy | ✅ live |
+| `/bnb` page | Closed-market dislocation dashboard + rail status + RWA table + **Paper strategy engine** + product hero (status bar + top spot opportunity) | ✅ 200 |
+| `/now` page | Cross-venue live feed ranked by **net edge** (filters: All / BNB / Bitget / Cross-venue) | ✅ 200 |
+| `GET /api/bnb/universe` | **Real** on-chain vs reference gap per BSC equity — **5,350 tokens** (46 bStocks + Ondo), **476 gaps**, ranked by **net edge**, plausibility-filtered | ✅ real data |
+| `GET /api/bnb/web3/rwa-price` | Real per-token `tokenPrice` vs `referencePrice` from the RWA Data API | ✅ `code:0`, 8 rows |
+| `POST /api/bnb/paper-act` | **Residual/net-edge engine**: premium → **ROTATE** (reduce exposure into a cheaper eligible spot asset), discount → **BUY**, no residual edge → **WAIT**. **SPOT-ONLY** — never short/hedge | ✅ live |
 | `GET /api/bnb/decisions` | The paper decision log | ✅ live |
 | `POST /api/bnb/exec` | **REAL bounded spot execution** (0.05–0.50 USD) via the Web3 API (PancakeSwap V3) — real on-chain fill verified: `0.15 USDT → 0.000659939 IBMB`, tx `0x2c683c47…0b411b74`, receipt success | ✅ live |
 | `/api/bnb/agent/{strategy,arm,actions}` | NL → real bounded BSC execution with an auditable action log (**Agentic Wallet** special) | ✅ wired |
@@ -82,7 +83,7 @@ Bitget lists **rTokens** (`R<SYM>USDT` — e.g. `RMSFTUSDT`) that track a US equ
 |---|---|---|
 | `/bitget` page | Live arbitrage surface (rToken vs reference, per symbol, direction) + Paper-act + Refresh | ✅ 200 |
 | `GET /api/bitget/arbitrage` | **REAL** Bitget rToken prices vs the frozen reference, per symbol (e.g. NVDA +0.80%, META +0.78%, MSFT +0.68%) | ✅ real data |
-| `POST /api/bitget/paper-act` | Paper strategy action: top \|gap\| → premium = short/hedge, discount = buy | ✅ live |
+| `POST /api/bitget/paper-act` | Paper strategy action: top **net edge** → residual premium = ROTATE, discount = BUY, no edge = WAIT (spot only) | ✅ live |
 | `GET /api/bitget/decisions` | Paper decision log | ✅ live |
 | **Sleep Mode** `/sleep` | **Autonomous Qwen agent** — Qwen decides the overnight moves, a **second Qwen pass audits** them before execution, every fill is **signed** | ✅ live |
 | `POST /api/sleep/run` · `/arm` | Run a pass / arm the autopilot (wallet-gated) | ✅ |
@@ -114,7 +115,7 @@ Bitget lists **rTokens** (`R<SYM>USDT` — e.g. `RMSFTUSDT`) that track a US equ
 | **Objective** | Build something people would **actually use** with tokenized stocks **on BSC**, with an agent. |
 | **Deadline** | Submissions lock **Sun 11 Oct 2026 12:00 UTC** · judging 12–23 Oct · winners week of 26 Oct. |
 | **Prize** | **$20K main track** ($6K / $4K / $3K / $2K / $1K) + **2× $2K specials**: *Best Use of Binance Agentic Wallet / Wallet Skills* and *Best Use of BNB Agent Studio*. |
-| **Hard rules** | ≥1 of **bStocks / Ondo / xStocks** central · **spot only** (no perps) · **BSC mainnet only** · the **free Web3 API** (elevated limits) is the sanctioned surface. |
+| **Hard rules** | ≥1 of **bStocks / Ondo / xStocks** central · **spot only** (no perps) · **BSC mainnet only** · the **free Binance Web3 API** (elevated limits) is the official RWA data source. |
 | **Judged axes** | Real user + problem · **working end-to-end demo** (not a deck) · **sponsor tech load-bearing** · quality of execution · honest craft. **Agents are scored on craft, not PnL.** |
 | **Suggested ideas** | Market-hours arbitrage / on-chain-vs-reference monitor (their own "Ideas to Build"). |
 

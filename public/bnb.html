@@ -295,7 +295,7 @@ async function loadGaps() {
         elig.style.borderColor = "rgba(105,240,174,.35)";
         elig.style.color = "#d7fbe7";
         elig.style.background = "rgba(105,240,174,.07)";
-        elig.innerHTML = `🟢 <b>Live</b> — ${u.tokenCount} real BSC tokenized equities from the sanctioned RWA Data API (${u.platformCount.bstock} bStocks · ${u.platformCount.ondo} Ondo). on-chain vs underlying reference. ${u.market.open ? "US market <b>OPEN</b>" : "US market <b>CLOSED</b> — on-chain keeps trading against a frozen reference (the weekend gap)."} ${fl.count} on-chain price(s) flagged as implausible.`;
+        elig.innerHTML = `🟢 <b>Live</b> — ${u.tokenCount} real BSC tokenized equities from the Binance Web3 API RWA data (${u.platformCount.bstock} bStocks · ${u.platformCount.ondo} Ondo). on-chain vs underlying reference. ${u.market.open ? "US market <b>OPEN</b>" : "US market <b>CLOSED</b> — on-chain keeps trading against a frozen reference (the closed-market gap)."} ${fl.count} on-chain price(s) flagged as implausible.`;
       } else {
         elig.innerHTML = `<b>Web3 API key not set</b> — real per-stock prices gated. See rail status below.`;
       }

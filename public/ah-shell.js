@@ -65,6 +65,7 @@
     '<nav aria-label="Primary">' +
       '<p class="mi-sec">Product</p>' +
       '<a class="mi' + (route === "home" ? " active" : "") + '" href="/">Home</a>' +
+      '<a class="mi' + (route === "now" ? " active" : "") + '" href="/now">Now · live dislocations</a>' +
       '<a class="mi' + (route === "sleep" ? " active" : "") + '" href="/sleep">Sleep Mode · Autopilot</a>' +
       '<a class="mi' + (route === "proof" ? " active" : "") + '" href="/proof">Proof</a>' +
       '<p class="mi-sec">Venues</p>' +

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AfterHours · Now</title>
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ah-ui.css">
+<style>
+:root{--bg:#0a0a0f;--panel:#14141c;--panel2:#0e0e15;--line:#26262f;--txt:#f5f3fa;--mut:#9a9aaa;--acc:#5546ff;--up:#69f0ae;--down:#ff7a8a;--warn:#f0b23c;--mono:ui-monospace,Menlo,monospace;--sans:'Inter',sans-serif;--display:'Space Grotesk',sans-serif}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 18px 96px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(1.7rem,6.5vw,2.4rem);line-height:1.08;margin:10px 0 6px;overflow-wrap:anywhere}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:26px 0 10px;font-weight:700}
+.lead{color:var(--mut);font-size:.95rem;max-width:640px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--panel2);border:1px solid var(--line);padding:3px 10px;border-radius:999px;color:var(--mut)}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.statusbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 12px}
+.tab{background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.tab.active{background:var(--acc);border-color:var(--acc);color:#fff}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.vbadge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.vbadge.bnb{color:#f0b90b;border-color:rgba(240,185,11,.4)}
+.vbadge.bga{color:#7a68ff;border-color:rgba(122,104,255,.45)}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600}
+.tag.buy{color:var(--up);background:rgba(105,240,174,.12);border:1px solid rgba(105,240,174,.3)}
+.tag.wait{color:var(--warn);background:rgba(240,178,60,.12);border:1px solid rgba(240,178,60,.32)}
+.tag.blk{color:var(--mut);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16)}
+.up{color:var(--up)}.down{color:var(--down)}.mut{color:var(--mut)}
+.mcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.mcard .mh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mcard .msym{font-weight:700;font-size:15px}
+.mrow{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);padding:3px 0}
+.mrow b{color:var(--txt);font-weight:600}
+.mobile-cards{display:none;padding:12px}
+.desktop-only{display:block}
+@media(max-width:719px){.desktop-only{display:none}.mobile-cards{display:block}}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.sheet-bg.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:201;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto;transform:translateY(102%);transition:transform .22s ease}
+.sheet.open{transform:translateY(0)}
+@media(min-width:720px){.sheet{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-46%) scale(.98);width:520px;border-radius:18px;border:1px solid var(--line-strong,var(--line));opacity:0;transition:opacity .18s,transform .18s}.sheet.open{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.sheet .close{position:absolute;top:12px;right:14px;background:none;border:0;color:var(--mut);font-size:20px;cursor:pointer;line-height:1}
+.sheet h3{font-family:var(--display);font-size:1.15rem;margin:0 0 4px}
+.sheet .sub{color:var(--mut);font-size:12px;margin-bottom:12px}
+.sheet .srow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)}
+.sheet .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.sheet .why{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;color:var(--mut);margin-top:10px;display:none}
+</style>
+</head>
+<body>
+<div id="ahnav"></div>
+<div class="wrap">
+  <span class="ah-eyebrow"><span class="dot"></span>Now · live dislocations</span>
+  <h1>What's actionable this minute.</h1>
+  <p class="lead">Every venue's tokenized equities in one feed, ranked by <b>net edge</b> — the residual after the market-factor move and execution costs. A raw gap that doesn't survive costs is a WAIT.</p>
+  <div class="statusbar" id="statusbar">
+    <span class="chip"><span class="dot" style="background:var(--up)"></span>Multi-venue live</span>
+    <span class="chip" id="nowCounts">loading…</span>
+    <span class="chip" id="nowSession">market …</span>
+    <span class="chip" id="nowFresh">LIVE · updating…</span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-f="all" type="button">All venues</button>
+    <button class="tab" data-f="bnb" type="button">BNB</button>
+    <button class="tab" data-f="bitget" type="button">Bitget</button>
+    <button class="tab" data-f="cross" type="button">Cross-venue</button>
+  </div>
+
+  <section id="feedSection">
+    <div class="card">
+      <div class="desktop-only" style="overflow-x:auto"><table><thead><tr>
+        <th>Venue</th><th>Asset</th><th class="hide-sm">On-chain $</th><th class="hide-sm">Ref $</th><th>Raw</th><th>Net edge</th><th>Action</th>
+      </tr></thead><tbody id="feedBody"><tr><td colspan="7" class="mut" style="padding:14px">Fetching live dislocations…</td></tr></tbody></table></div>
+      <div class="mobile-cards" id="feedCards"></div>
+      <div id="feedNoEdge" style="padding:0 12px 12px"></div>
+    </div>
+  </section>
+
+  <section id="crossSection" style="display:none">
+    <div class="card">
+      <div class="desktop-only" style="overflow-x:auto"><table><thead><tr><th>Underlying</th><th>Bitget</th><th>BNB</th><th class="hide-sm">Reference</th><th>Spread</th><th>Status</th></tr></thead><tbody id="crossBody"><tr><td colspan="6" class="mut" style="padding:14px">Loading cross-venue…</td></tr></tbody></table></div>
+      <div class="mobile-cards" id="crossCards"></div>
+      <div id="crossNote" class="mut" style="padding:0 14px 14px;font-size:12px"></div>
+    </div>
+  </section>
+
+  <p class="mut" style="margin-top:20px;font-size:12px">AfterHours · aggregated from BNB (Binance Web3 RWA + BSC) and Bitget (UTA v3 rTokens) vs the frozen US reference. Paper decisions only — no real funds move from this surface.</p>
+  <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Opportunity"></div>
+</div>
+<script>window.AH = { route: "now", chain: null, action: "openapp", showChain: true };</script>
+<script src="/ah-shell.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
+const money = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+async function get(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+let ROWS = [], CROSS = [], GEN = 0, FILTER = "all";
+
+function freshText(genAt) { if (!genAt) return "live"; const s = Math.max(0, Math.round((Date.now() - genAt) / 1000)); return (s > 90 ? "STALE · updated " + s + "s ago" : "LIVE · updated " + s + "s ago"); }
+function tickFresh() { const el = $("#nowFresh"); if (!el || !GEN) return; const age = Date.now() - GEN; const live = age <= 90000; el.textContent = (live ? "LIVE · " : "STALE · ") + Math.round(age / 1000) + "s ago"; el.style.color = live ? "var(--up)" : "var(--warn)"; el.style.borderColor = live ? "rgba(105,240,174,.4)" : "rgba(240,178,60,.5)"; }
+
+function normBnb(g) { return { venue: "bnb", vlabel: "BNB", symbol: g.symbol, sub: g.name || g.platform || "", on: g.onChainPriceUsd ?? g.tokenPrice, ref: g.referencePriceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
+function normBg(g) { return { venue: "bitget", vlabel: "Bitget", symbol: g.symbol, sub: g.rSymbol || "", on: g.rTokenPriceUsd, ref: g.referenceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
+
+async function load() {
+  const res = await Promise.allSettled([get("/api/bnb/universe"), get("/api/bitget/arbitrage")]);
+  let rows = [], tracked = 0, sessions = [], gens = [];
+  if (res[0].status === "fulfilled") {
+    const u = res[0].value; tracked += (u.counts && u.counts.tracked) || u.tokenCount || 0;
+    rows = rows.concat((u.gaps || []).filter((g) => !g.error).map(normBnb));
+    if (u.session) sessions.push(u.session.label); if (u.generatedAt) gens.push(u.generatedAt);
+  }
+  if (res[1].status === "fulfilled") {
+    const b = res[1].value; tracked += (b.counts && b.counts.tracked) || 0;
+    rows = rows.concat((b.gaps || []).filter((g) => !g.error).map(normBg));
+    if (b.session) sessions.push(b.session.label); if (b.generatedAt) gens.push(b.generatedAt);
+  }
+  rows.sort((a, b) => (Number.isFinite(b.netEdgePct) ? b.netEdgePct : -1e9) - (Number.isFinite(a.netEdgePct) ? a.netEdgePct : -1e9));
+  ROWS = rows; GEN = gens.length ? Math.min(...gens) : Date.now();
+  const withEdge = rows.filter((r) => !r.noEdge);
+  const tradeable = rows.filter((r) => r.hasEdge).length;
+  $("#nowCounts").textContent = `${tradeable} tradeable · ${withEdge.length} shown · ${rows.length} signals · ${tracked.toLocaleString()} tracked`;
+  $("#nowSession").textContent = sessions[0] || "market —";
+  tickFresh(); render();
+}
+
+function render() {
+  const feed = ROWS.filter((r) => FILTER === "all" || r.venue === FILTER);
+  const withEdge = feed.filter((r) => !r.noEdge);
+  const noEdge = feed.filter((r) => r.noEdge);
+  window._feed = withEdge; window._feedNo = noEdge;
+  $("#feedBody").innerHTML = withEdge.map((r, i) => {
+    const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
+    const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
+    const dcls = (r.decision === "ROTATE" || r.decision === "BUY") ? "buy" : (r.decision === "WAIT" ? "wait" : "blk");
+    return `<tr><td><span class="vbadge ${r.venue}">${r.vlabel}</span></td>`
+      + `<td><b>${esc(r.symbol)}</b><div class="mut" style="font-size:11px">${esc(r.sub)}</div></td>`
+      + `<td class="hide-sm">${money(r.on)}</td><td class="mut hide-sm">${money(r.ref)}</td>`
+      + `<td class="mut">${pct(r.gapPct)}</td><td class="${cls}" style="font-weight:600">${pct(r.netEdgePct)}</td>`
+      + `<td><span class="tag ${dcls}">${esc(r.decision)}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._feed[${i}]);return false">Review</a></td></tr>`;
+  }).join("") || '<tr><td colspan="7" class="mut" style="padding:14px">No residual edge clears costs right now — the agent is on WAIT.</td></tr>';
+  $("#feedCards").innerHTML = withEdge.map((r, i) => {
+    const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
+    const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
+    const dcls = (r.decision === "ROTATE" || r.decision === "BUY") ? "buy" : (r.decision === "WAIT" ? "wait" : "blk");
+    return `<div class="mcard"><div class="mh"><span class="msym">${esc(r.symbol)} <span class="vbadge ${r.venue}">${r.vlabel}</span></span><span class="tag ${dcls}">${esc(r.decision)}</span></div>`
+      + `<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(r.netEdgePct)}</b></div>`
+      + `<div class="mrow"><span>Raw</span><b>${pct(r.gapPct)}</b></div>`
+      + `<div class="mut" style="font-size:11px;margin-top:4px">${esc(r.actionLabel || "")}</div>`
+      + `<button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._feed[${i}])">Review opportunity</button></div>`;
+  }).join("") || '<div class="mut" style="padding:8px">no actionable gaps</div>';
+  $("#feedNoEdge").innerHTML = noEdge.length
+    ? `<details class="ah-details"><summary>${noEdge.length} asset${noEdge.length > 1 ? "s" : ""} with no edge (|raw| below threshold) — inspect</summary><div class="bd">${noEdge.map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}</div></details>` : "";
+}
+
+async function loadCross() {
+  try {
+    const d = await get("/api/cross-venue"); const ps = d.pairs || []; CROSS = ps;
+    const tag = (s) => (/EDGE/.test(s) ? "buy" : (/BLOCK/.test(s) ? "blk" : "wait"));
+    $("#crossBody").innerHTML = ps.map((p) => `<tr><td><b>${esc(p.underlying)}</b></td>`
+      + `<td>${money(p.bitgetPriceUsd ?? p.bitget?.priceUsd)} <span class="mut" style="font-size:11px">${esc(p.bitgetSymbol || p.bitget?.symbol || "")}</span></td>`
+      + `<td>${money(p.bnbPriceUsd ?? p.bnb?.priceUsd)} <span class="mut" style="font-size:11px">${esc(p.bnbSymbol || p.bnb?.symbol || "")}</span></td>`
+      + `<td class="mut hide-sm">${money(p.referenceUsd)}</td><td class="${Number(p.crossVenueSpreadPct) >= 0 ? "up" : "down"}">${pct(p.crossVenueSpreadPct)}</td>`
+      + `<td><span class="tag ${tag(p.status || "")}">${esc(p.status || "—")}</span></td></tr>`).join("") || '<tr><td colspan="6" class="mut" style="padding:14px">No underlying listed on both Bitget and BNB right now — nothing to spread.</td></tr>';
+    $("#crossCards").innerHTML = ps.map((p) => `<div class="mcard"><div class="mh"><span class="msym">${esc(p.underlying)}</span><span class="tag ${tag(p.status || "")}">${esc(p.status || "—")}</span></div>`
+      + `<div class="mrow"><span>Bitget</span><b>${money(p.bitgetPriceUsd ?? p.bitget?.priceUsd)}</b></div>`
+      + `<div class="mrow"><span>BNB</span><b>${money(p.bnbPriceUsd ?? p.bnb?.priceUsd)}</b></div>`
+      + `<div class="mrow"><span>Cross-venue spread</span><b>${pct(p.crossVenueSpreadPct)}</b></div></div>`).join("") || '<div class="mut" style="padding:8px">no overlap</div>';
+    $("#crossNote").textContent = d.note || "";
+  } catch (e) { $("#crossNote").textContent = "Cross-venue unavailable: " + e.message; }
+}
+
+function closeSheet() { $("#sheet").classList.remove("open"); $("#sheetBg").classList.remove("open"); }
+function openSheet(h) { const s = $("#sheet"); s.innerHTML = h; $("#sheetBg").classList.add("open"); s.classList.add("open"); }
+function betaLine(g) { const fallback = /fallback/i.test(String(g.betaSource || "")); const b = Number.isFinite(Number(g.beta)) ? Number(g.beta) : 1; return `<div class="srow"><span>Beta (market factor)</span><b>${b.toFixed(2)} · ${fallback ? '<span class="mut">fallback assumption</span>' : "estimated"}</b></div>`; }
+function openReview(g) {
+  if (!g) return; const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
+  const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
+  window._rev = g;
+  openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${esc(g.symbol)} <span class="mut" style="font-size:12px">${esc(g.sub)}</span></h3>`
+    + `<div class="sub"><span class="vbadge ${g.venue}">${g.vlabel}</span> <span class="tag ${dcls}">${esc(g.decision)}</span> ${ne != null ? `<b>${pct(ne)} NET EDGE</b>` : ""}</div>`
+    + `<div class="srow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
+    + `<div class="srow"><span>Market-adjusted (residual)</span><b>${pct(g.residualGapPct)}</b></div>`
+    + `<div class="srow"><span>Estimated costs</span><b>${g.costPct != null ? "-" + Number(g.costPct).toFixed(2) + "%" : "—"}</b></div>`
+    + betaLine(g)
+    + `<div class="srow"><span>NET EDGE</span><b class="${ne != null && ne >= 0.2 ? "up" : "down"}">${pct(ne)}</b></div>`
+    + `<div class="srow"><span>On-chain $</span><b>${money(g.on)}</b></div>`
+    + `<div class="srow"><span>Reference $</span><b>${money(g.ref)}</b></div>`
+    + `<div class="srow"><span>Liquidity</span><b>${g.liquidityOk === false ? "THIN" : "GOOD"}</b></div>`
+    + `<div class="srow"><span>Action</span><b>${esc(g.actionLabel || g.decision)}</b></div>`
+    + `<div class="acts"><button class="btn" onclick="paperTrade()">Paper trade $100</button><button class="btn ghost" onclick="whyToggle()">Why?</button>`
+    + `<button class="btn ghost" disabled title="Live execution is not enabled on this surface (paper only)">Execute</button>`
+    + `<button class="btn ghost" onclick="closeSheet()">Close</button></div>`
+    + `<div class="why" id="whyBox"><b>Why ${esc(g.decision)}?</b><br>${esc(g.reason || "")}<br>Net edge ${pct(ne)} vs 0.20% minimum.</div>`);
+}
+function whyToggle() { const w = $("#whyBox"); if (w) w.style.display = w.style.display === "block" ? "none" : "block"; }
+async function paperTrade() {
+  const g = window._rev; if (!g) return;
+  const url = g.venue === "bnb" ? "/api/bnb/paper-act" : "/api/bitget/paper-act";
+  const bodyStr = g.venue === "bnb" ? JSON.stringify({ amountUsd: 100 }) : "{}";
+  try {
+    const d = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: bodyStr }).then((r) => r.json());
+    window._nowReceipt = { Receipt: "AfterHours · " + g.vlabel + " paper trade", At: new Date().toISOString(), Venue: g.vlabel, Action: d.actionLabel || d.decision || "WAIT", Amount: d.acted ? "$" + d.notionalUsd : "—", "Net edge": pct(d.netEdgePct), "Raw gap": pct(d.rawGapPct), Mode: "PAPER — no real funds move", DecisionId: d.id || "—" };
+    openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted ? "✓ Paper trade recorded" : "WAIT — no trade"}</h3><div class="sub">${esc(d.actionLabel || d.decision || "WAIT")}</div>`
+      + (d.acted ? `<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${pct(d.netEdgePct)}</b></div><div class="srow"><span>Execution</span><b><span class="tag wait">PAPER</span></b></div>` : `<div class="why" style="display:block">${esc(d.reason || "")}</div>`)
+      + `<div class="acts">${d.acted ? `<button class="btn ghost" onclick="exportReceipt(window._nowReceipt,'afterhours-now-receipt.txt')">Export receipt</button>` : ""}<button class="btn ghost" onclick="closeSheet()">Close</button></div>`);
+  } catch (e) { openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div>`); }
+}
+function receiptText(o) { return Object.entries(o).map(([k, v]) => k + ": " + v).join("\n"); }
+function downloadText(name, text) { try { const b = new Blob([text + "\n"], { type: "text/plain" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u); } catch (e) {} }
+async function copyText(t, btn) { try { await navigator.clipboard.writeText(t); if (btn) { const o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => { btn.textContent = o; }, 1400); } } catch (e) { if (btn) btn.textContent = "Copy failed"; } }
+function exportReceipt(o, name) { const t = receiptText(o); copyText(t); downloadText(name || "afterhours-receipt.txt", t); }
+
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest(".tab"); if (!b) return;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active")); b.classList.add("active");
+  FILTER = b.dataset.f;
+  const cross = FILTER === "cross";
+  $("#feedSection").style.display = cross ? "none" : "block";
+  $("#crossSection").style.display = cross ? "block" : "none";
+  if (cross && !CROSS.length) loadCross(); else if (!cross) render();
+});
+
+load(); loadCross();
+setInterval(tickFresh, 1_000);
+setInterval(load, 45_000);
+</script>
+</body>
+</html>

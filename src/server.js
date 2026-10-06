@@ -646,6 +646,7 @@ app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "l
 app.get("/app", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 app.get("/prestocks", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "prestocks.html")));
 app.get("/bnb", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bnb.html")));
+app.get("/now", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "now.html")));
 app.get("/bitget", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bitget.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.get("/proof", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "proof.html")));
