@@ -33,6 +33,12 @@ import * as sleepAgent from "./services/sleep-agent.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
+// No stale caches: API responses are always fresh; HTML always revalidates
+// (so a fixed page/endpoint is never hidden behind a browser copy).
+app.use((req, res, next) => {
+  res.set("Cache-Control", req.path.startsWith("/api/") ? "no-store" : "no-cache, must-revalidate");
+  next();
+});
 
 // v2 persistent store (node:sqlite, WAL). One DB for the process.
 const db = openStore(process.env.AH_DB_PATH);
@@ -591,7 +597,7 @@ app.get("/prestocks", (_req, res) => res.sendFile(path.join(__dirname, "..", "pu
 app.get("/bnb", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bnb.html")));
 app.get("/bitget", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bitget.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
-app.use(express.static(path.join(__dirname, "..", "public")));
+app.use(express.static(path.join(__dirname, "..", "public"), { setHeaders: (res, p) => res.set("Cache-Control", String(p).endsWith(".html") ? "no-cache, must-revalidate" : "public, max-age=300") }));
 
 export function start() {
   return app.listen(config.port, () => {
