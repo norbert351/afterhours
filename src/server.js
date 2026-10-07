@@ -1,4 +1,4 @@
-// AfterHours — Express API + static frontend. Serves ONLY verified live data.
+// AfterHours, Express API + static frontend. Serves ONLY verified live data.
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -52,7 +52,7 @@ const wrap = (fn) => (req, res) =>
     res.status(e.status || 500).json({ error: e.message, code: e.code || "INTERNAL" }),
   );
 
-// Tiny in-memory rate limiter — protects real-money endpoints from public spam.
+// Tiny in-memory rate limiter, protects real-money endpoints from public spam.
 const hitCounts = new Map(); // key -> { at, n }
 function rateLimit(key, max, windowMs) {
   const now = Date.now();
@@ -117,7 +117,7 @@ app.post("/api/v2/strategies", wrap(async (req, res) => {
   const intent = `strategy:${user.id}:${JSON.stringify(params)}`;
   const address = String(req.body?.address || "").trim();
   const signature = req.body?.signature;
-  if (!address || !signature) return res.status(400).json({ error: "wallet confirmation required — sign the challenge in your wallet" });
+  if (!address || !signature) return res.status(400).json({ error: "wallet confirmation required, sign the challenge in your wallet" });
   if (address !== user.handle) return res.status(401).json({ error: "confirming wallet must match your signed-in account" });
   const ok = auth.verifyActionSignature({ address, intent, signature });
   if (ok.error) return res.status(ok.status || 401).json(ok);
@@ -209,7 +209,7 @@ app.get("/api/notify/test", wrap(async (req, res) => {
   if (user.error) return res.status(user.status).json(user);
   const ip = req.ip || "anon";
   if (rateLimit("notify:" + ip, 1, 60_000)) return res.status(429).json({ error: "rate limited" });
-  return res.json(await pushAlert({ text: "test alert", navUsd: "—" }));
+  return res.json(await pushAlert({ text: "test alert", navUsd: "-" }));
 }));
 
 // ---- v4 : accounts + watchlist ----
@@ -496,7 +496,7 @@ app.get("/api/proof", wrap(async (_req, res) => {
     },
   });
 }));
-// Keyless exec quote (KyberSwap) — read-only preview, no money moves.
+// Keyless exec quote (KyberSwap), read-only preview, no money moves.
 app.get("/api/bnb/quote", wrap(async (req, res) => {
   const amountAtoms = Number(req.query.amount) || 1e17; // default 0.1 BNB wei
   const tokenOut = String(req.query.tokenOut || USDT_BSC);
@@ -504,9 +504,9 @@ app.get("/api/bnb/quote", wrap(async (req, res) => {
 }));
 // Sanctioned Web3 API pass-through (only when key configured). RWA price is a GET.
 app.get("/api/bnb/web3/rwa-price", wrap(async (req, res) => {
-  // Public read-only market data — no auth gate (a judge should see the sanctioned
+  // Public read-only market data, no auth gate (a judge should see the sanctioned
   // RWA surface without signing in). Requires the Web3 key + token addresses.
-  if (!bnbWeb3Configured()) return res.status(501).json({ error: "Web3 API key not configured — register free at web3.binance.com dev-portal, set AH_BNB_WEB3_KEY/SECRET", configured: false });
+  if (!bnbWeb3Configured()) return res.status(501).json({ error: "Web3 API key not configured, register free at web3.binance.com dev-portal, set AH_BNB_WEB3_KEY/SECRET", configured: false });
   const uni = await bnb.bnbUniverse();
   const addrs = (uni.tokens || []).filter((t) => (t.platformId || t.platform) === "bstock").slice(0, 8).map((t) => t.tokenContractAddress).filter(Boolean).join(",");
   res.json(await bnbWeb3Call("/api/v1/dex/market/rwa/price", { params: { binanceChainId: "56", tokenContractAddresses: addrs } }));
@@ -543,16 +543,16 @@ app.post("/api/bnb/exec", wrap(async (req, res) => {
   res.json(await bnbExecuteSwap({ symbol: symbolU, amountUsd: amount }));
 }));
 // ---- BNB Agent Studio: x402 self-funding merchant for the agent intelligence ----
-// GET /api/bnb/agent/info — public read-only: how to pay the agent ($U → exec wallet).
+// GET /api/bnb/agent/info, public read-only: how to pay the agent ($U → exec wallet).
 app.get("/api/bnb/agent/info", wrap(async (_req, res) => res.json({
   agent: "AfterHours BNB weekend-gap agent",
   chain: "BNB Smart Chain (BSC)", chainId: 56,
   payTo: merchantPayTo(), price: merchantPriceUsd(),
   resource: "https://afterhourequity.xyz/api/bnb/agent/gap",
-  settlement: "x402 · EIP-3009 · $U (eip3009 rail) — proceeds self-fund the agent",
+  settlement: "x402 · EIP-3009 · $U (eip3009 rail), proceeds self-fund the agent",
   spec: ["ERC-8004 agent identity", "x402 self-funding", "autonomous runtime"],
 })));
-// GET /api/bnb/agent/gap — real gap report, gated behind an x402 payment.
+// GET /api/bnb/agent/gap, real gap report, gated behind an x402 payment.
 app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
   const header = req.get("x-payment") || req.get("payment-signature");
   const p = await requireBnbGapPayment(header);
@@ -560,7 +560,7 @@ app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
     res.status(402).set("Content-Type", "application/json").send(JSON.stringify(p.body || p));
     return;
   }
-  // Payment settled on-chain — serve the real gap report.
+  // Payment settled on-chain, serve the real gap report.
   const uni = await bnb.bnbUniverse();
   res.json({
     agent: "AfterHours BNB", paid: true, receipt: p.receiptTx || (p.receipt && p.receipt.txHash) || null,
@@ -570,7 +570,7 @@ app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
   });
 }));
 // ---- BNB Agentic layer: natural-language strategy → real execution ----
-// POST /api/bnb/agent/strategy — parse an NL instruction + DRY-RUN against live gaps (no money).
+// POST /api/bnb/agent/strategy, parse an NL instruction + DRY-RUN against live gaps (no money).
 app.post("/api/bnb/agent/strategy", wrap(async (req, res) => {
   const instruction = String(req.body?.instruction || "").trim();
   if (!instruction) return res.status(400).json({ error: "instruction required" });
@@ -582,7 +582,7 @@ app.post("/api/bnb/agent/strategy", wrap(async (req, res) => {
     dryRun: { count: targets.length, targets: targets.slice(0, 8).map((g) => ({ symbol: g.symbol, name: g.name, gapPct: g.gapPct, onChain: g.onChainPriceUsd })) },
   });
 }));
-// POST /api/bnb/agent/arm — the agent EXECUTES the top target of an NL strategy now (bounded, auditable).
+// POST /api/bnb/agent/arm, the agent EXECUTES the top target of an NL strategy now (bounded, auditable).
 app.post("/api/bnb/agent/arm", wrap(async (req, res) => {
   const instruction = String(req.body?.instruction || "").trim();
   const amount = Number(req.body?.amountUsd) || 0.2;
@@ -595,7 +595,7 @@ app.post("/api/bnb/agent/arm", wrap(async (req, res) => {
   const acted = await bnbAgent.bnbAgentAct({ params: parsed.params, gaps: uni.gaps, amountUsd: amount });
   res.json({ instruction, parsed: parsed.parsed, ...acted });
 }));
-// GET /api/bnb/agent/actions — the auditable agent decision/execution log.
+// GET /api/bnb/agent/actions, the auditable agent decision/execution log.
 app.get("/api/bnb/agent/actions", wrap(async (_req, res) => {
   const a = bnbAgent.listBnbActions();
   res.json({ count: a.length, actions: a });

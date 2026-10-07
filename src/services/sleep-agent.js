@@ -1,4 +1,4 @@
-// sleep-agent.js — AfterHours Sleep Mode: an autonomous agent that manages a
+// sleep-agent.js, AfterHours Sleep Mode: an autonomous agent that manages a
 // cross-asset tokenized-equity book while you sleep. Qwen (Bitget sponsor endpoint)
 // is the DECISION-MAKER; a second Qwen pass AUDITS each plan before it executes.
 // Execution is PAPER with a real cost-basis ledger, fees + slippage, and a NAV
@@ -69,7 +69,7 @@ function holdingsSummary(gaps) {
   for (const [key, p] of state.book) {
     if (p.qty > 1e-9) { const bare = String(key).split("|").pop(); const vn = String(key).split("|")[0]; const gp = gm.has(bare.toUpperCase()) ? `${gm.get(bare.toUpperCase()) >= 0 ? "+" : ""}${Number(gm.get(bare.toUpperCase())).toFixed(2)}% vs ref` : "hedge"; out.push(`${bare} [${vn}] qty ${p.qty.toFixed(4)} avgCost ${p.avgCost.toFixed(2)} now ${gp}`); }
   }
-  return out.length ? out.join("\n") : "(flat — all cash)";
+  return out.length ? out.join("\n") : "(flat, all cash)";
 }
 
 async function decide(gaps, rules, capitalUsd, timeoutMs) {
@@ -92,7 +92,7 @@ function parseOrders(text) {
   return Array.isArray(arr) ? arr : [];
 }
 function rationaleFor(orders, gaps) {
-  if (!orders.length) return "Qwen reviewed the book and the live gaps — no edge beyond the thresholds, so it held (deliberate, no overtrading).";
+  if (!orders.length) return "Qwen reviewed the book and the live gaps, no edge beyond the thresholds, so it held (deliberate, no overtrading).";
   const parts = orders.slice(0, 4).map(o => { const g = gaps.find(x => x.symbol.toUpperCase() === String(o.symbol).toUpperCase()); const gp = g ? `${g.gapPct >= 0 ? "+" : ""}${g.gapPct.toFixed(2)}%` : ""; return `${String(o.action).toUpperCase()} ${o.symbol}${gp ? " (" + gp + " vs ref)" : ""}`; });
   return `Qwen trimmed/bought on the gap: ${parts.join("; ")}. Locked the premium / discount while the market is closed.`;
 }
@@ -132,9 +132,10 @@ function exposureUsd() { let v = 0; for (const p of state.book.values()) v += p.
 // ── seed + execute (paper, cost-basis, fees) ─────────────────────────────────
 function priceOf(gaps, sym) { return Number((gaps.find(g => (g.symbol || "").toUpperCase() === String(sym).toUpperCase()) || {}).price || 0); }
 function seed(gaps, budgetUsd, venue) {
-  // core: the LARGEST-|gap| names (actionable premiums/discounts) for THIS venue
+  // core: the LARGEST-|gap| names (actionable premiums/discounts) for THIS venue.
+  // Tokenized equities only: no unrelated crypto sleeve (this is a tokenized-stock product).
   const core = gaps.filter(g => g.price > 0 && !g.hedge).sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct)).slice(0, 6);
-  const hedge = gaps.filter(g => g.hedge && g.price > 0).slice(0, 1); // BTC sleeve (bitget only)
+  const hedge = []; // crypto hedge sleeve removed: holdings stay tokenized-equity only
   if (!core.length && !hedge.length) return;
   const budget = budgetUsd * 0.98;
   const hedgeBudget = hedge.length ? budget * 0.15 : 0;         // 15% crypto hedge sleeve
@@ -221,7 +222,7 @@ export function metrics() {
   let peak = -Infinity, mdd = 0; for (const v of navs.length ? navs : [navUsd]) { peak = Math.max(peak, v); mdd = Math.min(mdd, v / peak - 1); }
   const wins = state.closed.filter(c => c.pnl > 0).length;
   const winRate = state.closed.length ? (wins / state.closed.length) * 100 : 0;
-  // Phase 24 — never fake precision. Every metric carries a label:
+  // Phase 24, never fake precision. Every metric carries a label:
   // OBSERVED (measured from real paper state) / ESTIMATED (model) / INSUFFICIENT SAMPLE.
   const labels = {
     navUsd: "OBSERVED", cashUsd: "OBSERVED", exposureUsd: "OBSERVED", capitalUsd: "OBSERVED",

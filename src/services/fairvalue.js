@@ -1,4 +1,4 @@
-// fairvalue.js — AfterHours residual-dislocation model.
+// fairvalue.js, AfterHours residual-dislocation model.
 //
 // CORE PRINCIPLE: not every positive gap is an arbitrage opportunity. When many
 // tokenized equities are above a frozen NYSE reference at once, much of that is
@@ -21,7 +21,7 @@
 //   WATCH    interesting but not currently executable (premium, no destination leg,
 //            or a large gap that still needs verification)
 //   WAIT     evaluated, conditions do not justify action (edge below threshold /
-//            below costs) — the reason string is always surfaced
+//            below costs), the reason string is always surfaced
 //   BLOCKED  liquidity / route check failed
 //   ERROR    a data error on the row
 // BNB is SPOT-ONLY: a premium becomes ROTATE or REDUCE, a discount becomes BUY.
@@ -32,7 +32,7 @@ export const COST_MODEL = { feePct: 0.10, slippagePct: 0.04, bufferPct: 0.0 };
 export const DEFAULT_COST_PCT = COST_MODEL.feePct + COST_MODEL.slippagePct + COST_MODEL.bufferPct; // 0.14
 export const DEFAULT_MIN_NET_EDGE_PCT = 0.20;
 
-// A raw gap bigger than this is not automatically an "opportunity" — it needs
+// A raw gap bigger than this is not automatically an "opportunity", it needs
 // verification before it is ranked actionable. Small residual dislocations are the
 // believable ones; a large raw gap is more often a stale reference or a wrapper /
 // denomination artifact (see bnbEquityGaps). We never hide it, we downgrade it.
@@ -44,7 +44,7 @@ export const LIQUIDITY = { VERIFIED: "VERIFIED", LIMITED: "LIMITED", UNVERIFIED:
 // ── ROTATE must be explicit (FROM -> TO) ─────────────────────────────────────
 // A "ROTATE" only makes sense if there is a real second leg. Pick the best
 // DISCOUNT asset (raw gap < 0, best net edge) to rotate INTO. If none exists we
-// NEVER invent a destination — the action becomes WATCH (no position known) or
+// NEVER invent a destination, the action becomes WATCH (no position known) or
 // REDUCE EXPOSURE (a position is held).
 export function rotationLeg(gaps, fromSymbol) {
   const pool = (gaps || []).filter((g) => g && !g.error && Number.isFinite(g.netEdgePct)
@@ -141,7 +141,7 @@ export function marketFactorMovePct(gaps = [], marketRe = MARKET_SYMBOL_RE) {
 }
 
 // Beta: use a real estimate when available; otherwise a CLEARLY LABELLED fallback.
-// We never hardcode fake betas — an absent beta is reported as an assumption.
+// We never hardcode fake betas, an absent beta is reported as an assumption.
 export function betaFor(symbol, betaMap = {}) {
   const b = betaMap[String(symbol || "").toUpperCase()];
   if (Number.isFinite(b)) return { beta: b, betaSource: "estimated" };

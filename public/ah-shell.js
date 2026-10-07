@@ -1,5 +1,5 @@
 /* ============================================================
-   AfterHours · shared UI shell — ONE navbar, menu, chain switcher
+   AfterHours · shared UI shell, ONE navbar, menu, chain switcher
    rendered on every route. Reads window.AH (per-page config).
    ============================================================ */
 (function () {

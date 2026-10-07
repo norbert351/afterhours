@@ -59,12 +59,12 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
 <div class="wrap">
   <span class="ah-eyebrow"><span class="dot"></span>Now · live dislocations</span>
   <h1>What's actionable this minute.</h1>
-  <p class="lead">Every venue's tokenized equities in one feed, ranked by <b>net edge</b> — the residual after the market-factor move and execution costs. A raw gap that doesn't survive costs is a WAIT.</p>
+  <p class="lead">Every venue's tokenized equities in one feed, ranked by <b>net edge</b>, the residual after the market-factor move and execution costs. A raw gap that doesn't survive costs is a WAIT.</p>
   <div class="statusbar" id="statusbar">
     <span class="chip"><span class="dot" style="background:var(--up)"></span>Multi-venue live</span>
     <span class="chip" id="nowCounts">loading…</span>
-    <span class="chip" id="nowSession">market …</span>
-    <span class="chip" id="nowFresh">LIVE · updating…</span>
+    <span class="chip" id="nowSession">market: loading</span>
+    <span class="chip" id="nowFresh">Loading live feed</span>
   </div>
 
   <div class="tabs" id="tabs">
@@ -92,7 +92,7 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
     </div>
   </section>
 
-  <p class="mut" style="margin-top:20px;font-size:12px">AfterHours · aggregated from BNB (Binance Web3 RWA + BSC) and Bitget (UTA v3 rTokens) vs the frozen US reference. Paper decisions only — no real funds move from this surface.</p>
+  <p class="mut" style="margin-top:20px;font-size:12px">AfterHours · aggregated from BNB (Binance Web3 RWA + BSC) and Bitget (UTA v3 rTokens) vs the frozen US reference. Paper decisions only, no real funds move from this surface.</p>
   <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Opportunity"></div>
 </div>
@@ -101,8 +101,8 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pct = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
-const money = (n) => (n == null || !Number.isFinite(Number(n)) ? "—" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
+const pct = (n) => (n == null || !Number.isFinite(Number(n)) ? "n/a" : (Number(n) >= 0 ? "+" : "") + Number(n).toFixed(2) + "%");
+const money = (n) => (n == null || !Number.isFinite(Number(n)) ? "n/a" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
 async function get(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
 let ROWS = [], CROSS = [], GEN = 0, FILTER = "all";
@@ -110,8 +110,11 @@ let ROWS = [], CROSS = [], GEN = 0, FILTER = "all";
 function freshText(genAt) { if (!genAt) return "live"; const s = Math.max(0, Math.round((Date.now() - genAt) / 1000)); return (s > 90 ? "STALE · updated " + s + "s ago" : "LIVE · updated " + s + "s ago"); }
 function tickFresh() { const el = $("#nowFresh"); if (!el || !GEN) return; const age = Date.now() - GEN; const live = age <= 90000; el.textContent = (live ? "LIVE · " : "STALE · ") + Math.round(age / 1000) + "s ago"; el.style.color = live ? "var(--up)" : "var(--warn)"; el.style.borderColor = live ? "rgba(105,240,174,.4)" : "rgba(240,178,60,.5)"; }
 
-function normBnb(g) { return { venue: "bnb", vlabel: "BNB", symbol: g.symbol, sub: g.name || g.platform || "", on: g.onChainPriceUsd ?? g.tokenPrice, ref: g.referencePriceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
-function normBg(g) { return { venue: "bitget", vlabel: "Bitget", symbol: g.symbol, sub: g.rSymbol || "", on: g.rTokenPriceUsd, ref: g.referenceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
+function normBnb(g) { return { venue: "bnb", vlabel: "BNB", symbol: g.symbol, sub: g.name || g.platform || "", on: g.onChainPriceUsd ?? g.tokenPrice, ref: g.referencePriceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, liquidityTier: g.liquidityTier || "UNVERIFIED", verified: g.verified !== false, actionable: !!g.actionable, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
+function normBg(g) { return { venue: "bitget", vlabel: "Bitget", symbol: g.symbol, sub: g.rSymbol || "", on: g.rTokenPriceUsd, ref: g.referenceUsd, gapPct: g.gapPct, residualGapPct: g.residualGapPct, costPct: g.costPct, netEdgePct: g.netEdgePct, decision: g.decision || "WAIT", actionLabel: g.actionLabel, reason: g.reason, beta: g.beta, betaSource: g.betaSource, liquidityOk: g.liquidityOk !== false, liquidityTier: g.liquidityTier || "UNVERIFIED", verified: g.verified !== false, actionable: !!g.actionable, hasEdge: !!g.hasEdge, noEdge: !!g.noEdge }; }
+// A verdict tag class for the controlled vocabulary (BUY/ROTATE actionable, WATCH/REDUCE/WAIT held, BLOCKED gated).
+function tagClass(d) { const u = String(d || "").toUpperCase(); if (u === "BUY" || u === "ROTATE") return "buy"; if (u === "BLOCKED") return "blk"; return "wait"; }
+function liqLabel(r) { const t = r.liquidityTier; return t === "VERIFIED" ? "Verified" : t === "LIMITED" ? "Limited" : t === "INSUFFICIENT" ? "Insufficient" : "Unverified"; }
 
 async function load() {
   const res = await Promise.allSettled([get("/api/bnb/universe"), get("/api/bitget/arbitrage")]);
@@ -128,40 +131,49 @@ async function load() {
   }
   rows.sort((a, b) => (Number.isFinite(b.netEdgePct) ? b.netEdgePct : -1e9) - (Number.isFinite(a.netEdgePct) ? a.netEdgePct : -1e9));
   ROWS = rows; GEN = gens.length ? Math.min(...gens) : Date.now();
-  const withEdge = rows.filter((r) => !r.noEdge);
-  const tradeable = rows.filter((r) => r.hasEdge).length;
-  $("#nowCounts").textContent = `${tradeable} tradeable · ${withEdge.length} shown · ${rows.length} signals · ${tracked.toLocaleString()} tracked`;
-  $("#nowSession").textContent = sessions[0] || "market —";
+  const withEdge = rows.filter((r) => !r.noEdge && r.verified !== false);
+  const tradeable = rows.filter((r) => r.actionable).length;
+  $("#nowCounts").textContent = `${tradeable} actionable · ${withEdge.length} verified signals · ${rows.length} tracked gaps · ${tracked.toLocaleString()} universe`;
+  $("#nowSession").textContent = sessions[0] || "market: unknown";
   tickFresh(); render();
 }
 
 function render() {
   const feed = ROWS.filter((r) => FILTER === "all" || r.venue === FILTER);
-  const withEdge = feed.filter((r) => !r.noEdge);
+  // The primary feed shows only rows whose gap is verified. Large, unverified gaps
+  // and zero-edge rows are held back into inspectable buckets so a suspicious gap
+  // can never lead the list (this was the "largest raw gap wins" problem).
+  const withEdge = feed.filter((r) => !r.noEdge && r.verified !== false);
+  const largeGap = feed.filter((r) => !r.noEdge && r.verified === false);
   const noEdge = feed.filter((r) => r.noEdge);
   window._feed = withEdge; window._feedNo = noEdge;
   $("#feedBody").innerHTML = withEdge.map((r, i) => {
     const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
     const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
-    const dcls = (r.decision === "ROTATE" || r.decision === "BUY") ? "buy" : (r.decision === "WAIT" ? "wait" : "blk");
+    const dcls = tagClass(r.decision);
+    const warn = r.verified === false ? ' <span class="vbadge" style="color:#f0b23c;border-color:rgba(240,178,60,.4)" title="Large gap, needs verification">LARGE GAP</span>' : "";
     return `<tr><td><span class="vbadge ${r.venue}">${r.vlabel}</span></td>`
-      + `<td><b>${esc(r.symbol)}</b><div class="mut" style="font-size:11px">${esc(r.sub)}</div></td>`
+      + `<td><b>${esc(r.symbol)}</b>${warn}<div class="mut" style="font-size:11px">${esc(r.sub)}</div></td>`
       + `<td class="hide-sm">${money(r.on)}</td><td class="mut hide-sm">${money(r.ref)}</td>`
       + `<td class="mut">${pct(r.gapPct)}</td><td class="${cls}" style="font-weight:600">${pct(r.netEdgePct)}</td>`
       + `<td><span class="tag ${dcls}">${esc(r.decision)}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._feed[${i}]);return false">Review</a></td></tr>`;
-  }).join("") || '<tr><td colspan="7" class="mut" style="padding:14px">No residual edge clears costs right now — the agent is on WAIT.</td></tr>';
+  }).join("") || '<tr><td colspan="7" class="mut" style="padding:14px">No verified edge clears costs right now. The agent is on WAIT: nothing here is executable yet.</td></tr>';
   $("#feedCards").innerHTML = withEdge.map((r, i) => {
     const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
     const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
-    const dcls = (r.decision === "ROTATE" || r.decision === "BUY") ? "buy" : (r.decision === "WAIT" ? "wait" : "blk");
+    const dcls = tagClass(r.decision);
     return `<div class="mcard"><div class="mh"><span class="msym">${esc(r.symbol)} <span class="vbadge ${r.venue}">${r.vlabel}</span></span><span class="tag ${dcls}">${esc(r.decision)}</span></div>`
       + `<div class="mrow"><span>Net edge</span><b class="${cls}">${pct(r.netEdgePct)}</b></div>`
-      + `<div class="mrow"><span>Raw</span><b>${pct(r.gapPct)}</b></div>`
-      + `<div class="mut" style="font-size:11px;margin-top:4px">${esc(r.actionLabel || "")}</div>`
+      + `<div class="mrow"><span>Raw gap</span><b>${pct(r.gapPct)}</b></div>`
+      + `<div class="mrow"><span>Liquidity</span><b>${liqLabel(r)}</b></div>`
+      + `<div class="mut" style="font-size:11px;margin-top:4px">${esc(r.actionLabel || "")}${r.verified === false ? " · LARGE GAP, verification required" : ""}</div>`
       + `<button class="btn ghost" style="min-height:38px;margin-top:8px;font-size:12px" onclick="openReview(window._feed[${i}])">Review opportunity</button></div>`;
-  }).join("") || '<div class="mut" style="padding:8px">no actionable gaps</div>';
-  $("#feedNoEdge").innerHTML = noEdge.length
-    ? `<details class="ah-details"><summary>${noEdge.length} asset${noEdge.length > 1 ? "s" : ""} with no edge (|raw| below threshold) — inspect</summary><div class="bd">${noEdge.map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}</div></details>` : "";
+  }).join("") || '<div class="mut" style="padding:8px">No verified actionable edge right now. The agent is on WAIT.</div>';
+  const largeHtml = largeGap.length
+    ? `<details class="ah-details"><summary>${largeGap.length} large gaps held back, verification required</summary><div class="bd">${largeGap.slice(0, 60).map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}${largeGap.length > 60 ? `<div class="mut" style="font-size:11px">… ${largeGap.length - 60} more</div>` : ""}</div></details>` : "";
+  const noEdgeHtml = noEdge.length
+    ? `<details class="ah-details"><summary>${noEdge.length} asset${noEdge.length > 1 ? "s" : ""} with no edge (|raw| below threshold), inspect</summary><div class="bd">${noEdge.map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}</div></details>` : "";
+  $("#feedNoEdge").innerHTML = largeHtml + noEdgeHtml;
 }
 
 async function loadCross() {
@@ -172,8 +184,8 @@ async function loadCross() {
       + `<td>${money(p.bitgetPriceUsd ?? p.bitget?.priceUsd)} <span class="mut" style="font-size:11px">${esc(p.bitgetSymbol || p.bitget?.symbol || "")}</span></td>`
       + `<td>${money(p.bnbPriceUsd ?? p.bnb?.priceUsd)} <span class="mut" style="font-size:11px">${esc(p.bnbSymbol || p.bnb?.symbol || "")}</span></td>`
       + `<td class="mut hide-sm">${money(p.referenceUsd)}</td><td class="${Number(p.crossVenueSpreadPct) >= 0 ? "up" : "down"}">${pct(p.crossVenueSpreadPct)}</td>`
-      + `<td><span class="tag ${tag(p.status || "")}">${esc(p.status || "—")}</span></td></tr>`).join("") || '<tr><td colspan="6" class="mut" style="padding:14px">No underlying listed on both Bitget and BNB right now — nothing to spread.</td></tr>';
-    $("#crossCards").innerHTML = ps.map((p) => `<div class="mcard"><div class="mh"><span class="msym">${esc(p.underlying)}</span><span class="tag ${tag(p.status || "")}">${esc(p.status || "—")}</span></div>`
+      + `<td><span class="tag ${tag(p.status || "")}">${esc(p.status || "n/a")}</span></td></tr>`).join("") || '<tr><td colspan="6" class="mut" style="padding:14px">No underlying listed on both Bitget and BNB right now, nothing to spread.</td></tr>';
+    $("#crossCards").innerHTML = ps.map((p) => `<div class="mcard"><div class="mh"><span class="msym">${esc(p.underlying)}</span><span class="tag ${tag(p.status || "")}">${esc(p.status || "n/a")}</span></div>`
       + `<div class="mrow"><span>Bitget</span><b>${money(p.bitgetPriceUsd ?? p.bitget?.priceUsd)}</b></div>`
       + `<div class="mrow"><span>BNB</span><b>${money(p.bnbPriceUsd ?? p.bnb?.priceUsd)}</b></div>`
       + `<div class="mrow"><span>Cross-venue spread</span><b>${pct(p.crossVenueSpreadPct)}</b></div></div>`).join("") || '<div class="mut" style="padding:8px">no overlap</div>';
@@ -186,22 +198,29 @@ function openSheet(h) { const s = $("#sheet"); s.innerHTML = h; $("#sheetBg").cl
 function betaLine(g) { const fallback = /fallback/i.test(String(g.betaSource || "")); const b = Number.isFinite(Number(g.beta)) ? Number(g.beta) : 1; return `<div class="srow"><span>Beta (market factor)</span><b>${b.toFixed(2)} · ${fallback ? '<span class="mut">fallback assumption</span>' : "estimated"}</b></div>`; }
 function openReview(g) {
   if (!g) return; const ne = Number.isFinite(g.netEdgePct) ? g.netEdgePct : null;
-  const dcls = (g.decision === "ROTATE" || g.decision === "BUY") ? "buy" : (g.decision === "WAIT" ? "wait" : "blk");
+  const dcls = tagClass(g.decision);
+  const canTrade = g.actionable === true;
   window._rev = g;
   openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${esc(g.symbol)} <span class="mut" style="font-size:12px">${esc(g.sub)}</span></h3>`
     + `<div class="sub"><span class="vbadge ${g.venue}">${g.vlabel}</span> <span class="tag ${dcls}">${esc(g.decision)}</span> ${ne != null ? `<b>${pct(ne)} NET EDGE</b>` : ""}</div>`
     + `<div class="srow"><span>Raw gap</span><b>${pct(g.gapPct)}</b></div>`
     + `<div class="srow"><span>Market-adjusted (residual)</span><b>${pct(g.residualGapPct)}</b></div>`
-    + `<div class="srow"><span>Estimated costs</span><b>${g.costPct != null ? "-" + Number(g.costPct).toFixed(2) + "%" : "—"}</b></div>`
+    + `<div class="srow"><span>Estimated costs</span><b>${g.costPct != null ? "-" + Number(g.costPct).toFixed(2) + "%" : "n/a"}</b></div>`
     + betaLine(g)
     + `<div class="srow"><span>NET EDGE</span><b class="${ne != null && ne >= 0.2 ? "up" : "down"}">${pct(ne)}</b></div>`
     + `<div class="srow"><span>On-chain $</span><b>${money(g.on)}</b></div>`
     + `<div class="srow"><span>Reference $</span><b>${money(g.ref)}</b></div>`
-    + `<div class="srow"><span>Liquidity</span><b>${g.liquidityOk === false ? "THIN" : "GOOD"}</b></div>`
+    + `<div class="srow"><span>Liquidity</span><b>${liqLabel(g)}</b></div>`
+    + (g.verified === false ? `<div class="srow"><span>Gap check</span><b style="color:var(--warn)">LARGE GAP, verification required</b></div>` : "")
     + `<div class="srow"><span>Action</span><b>${esc(g.actionLabel || g.decision)}</b></div>`
-    + `<div class="acts"><button class="btn" onclick="paperTrade()">Paper trade $100</button><button class="btn ghost" onclick="whyToggle()">Why?</button>`
+    + `<div class="acts">`
+    + (canTrade
+        ? `<button class="btn" onclick="paperTrade()">Paper trade $100</button>`
+        : `<button class="btn ghost" disabled title="No valid execution path right now: ${esc(g.decision)}">Paper trade unavailable</button>`)
+    + `<button class="btn ghost" onclick="whyToggle()">Why?</button>`
     + `<button class="btn ghost" disabled title="Live execution is not enabled on this surface (paper only)">Execute</button>`
     + `<button class="btn ghost" onclick="closeSheet()">Close</button></div>`
+    + (canTrade ? "" : `<div class="why" style="display:block"><b>No valid execution path.</b> ${esc(g.reason || "")}</div>`)
     + `<div class="why" id="whyBox"><b>Why ${esc(g.decision)}?</b><br>${esc(g.reason || "")}<br>Net edge ${pct(ne)} vs 0.20% minimum.</div>`);
 }
 function whyToggle() { const w = $("#whyBox"); if (w) w.style.display = w.style.display === "block" ? "none" : "block"; }
@@ -211,8 +230,8 @@ async function paperTrade() {
   const bodyStr = g.venue === "bnb" ? JSON.stringify({ amountUsd: 100 }) : "{}";
   try {
     const d = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: bodyStr }).then((r) => r.json());
-    window._nowReceipt = { Receipt: "AfterHours · " + g.vlabel + " paper trade", At: new Date().toISOString(), Venue: g.vlabel, Action: d.actionLabel || d.decision || "WAIT", Amount: d.acted ? "$" + d.notionalUsd : "—", "Net edge": pct(d.netEdgePct), "Raw gap": pct(d.rawGapPct), Mode: "PAPER — no real funds move", DecisionId: d.id || "—" };
-    openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted ? "✓ Paper trade recorded" : "WAIT — no trade"}</h3><div class="sub">${esc(d.actionLabel || d.decision || "WAIT")}</div>`
+    window._nowReceipt = { Receipt: "AfterHours · " + g.vlabel + " paper trade", At: new Date().toISOString(), Venue: g.vlabel, Action: d.actionLabel || d.decision || "WAIT", Amount: d.acted ? "$" + d.notionalUsd : "n/a", "Net edge": pct(d.netEdgePct), "Raw gap": pct(d.rawGapPct), Mode: "PAPER, no real funds move", DecisionId: d.id || "n/a" };
+    openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>${d.acted ? "✓ Paper trade recorded" : "WAIT, no trade"}</h3><div class="sub">${esc(d.actionLabel || d.decision || "WAIT")}</div>`
       + (d.acted ? `<div class="srow"><span>Amount</span><b>$${d.notionalUsd}</b></div><div class="srow"><span>Net edge</span><b>${pct(d.netEdgePct)}</b></div><div class="srow"><span>Execution</span><b><span class="tag wait">PAPER</span></b></div>` : `<div class="why" style="display:block">${esc(d.reason || "")}</div>`)
       + `<div class="acts">${d.acted ? `<button class="btn ghost" onclick="exportReceipt(window._nowReceipt,'afterhours-now-receipt.txt')">Export receipt</button>` : ""}<button class="btn ghost" onclick="closeSheet()">Close</button></div>`);
   } catch (e) { openSheet(`<button class="close" onclick="closeSheet()">×</button><h3>Paper trade failed</h3><div class="why" style="display:block">${esc(e.message)}</div>`); }

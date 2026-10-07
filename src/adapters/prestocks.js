@@ -1,4 +1,4 @@
-// PreStocks adapter — REAL, verified. GET https://prestocks.com/api/prestocks
+// PreStocks adapter, REAL, verified. GET https://prestocks.com/api/prestocks
 // returns tokenized PRE-IPO stocks (Anduril, Anthropic, OpenAI, SpaceX, ...).
 // Verified fields: name, symbol, description, contract_address, markPrice,
 // markValuation, tokenPrice, impliedValuation, supply.
@@ -23,7 +23,7 @@ export async function listPreStocks() {
     impliedValuation: r.impliedValuation,
     supply: r.supply,
     // Dislocation between the issued token price and the issuer's mark price.
-    // (tokenPrice vs markPrice) — a real, verified valuation-premium signal.
+    // (tokenPrice vs markPrice), a real, verified valuation-premium signal.
     markPremium: r.markPrice ? (r.tokenPrice - r.markPrice) / r.markPrice : null,
     _raw_i: i,
   }));

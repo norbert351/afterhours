@@ -1,11 +1,11 @@
-// xStocks (Backed Finance) — live on-chain tokenized-equity prices on Solana.
+// xStocks (Backed Finance), live on-chain tokenized-equity prices on Solana.
 // Prices from GeckoTerminal's DEX index (reachable, no key) for the verified
 // xStocks mint addresses. This is the LIVE, 24/7 on-chain price of the actual
 // tokenized-equity tokens (as opposed to the frozen NYSE reference).
 import { cachedFetch } from "../lib/http.js";
 
 // Verified Solana mainnet mints (research 2026-09-20; on-chain confirmed for
-// AAPLx/NVDAx, CoinGecko-indexed for the rest — spot-check before big funds).
+// AAPLx/NVDAx, CoinGecko-indexed for the rest, spot-check before big funds).
 export const XSTOCKS = {
   AAPLx: { mint: "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp", ref: "AAPL" },
   NVDAx: { mint: "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh", ref: "NVDA" },

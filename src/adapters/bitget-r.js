@@ -1,4 +1,4 @@
-// bitget-r.js — AfterHours Bitget Arbitrage leg (Tokenized US stocks).
+// bitget-r.js, AfterHours Bitget Arbitrage leg (Tokenized US stocks).
 // The sponsor-tech load-bearing source: Bitget rToken (R<SYM>USDT) trades 7×24
 // on Bitget UTA v3. This adapter reads the LIVE rToken price for a universe of
 // US stocks so AfterHours can surface the classic Arbitrage sub-theme signal:

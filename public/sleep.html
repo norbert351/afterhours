@@ -37,17 +37,17 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
     <h1 style="font-family:var(--display);font-size:clamp(1.85rem,7vw,2.6rem);line-height:1.08;margin:12px 0 8px">Trades the gap while you sleep.</h1>
     <p class="ah-lead">Give the agent a rule and capital. Qwen decides the overnight moves, a second Qwen pass audits them before anything executes, and every fill is signed. Runs on Solana, BNB and Bitget.</p>
     <div class="armrow">
-      <span class="badge" style="border-color:rgba(240,178,60,.5);color:var(--warn,#f0b23c)">§ PAPER — simulated, no real funds move</span>
-      <span class="badge live">Solana vault: LIVE on mainnet</span>
+      <span class="badge" id="execBadge" style="border-color:rgba(240,178,60,.5);color:var(--warn,#f0b23c)">PAPER · simulated, no real funds move</span>
+      <span class="badge" id="stateBadge">○ PAUSED</span>
     </div>
-    <div class="armrow"><span class="badge" id="modelBadge">model …</span><span class="badge" id="armBadge">● disarmed</span></div>
+    <div class="armrow"><span class="badge" id="modelBadge">model: loading</span><span class="badge" id="venuesBadge">venues: loading</span><span class="badge" id="lastDecBadge">last pass: none yet</span></div>
   </header>
 
   <section class="config reveal">
     <div id="authGate" style="display:none;background:linear-gradient(180deg,rgba(240,178,60,.12),rgba(240,178,60,.02));border:1px solid rgba(240,178,60,.4);border-radius:12px;padding:14px;margin-bottom:14px">
-      <b style="color:var(--warn,#f0b23c)">🔒 Connect your wallet to run the agent</b>
-      <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">The agent manages <b>your</b> capital and signs fills against your account — so a pass can't run until a wallet is connected.</p>
-      <button class="ah-btn" id="gateConnect" style="min-height:44px">Connect wallet</button>
+      <b style="color:var(--warn,#f0b23c)">🔒 Wallet not connected</b>
+      <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">Sleep Mode simulates against a PAPER book, so you can explore and paper trade without a wallet. A connected wallet is only required to authorise REAL execution, which is a separate, gated capability.</p>
+      <button class="ah-btn" id="gateConnect" style="min-height:44px">Connect wallet (required only for real execution)</button>
     </div>
     <div class="ctl">
       <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option><option value="solana">Solana</option></select></div>
@@ -59,11 +59,20 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
     </div>
     <div class="ctl">
       <div><label for="turnover">Max turnover (USD)</label><input id="turnover" type="number" value="500" min="0"></div>
-      <div><label for="mode">Mode</label><select id="mode"><option value="paper">Paper — no real money</option></select></div>
+      <div><label for="mode">Mode</label><select id="mode"><option value="paper">Paper, no real money</option></select></div>
     </div>
-    <label for="rules">Rules (plain English)</label>
-    <input id="rules" type="text" value="trim any holding trading more than 0.5% above its frozen reference; buy the biggest discount with the proceeds; cap 25% of NAV">
+    <label for="rules">Strategy rules (plain English)</label>
+    <textarea id="rules" rows="3" style="width:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:12px 14px;font-size:14px;font-family:inherit;resize:vertical">Find verified tokenized-stock gaps above 0.30%. Avoid stale references. Avoid insufficient liquidity. Spot only. Maximum $100 per trade.</textarea>
     <div class="rulesbox" id="rulesPreview"></div>
+    <div class="rulesbox" style="margin-top:10px">
+      <b>Risk controls (applied on every pass)</b>
+      <div class="mrow"><span>Maximum trade</span><b>25% of NAV (capped)</b></div>
+      <div class="mrow"><span>Maximum daily loss</span><b id="rcLoss">2%</b></div>
+      <div class="mrow"><span>Allowed venues</span><b>BNB · Bitget · Solana</b></div>
+      <div class="mrow"><span>Spot only</span><b>Enabled</b></div>
+      <div class="mrow"><span>Minimum net edge</span><b id="rcEdge">0.20%</b></div>
+      <div class="mrow"><span>Reference freshness</span><b>Required (stale = no trade)</b></div>
+    </div>
     <div class="armrow">
       <button class="ah-btn" id="runBtn">▶ Run a pass</button>
       <button class="ah-btn ghost" id="armBtn">⟳ Arm Sleep Mode</button>
@@ -83,15 +92,18 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
 
   <section class="reveal" style="margin-top:24px">
     <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Live event stream</h2>
-    <div class="card log" id="stream"><div class="mut">No events yet — arm Sleep Mode or run a pass.</div></div>
+    <div class="card log" id="stream"><div class="mut">No events yet, arm Sleep Mode or run a pass.</div></div>
   </section>
 
   <section class="reveal" style="margin-top:26px">
-    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Strategy metrics</h2>
+    <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Paper performance</h2>
+    <div class="rulesbox" id="perfContext" style="margin-bottom:12px">Loading performance context.</div>
     <div class="mgrid" id="metrics"></div>
     <div id="equityChart" style="margin-top:14px;background:var(--panel3);border:1px solid var(--line);border-radius:12px;padding:12px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px">Equity curve (paper)</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-bottom:6px">Equity curve (paper simulation)</div>
       <svg id="eqSvg" viewBox="0 0 300 70" width="100%" height="80" preserveAspectRatio="none"><polyline fill="none" stroke="#7a68ff" stroke-width="2" points=""/></svg>
+      <div class="mut" id="eqAxis" style="font-size:10px;margin-top:4px">x: pass index · y: NAV (USD)</div>
+      <div class="mut" id="eqNote" style="font-size:11px;margin-top:2px"></div>
     </div>
   </section>
 
@@ -102,7 +114,7 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
 
   <section class="reveal" style="margin-top:24px">
     <h2 style="font-family:var(--display);font-size:1.05rem;margin-bottom:8px">Holdings</h2>
-    <div class="card" id="book" style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">—</div>
+    <div class="card" id="book" style="font-family:var(--mono);font-size:12.5px;color:var(--muted)">-</div>
   </section>
 
   <section class="reveal" style="margin-top:24px">
@@ -119,34 +131,64 @@ const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:
 async function get(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
 async function status(){
   try{const s=await get('/api/sleep/status');
-    $('#modelBadge').textContent='model '+s.model;
+    // ONE unified status. No contradictory badges.
+    const armed=!!s.armed;
+    $('#execBadge').textContent='PAPER · simulated, no real funds move';
+    const sb=$('#stateBadge');
+    sb.textContent=armed?'● ARMED (paper)':'○ PAUSED';
+    sb.className='badge'+(armed?' live':'');
+    $('#modelBadge').textContent='model: '+(s.model||'n/a');
     $('#modelBadge').className='badge'+(s.qwen==='live'?' live':'');
-    $('#armBadge').textContent=s.armed?('● armed: '+(s.venues||[]).join(' + ')):'● disarmed';
-    $('#armBadge').className='badge'+(s.armed?' live':'');
+    $('#venuesBadge').textContent='venues: '+((s.venues||[]).join(' · ')||'none');
+    const ld=s.lastDecision;
+    $('#lastDecBadge').textContent=ld?('last pass: '+Math.max(0,Math.round((ld.ageMs||0)/1000))+'s ago · '+(ld.verdict||'')+(ld.filled?(' · '+ld.filled+' filled'):' · no fill')):'last pass: none yet';
     const m=s;
     const L=(k)=>m.labels&&m.labels[k]?`<span class="mlab">${esc(m.labels[k])}</span>`:'';
+    const retTxt=(m.returnPct==null)?'Not enough data':((m.returnPct>=0?'+':'')+m.returnPct+'%');
+    const retCls=(m.returnPct==null)?'':(m.returnPct>=0?'up':'down');
     $('#metrics').innerHTML=[
-      ['NAV',money(m.navUsd),'',L('navUsd')],
-      ['Return',(m.returnPct>=0?'+':'')+m.returnPct+'%',m.returnPct>=0?'up':'down',L('returnPct')],
+      ['Starting capital',money(m.startingCapitalUsd),'',L('startingCapitalUsd')],
+      ['Current NAV (paper)',money(m.navUsd),'',L('navUsd')],
+      ['Return',retTxt,retCls,L('returnPct')],
+      ['Realized P&L',money(m.realizedPnlUsd),'',L('realizedPnlUsd')],
+      ['Unrealized P&L',money(m.unrealizedPnlUsd),m.unrealizedPnlUsd>=0?'up':'down',L('unrealizedPnlUsd')],
+      ['Open positions',String(m.openPositions||0),'',L('trades')],
+      ['Closed trades',String(m.closedTrades||0),'',L('trades')],
       ['Sharpe',m.sharpe,'',L('sharpe')],
       ['Max DD',m.maxDrawdownPct+'%','down',L('maxDrawdownPct')],
       ['Win rate',m.winRate+'%',m.winRate>=50?'up':'',L('winRate')],
-      ['Trades',m.trades+' ('+m.closedTrades+' closed)','',L('trades')],
       ['Turnover',money(m.turnoverUsd),'',L('turnoverUsd')],
       ['Fees',money(m.feesUsd),'',L('feesUsd')],
       ['Slippage',money(m.slippageUsd),'',L('slippageUsd')],
     ].map(([k,v,c,lab])=>`<div class="m"><div class="k">${k}${lab}</div><div class="v ${c}">${esc(v)}</div></div>`).join('');
+    // Performance context: make it impossible to read a paper number as live P&L.
+    const ctx=$('#perfContext');
+    if(ctx){const per=m.periodStart?`${new Date(m.periodStart).toLocaleString()} to ${new Date(m.periodEnd).toLocaleString()}`:'no period yet';
+      ctx.innerHTML=`<b>PAPER PERFORMANCE · historical simulation, not live P&L</b>`
+        +`<div class="mrow"><span>Starting capital</span><b>${money(m.startingCapitalUsd)}</b></div>`
+        +`<div class="mrow"><span>Current simulated NAV</span><b>${money(m.navUsd)}</b></div>`
+        +`<div class="mrow"><span>Return</span><b>${retTxt}</b></div>`
+        +`<div class="mrow"><span>Period</span><b>${esc(per)}</b></div>`
+        +`<div class="mrow"><span>Trades / closed / open</span><b>${m.trades} / ${m.closedTrades} / ${m.openPositions||0}</b></div>`;}
+    // Holdings grouped by venue (tokenized equities only, no unrelated crypto).
     const b=(s.book||[]);
-    $('#book').innerHTML=b.length?b.map(x=>`<div style="padding:4px 0">${esc(x.venue||'')}·${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join(''):'Flat — all cash';
+    if(b.length){const byVenue={};b.forEach(x=>{(byVenue[x.venue]=byVenue[x.venue]||[]).push(x);});
+      $('#book').innerHTML=Object.keys(byVenue).map(v=>`<div style="margin-bottom:8px"><b style="color:var(--text)">${esc(v.toUpperCase())}</b>`+byVenue[v].map(x=>`<div style="padding:2px 0">${esc(x.symbol)} · qty ${x.qty} · avg ${money(x.avgCost)}</div>`).join('')+`</div>`).join('');
+    } else { $('#book').innerHTML='Flat, all cash. No paper positions held.'; }
     $('#agentStatus').innerHTML=[
-      ['State', s.armed?'● ARMED':'○ disarmed', s.armed?'up':''],
-      ['Venues', (s.venues||[]).join(', ')||'—',''],
-      ['Agent (decision)', s.model||'—', s.qwen==='live'?'up':''],
+      ['State', armed?'● ARMED':'○ PAUSED', armed?'up':''],
+      ['Execution', 'PAPER · no real funds move',''],
+      ['Venues', (s.venues||[]).join(', ')||'none',''],
+      ['Agent (decision)', s.model||'n/a', s.qwen==='live'?'up':''],
       ['Audit', 'second Qwen pass',''],
-      ['Execution', 'Paper (no real money)',''],
-      ['Last decision', s.lastTrigger?esc(s.lastTrigger):'—',''],
-    ].map(([k,v,c])=>`<div class="mrow"><span class="k">${k}</span><b class="${c}">${esc(v)}</b></div>`).join('');
-    drawEquity(s.equity||[]);
+      ['Last pass', ld?(Math.max(0,Math.round((ld.ageMs||0)/1000))+'s ago · '+(ld.verdict||'')):'none yet',''],
+      ['Next evaluation', armed?('in ~'+Math.round((s.nextEvalMs||60000)/1000)+'s'):'paused',''],
+    ].map(([k,v,c])=>`<div class="mrow"><span class="k">${k}</span><b class="${c}">${esc(v)}</b></div>`).join('')
+      +`<div class="mut" style="font-size:11px;margin-top:6px">${esc(s.custodyNote||'')}</div>`;
+    const rcEdge=$('#rcEdge'), rcLoss=$('#rcLoss');
+    if(rcEdge)rcEdge.textContent=(Number($('#minEdge')&&$('#minEdge').value)||0.2)+'%';
+    if(rcLoss)rcLoss.textContent=(Number($('#maxLoss')&&$('#maxLoss').value)||2)+'%';
+    drawEquity(s.equity||[], s.startingCapitalUsd);
     try{const dd=await get('/api/sleep/decisions');renderStream(dd.decisions||[]);renderPipeline(dd.decisions||[]);}catch(e){}
     if(typeof composeRules==='function')composeRules();
   }catch(e){}
@@ -154,40 +196,42 @@ async function status(){
 function renderPipeline(decs){
   const el=$('#pipeline'); if(!el)return;
   const d=decs&&decs[0];
-  if(!d){el.innerHTML='<span class="mut" style="font-size:12px">No run yet — arm Sleep Mode or run a pass.</span>';return;}
-  const audit=(d.audit&&d.audit.verdict)||'—';
+  if(!d){el.innerHTML='<span class="mut" style="font-size:12px">No run yet, arm Sleep Mode or run a pass.</span>';return;}
+  const audit=(d.audit&&d.audit.verdict)||'n/a';
   const filled=(d.executed&&d.executed.length);
-  const stages=[['1 · Strategy','residual / net-edge rule','ok'],['2 · Agent decision',d.trigger||'—','ok'],['3 · Risk check','caps · allowlist · rate-limited','ok'],['4 · Audit (2nd Qwen pass)',audit,audit==='pass'?'ok':'warn'],['5 · Execution',filled?filled+' filled':'WAIT — no fill',filled?'ok':'mut'],['6 · Receipt',d.signature||'—','ok']];
+  const stages=[['1 · Strategy','residual / net-edge rule','ok'],['2 · Agent decision',d.trigger||'n/a','ok'],['3 · Risk check','caps · allowlist · rate-limited','ok'],['4 · Audit (2nd Qwen pass)',audit,audit==='pass'?'ok':'warn'],['5 · Execution',filled?filled+' filled':'WAIT, no fill',filled?'ok':'mut'],['6 · Receipt',d.signature||'n/a','ok']];
   el.innerHTML=stages.map(([k,v,c])=>`<div class="mrow" style="border-left:2px solid var(--line);padding-left:10px"><span class="k">${k}</span><b class="${c==='ok'?'up':c==='warn'?'down':'mut'}">${esc(v)}</b></div>`).join('');
 }
 function renderStream(decs){
   const el=$('#stream'); if(!el)return;
-  if(!decs.length){el.innerHTML='<div class="mut">No events yet — arm Sleep Mode or run a pass.</div>';return;}
+  if(!decs.length){el.innerHTML='<div class="mut">No events yet, arm Sleep Mode or run a pass.</div>';return;}
   el.innerHTML=decs.slice(0,10).map(d=>{
-    const t=d.at?new Date(d.at).toLocaleTimeString():'—';
+    const t=d.at?new Date(d.at).toLocaleTimeString():'n/a';
     const sig=d.signature?` · <span class="mono" style="font-size:10px">${esc(d.signature)}</span>`:'';
     const ex=(d.executed&&d.executed.length)?`${d.executed.length} filled`:'no fill';
     return `<div class="tline"><div class="th"><span class="t">${t}</span> <b>${esc((d.venue||'')+' '+(d.trigger||''))}</b></div>`
-      +`<div class="mrow"><span>model</span><b>${esc(d.model||'—')}</b></div>`
-      +`<div class="mrow"><span>audit</span><b>${esc((d.audit&&d.audit.verdict)||'—')} · ${ex}</b></div>`
+      +`<div class="mrow"><span>model</span><b>${esc(d.model||'n/a')}</b></div>`
+      +`<div class="mrow"><span>audit</span><b>${esc((d.audit&&d.audit.verdict)||'n/a')} · ${ex}</b></div>`
       +(d.rationale?`<div class="mut" style="font-size:11px">${esc(d.rationale)}</div>`:'')
       +`<div class="mut" style="font-size:10px">${sig}</div></div>`;
   }).join('');
 }
-function drawEquity(eq){
+function drawEquity(eq,startCap){
   const poly=document.querySelector('#eqSvg polyline'); if(!poly)return;
-  const cap=Number($('#cap').value)||1000;
-  const pts=eq.length?eq.map(x=>x.nav):[cap];
-  const vals=pts.length>1?pts:[cap,cap];
-  const min=Math.min(...vals),max=Math.max(...vals),rng=(max-min)||1;
+  const note=document.getElementById('eqNote');
+  if(!eq||eq.length<3){poly.setAttribute('points','');if(note)note.textContent='Insufficient performance history to draw a curve yet.';return;}
+  const cap=Number(startCap)||Number($('#cap').value)||1000;
+  const pts=eq.map(x=>x.nav);
+  const vals=pts; const min=Math.min(...vals,cap),max=Math.max(...vals,cap),rng=(max-min)||1;
   const W=300,H=70;
   poly.setAttribute('points',vals.map((v,i)=>{
     const x=(i/(vals.length-1||1))*W, y=H-((v-min)/rng)*H;
     return x.toFixed(1)+','+y.toFixed(1);
   }).join(' '));
+  if(note)note.textContent='Starting capital $'+Number(cap).toLocaleString()+' · '+eq.length+' NAV points · high $'+max.toFixed(2)+' · low $'+min.toFixed(2)+'. Paper simulation, not live P&L.';
 }
-async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">Signed ${esc(r.lastSignature)}</p>`;}catch(e){}}
-async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const s=_srcLine(x.model);return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${s.c?' live':''}" style="padding:1px 8px;font-size:10px">${esc(s.t)}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleTimeString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet.</div>';}catch(e){}}
+async function report(){try{const r=await get('/api/sleep/report');$('#reportCard').innerHTML=`<p style="color:var(--muted);font-size:14px">${esc(r.summary)}</p><p style="font-size:12px;color:var(--faint);margin-top:8px">${r.lastSignature?('Signed '+esc(r.lastSignature)):'No signed decision yet.'}</p><div class="mut" style="font-size:11px;margin-top:4px">Paper simulation, not live P&L.</div>`;}catch(e){}}
+async function decisions(){try{const d=await get('/api/sleep/decisions');$('#log').innerHTML=(d.decisions||[]).slice(0,12).map(x=>{const s=_srcLine(x.model);const filled=(x.executed&&x.executed.length)||0;const status=filled?`PAPER TRADE · ${filled} fill(s)`:'EVALUATION · no trade';return `<div class="d"><b>${esc(x.venue)}</b> · ${esc(x.trigger)} · <span class="badge" style="padding:1px 8px;font-size:10px">${esc(status)}</span> · audit ${esc(x.audit&&x.audit.verdict||'?')} · <span class="badge${s.c?' live':''}" style="padding:1px 8px;font-size:10px">${esc(s.t)}</span><br><span style="color:var(--faint)">${new Date(x.at).toLocaleString()}</span> ${esc(x.rationale||'')}${(x.executed||[]).map(f=>` &nbsp;<span class="${f.action==='BUY'?'up':'down'}">${f.action} ${f.symbol} ${money(f.usd)}${f.pnl!=null?' ('+(f.pnl>=0?'+':'')+f.pnl+')':''}</span>`).join('')}</div>`;}).join('')||'<div class="mut">No runs yet. Arm Sleep Mode or run a pass.</div>';}catch(e){}}
 function composeRules(){
   const base=$('#rules').value||'';
   const minEdge=Number($('#minEdge')&&$('#minEdge').value)||0.2;
@@ -201,7 +245,7 @@ function composeRules(){
 ['minEdge','maxLoss','turnover','mode','rules'].forEach(id=>{const e=document.getElementById(id);if(e){e.addEventListener('change',composeRules);e.addEventListener('input',composeRules);}});
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
-function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;}
+function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;const sb=$('#stateBadge');if(sb&&show){sb.textContent='○ PAUSED · wallet not connected';sb.className='badge';}}
 $('#gateConnect').addEventListener('click',()=>{location.href='/app';});
 async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
 function _srcLine(model){const m=String(model||'').toLowerCase();if(m.includes('hermes'))return{t:'Hermes fallback',c:'live'};if(m.includes('stub')||m.includes('deterministic')||m.includes('unavailable'))return{t:'deterministic safety engine',c:''};if(m.includes('qwen'))return{t:'Qwen',c:'live'};return{t:model||'agent',c:''};}
@@ -209,18 +253,21 @@ $('#runBtn').addEventListener('click',async()=>{const el=$('#runState');el.style
   const t0=Date.now();
   const progress=()=>{const s=Math.max(0,Math.round((Date.now()-t0)/1000));
     if(s<12) el.innerHTML=`<span class="badge">AGENT DECISION</span> Qwen is evaluating… ${s}s <span class="mut" style="font-size:12px">· audit = 2nd Qwen pass</span>`;
-    else if(s<20) el.innerHTML=`<span class="badge" style="border-color:rgba(240,178,60,.5);color:var(--warn,#f0b23c)">AGENT DECISION</span> Qwen is taking longer than expected (${s}s) — fallback: Hermes`;
+    else if(s<20) el.innerHTML=`<span class="badge" style="border-color:rgba(240,178,60,.5);color:var(--warn,#f0b23c)">AGENT DECISION</span> Qwen is taking longer than expected (${s}s), fallback: Hermes`;
     else el.innerHTML=`<span class="badge live">AGENT DECISION</span> <b>Fallback: Hermes evaluating…</b> (${s}s)`;
   };
   progress(); const iv=setInterval(progress,1000);
   try{const r=await fetch('/api/sleep/run',body({venue:$('#ven').value,rules:composeRules(),capitalUsd:Number($('#cap').value)||500})).then(r=>r.json());
     clearInterval(iv);
     if(r.needAuth){gate(true);el.textContent='Connect your wallet to run the agent.';await checkAuth();}
-    else{const s=_srcLine(r.model);const audit=(r.audit&&r.audit.verdict)||'—';const fills=(r.executed&&r.executed.length)||0;
-      el.innerHTML=`<div class="mrow"><span>Decision source</span><b><span class="badge ${s.c}" style="padding:1px 8px;font-size:11px">${esc(s.t)}</span></b></div>`
+    else{const s=_srcLine(r.model);const audit=(r.audit&&r.audit.verdict)||'n/a';const fills=(r.executed&&r.executed.length)||0;
+      const proposed=(r.counts&&r.counts.proposed)||0;
+      el.innerHTML=`<div class="mrow"><span>Result</span><b>PASS COMPLETE</b></div>`
+        +`<div class="mrow"><span>Opportunities evaluated</span><b>${proposed||'see stream'}</b></div>`
+        +`<div class="mrow"><span>Decision source</span><b><span class="badge ${s.c}" style="padding:1px 8px;font-size:11px">${esc(s.t)}</span></b></div>`
         +`<div class="mrow"><span>Audit (2nd pass)</span><b>${esc(audit)}</b></div>`
-        +`<div class="mrow"><span>Execution</span><b>${fills?fills+' signed fill(s)':'WAIT — no fill'} · <span style="color:var(--warn,#f0b23c);border:1px solid rgba(240,178,60,.4);border-radius:999px;padding:1px 8px;font-size:11px">PAPER</span></b></div>`
-        +(r.trigger?`<div class="mrow"><span>Trigger</span><b>${esc(r.trigger)}</b></div>`:'')
+        +`<div class="mrow"><span>Execution</span><b>${fills?fills+' signed PAPER fill(s)':'WAIT, no fill'} · <span style="color:var(--warn,#f0b23c);border:1px solid rgba(240,178,60,.4);border-radius:999px;padding:1px 8px;font-size:11px">PAPER</span></b></div>`
+        +`<div class="mrow"><span>Decision</span><b>${esc((r.trigger||'hold').toUpperCase())}</b></div>`
         +(r.rationale?`<div class="mut" style="font-size:12px;margin-top:4px">${esc(r.rationale)}</div>`:'');}
     await refresh();}catch(e){clearInterval(iv);el.textContent='Run failed: '+e.message;}
   $('#runBtn').disabled=false;});

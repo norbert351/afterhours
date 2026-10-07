@@ -1,4 +1,4 @@
-// AfterHours v2 — autonomous strategy run loop (multi-tenant).
+// AfterHours v2, autonomous strategy run loop (multi-tenant).
 // Server-authoritative: an interval drives every user's paper strategy so each
 // book moves by itself (the "log actually ran during the competition" pattern).
 // Guards:

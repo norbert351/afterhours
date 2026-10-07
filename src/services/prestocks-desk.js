@@ -1,9 +1,9 @@
-// PreStocks Desk — the bounty-eligible surface: this engine consumes ONLY
+// PreStocks Desk, the bounty-eligible surface: this engine consumes ONLY
 // PreStocks data (prestocks.com/api/prestocks, no key). No other issuer feed
 // is touched here, so the surface satisfies the PreStocks bounty rule
 // ("projects that integrate any non-PreStocks pre-IPO tokens are ineligible").
 //
-// What it does: turns the dual-price structure of pre-IPO tokens into a desk —
+// What it does: turns the dual-price structure of pre-IPO tokens into a desk -
 //   • dislocation: token price vs issuer mark price (the live trading signal)
 //   • valuation opinion: markValuation vs impliedValuation (the reprice view)
 //   • history: snapshots every 15 min → sparkline deltas
@@ -138,10 +138,10 @@ export function holdSim({ symbol, qty, tokenPrice, markPrice, markValuation, imp
     push("valuation opinion → mark/supply", markPerToken);
   }
   push("flat (nothing moves)", tokenPrice);
-  return { symbol, qty, entryUsd: round(entry, 2), scenarios, honest: "projections on real published prices — not a promise" };
+  return { symbol, qty, entryUsd: round(entry, 2), scenarios, honest: "projections on real published prices, not a promise" };
 }
 
-// Keeper loop: snapshot every 15 min (96/day — polite to the free API).
+// Keeper loop: snapshot every 15 min (96/day, polite to the free API).
 export function startDeskLoop(db, { intervalMs = Number(process.env.AH_DESK_INTERVAL_MS || 15 * 60_000) } = {}) {
   let timer = null, running = false;
   async function tick() {

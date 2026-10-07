@@ -1,14 +1,14 @@
-// AfterHours BNB port — BSC data adapter.
+// AfterHours BNB port, BSC data adapter.
 // Builds the SAME weekend-gap surface on BNB Chain, anchored on the VERIFIED
 // tokenized equities there: bStocks (Backed/Binance, BEP-20 verified on-chain)
 // and Ondo (official documented BSC addresses). xStocks-on-BSC is UNVERIFIED
-// (official docs omit BSC; GeckoTerminal shows only a junk pool) — deliberately
+// (official docs omit BSC; GeckoTerminal shows only a junk pool), deliberately
 // not claimed.
 //
 // Price rails (verified reachable from this VM):
-//   • GeckoTerminal network=bsc  — keyless on-chain price per token (HTTP 200)
-//   • BSC public RPC (bsc-dataseed.binance.org) — on-chain reads (viem, HTTP 200)
-//   • Binance Web3 API /build/api/v1/dex/market/rwa/* — the SANCTIONED sponsor
+//   • GeckoTerminal network=bsc , keyless on-chain price per token (HTTP 200)
+//   • BSC public RPC (bsc-dataseed.binance.org), on-chain reads (viem, HTTP 200)
+//   • Binance Web3 API /build/api/v1/dex/market/rwa/*, the SANCTIONED sponsor
 //     surface: "on-chain price + underlying reference" in one call. [NEEDS-KEY;
 //     free during the event]. Honest configured:false when no key is set.
 // Reference (frozen NYSE): TwelveData (same as Solana) as the independent
@@ -23,8 +23,8 @@ export const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
 export const USDC_BSC = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d";
 
 // The BNB equities universe (verified):
-// bStocks — Binance/Backed product token (BEP-20), symbol verified on-chain.
-// Ondo — official documented BSC addresses (docs.ondo.finance/addresses).
+// bStocks, Binance/Backed product token (BEP-20), symbol verified on-chain.
+// Ondo, official documented BSC addresses (docs.ondo.finance/addresses).
 export const BNB_STOCKS = {
   // product-level bStocks token; per-stock wrappers surface via Web3 API Trading RFQ
   BSTOCKS: {
@@ -36,7 +36,7 @@ export const BNB_STOCKS = {
     decimals: 18, verified: "Ondo official docs", reference: "USDC",
   },
 };
-// Ondo individual stock tokens are dynamic / trade via RFQ — surfaced once the
+// Ondo individual stock tokens are dynamic / trade via RFQ, surfaced once the
 // Web3 API RWA key is present. We never invent an AMM BEP-20 for them.
 export const ONDO_MANAGER = "0x91f8Aff3738825e8eB16FC6f6b1A7A4647bDB299"; // GMTokenManager (official)
 export const ONDO_ORACLE = "0xF4Fd8a1B412633e10527454137A29Db7Aa35F15e"; // SyntheticSharesOracle (official)
@@ -82,7 +82,7 @@ export function bscClient() {
 
 // The week-gap surface: on-chain price vs the frozen reference for each equity.
 // referenceUsd: Web3 API RWA underlying reference when keyed, else the provided
-// fallback reference map (TwelveData). Honest — never gainsay a missing reference.
+// fallback reference map (TwelveData). Honest, never gainsay a missing reference.
 // Note on bStocks: the bare product token's GeckoTerminal price is a junk
 // micro-cap (~1e-6 USD), NOT the equity price. Real per-stock prices surface
 // through the Web3 API RWA/Trading surface (RFQ). We flag that honestly rather
@@ -94,7 +94,7 @@ export async function bnbGap(prices, referenceBySymbol = {}, { requireRealPrice 
     // Junk-price guard: a tokenized equity near $1e-6 is a mis-tagged pool, not
     // the stock. Never label it as a real equity gap.
     if (requireRealPrice && p.priceUsd < 0.01) {
-      gaps.push({ symbol: sym, error: "on-chain pool price is junk (≈1e-6 USD) — real price requires the Web3 API RWA key (RFQ)" });
+      gaps.push({ symbol: sym, error: "on-chain pool price is junk (≈1e-6 USD), real price requires the Web3 API RWA key (RFQ)" });
       continue;
     }
     const ref = referenceBySymbol[sym] ?? referenceBySymbol[p.symbol] ?? referenceBySymbol[p.name] ?? null;
@@ -112,7 +112,7 @@ export async function bnbGap(prices, referenceBySymbol = {}, { requireRealPrice 
   return gaps;
 }
 
-// Binance Web3 API — the sanctioned aggregate surface. All reads keyed; a call
+// Binance Web3 API, the sanctioned aggregate surface. All reads keyed; a call
 // without a key returns the honest 4010x body. Auth per the official docs
 // (web3.binance.com/en/dev-docs/authentication):
 //   headers: X-OC-APIKEY / X-OC-TIMESTAMP (ISO-8601 ms) / X-OC-SIGN
@@ -145,7 +145,7 @@ async function _bnbWeb3CallRaw(path, { params = {}, method = "GET", body } = {})
   const key = String(process.env.AH_BNB_WEB3_KEY || "").trim();
   const secret = String(process.env.AH_BNB_WEB3_SECRET || "").trim();
   if (!key || !secret) {
-    return { code: 40101, msg: "API Key is required — register at web3.binance.com dev-portal", data: null };
+    return { code: 40101, msg: "API Key is required, register at web3.binance.com dev-portal", data: null };
   }
   const methodU = String(method).toUpperCase();
   const pathL = path.startsWith("/") ? path : "/" + path;                 // /api/v1/...
@@ -173,7 +173,7 @@ async function _bnbWeb3CallRaw(path, { params = {}, method = "GET", body } = {})
     signal: AbortSignal.timeout(15_000),
   });
   const json = await res.json().catch(() => null);
-  // Retry transient Web3 API rate-limits (42900) with backoff — the RWA Data
+  // Retry transient Web3 API rate-limits (42900) with backoff, the RWA Data
   // API throttles ~5 RPS/endpoint; our page loops trip it under load.
   if (json && (json.code === 42900 || res.status === 429)) {
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -196,7 +196,7 @@ export async function bnbRwaPrices() {
   return { configured: true, data: r?.data || [] };
 }
 
-// KyberSwap keyless route quote (verified HTTP 200 from this VM) — the exec fallback.
+// KyberSwap keyless route quote (verified HTTP 200 from this VM), the exec fallback.
 export async function bnbKyberQuote({ tokenIn, tokenOut, amountIn }) {
   const url = `https://aggregator-api.kyberswap.com/bsc/api/v1/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}`;
   const d = await cachedFetch(url, { ttlMs: 15_000, retries: 1 });
@@ -205,7 +205,7 @@ export async function bnbKyberQuote({ tokenIn, tokenOut, amountIn }) {
 }
 
 // ===========================================================================
-// REAL sanctioned surface — RWA Data API (the sponsor's own on-chain-vs-ref).
+// REAL sanctioned surface, RWA Data API (the sponsor's own on-chain-vs-ref).
 // `GET /api/v1/dex/market/rwa/tokens` returns real BSC tokenized-equity tokens
 // each carrying tokenPrice (on-chain) + referencePrice (underlying) + market
 // status/next-open. This is the load-bearing data rail for the weekend gap.
@@ -268,7 +268,7 @@ export function bnbEquityGaps(tokens) {
     };
     if (Math.abs(gapPct) > GAP_PLAUSIBLE_PCT) {
       row.outlier = true;
-      row.note = `on-chain price deviates ${gapPct.toFixed(0)}% from reference — implausible as a tradable gap (likely wrapper/denomination artifact); not reported as real.`;
+      row.note = `on-chain price deviates ${gapPct.toFixed(0)}% from reference, implausible as a tradable gap (likely wrapper/denomination artifact); not reported as real.`;
       flagged.push(row);
     } else {
       gaps.push(row);

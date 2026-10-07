@@ -1,4 +1,4 @@
-// AfterHours v2 — orchestration: strategy → intended book → paper execution → decision.
+// AfterHours v2, orchestration: strategy → intended book → paper execution → decision.
 import { buildUniverse, underlyingKey } from "./oracle.js";
 import { findDislocations } from "./dislocation.js";
 import { PaperBook, toMicro, fromMicro } from "./paper.js";
@@ -107,7 +107,7 @@ export async function runEngine(db, { userId = 0, strategies = null } = {}) {
   const { actions } = book.rebalance(fillPricesMicro, targets, { top: 12 });
   const navAfter = book.navMicro(fillPricesMicro);
 
-  // ── LEDGER GUARD: cost-basis conservation — the hard integrity invariant ──
+  // ── LEDGER GUARD: cost-basis conservation, the hard integrity invariant ──
   // You can never hold more than you funded. cash plus the total cost basis of
   // every position must equal the seed (+ cumulative realized cash from sells).
   // If it exceeds that, money was created → refuse to persist the bad book and
@@ -192,7 +192,7 @@ export async function runEngine(db, { userId = 0, strategies = null } = {}) {
   // When AH_LIVE_EXEC=1 AND a Solana wallet is configured, buy the deepest live
   // on-chain gap tokenized equity with a small capped amount through the wallet.
   // Logs the real tx signature on success, or the EXACT reason it couldn't route
-  // (e.g. Jupiter unreachable from this host) — never a fabricated fill.
+  // (e.g. Jupiter unreachable from this host), never a fabricated fill.
   let live = null;
   const liveEnabled = String(process.env.AH_LIVE_EXEC || "").trim() === "1";
   if (liveEnabled && !guardTripped && solana.isConfigured()) {

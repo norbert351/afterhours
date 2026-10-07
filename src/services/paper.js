@@ -1,4 +1,4 @@
-// AfterHours v2 — paper execution ledger (the "acted, not just alerted" layer).
+// AfterHours v2, paper execution ledger (the "acted, not just alerted" layer).
 //
 // Integer micro-units only (no floats in money). Qty in qtyMicro (1e6 = 1 share),
 // prices in priceMicro ($1 = 1e6). Cash in cashMicro. Fees/slippage in basis points.

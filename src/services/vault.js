@@ -1,17 +1,17 @@
-// AfterHours — Weekend Gap Vault.
+// AfterHours, Weekend Gap Vault.
 // The winner-shaped capital-utilization product: deposit SOL, arm the vault,
-// and it puts the capital to work across the weekend gap — buys the deepest
+// and it puts the capital to work across the weekend gap, buys the deepest
 // discounted xStock while the NYSE reference is frozen. Positions HOLD through
 // the open by default (no auto-unwind unless AH_VAULT_AUTO_UNWIND=1); exits
 // happen only via the explicit /api/vault/unwind endpoint. Every real fill is
 // capped (≈$0.25), mint-allowlisted, and recorded with its Solscan signature.
 // Never fabricates a fill; paper mode is explicit.
 //
-// Yield leg (Stretch/xStream pattern, HONEST): xStocks are rebasing assets —
+// Yield leg (Stretch/xStream pattern, HONEST): xStocks are rebasing assets -
 // dividends arrive as wallet balance growth with no transfer event. The vault
 // snapshots the mint balance at arm time and reconciles it every tick; any
 // growth beyond the vault's own buys is recorded as an "accrual" fill (with a
-// note that it could be a dividend/rebase OR an external top-up — we never
+// note that it could be a dividend/rebase OR an external top-up, we never
 // overclaim the source).
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
@@ -179,7 +179,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
   }
 
   // Detect dividend/rebase accrual (Stretch/xStream yield leg, HONEST):
-  // xStocks are rebasing — dividends arrive as balance growth. Any growth
+  // xStocks are rebasing, dividends arrive as balance growth. Any growth
   // beyond arm-baseline + own buys is recorded as an accrual fill with an
   // honest note (could be a dividend/rebase OR an external top-up).
   async function reconcileAccrual(s, now) {
@@ -204,9 +204,9 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
         p.accruedAtoms = (p.accruedAtoms || 0) + delta;
         // Official-rebase matching: if the xStocks multiplier schedule (via
         // Jupiter Price v3) explains the growth within tolerance, label it as
-        // an official rebase — this is the dividend, precisely. Otherwise the
+        // an official rebase, this is the dividend, precisely. Otherwise the
         // HONEST generic note stands (could be an external top-up).
-        let note = "balance grew vs vault expectation — dividend/rebase accrual or external top-up";
+        let note = "balance grew vs vault expectation, dividend/rebase accrual or external top-up";
         if (rebaseFor) {
           try {
             const rb = await rebaseFor(p.symbol);
@@ -266,7 +266,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
   }
 
   function pickBest(gaps) {
-    // Honesty guard: only a REAL dislocation is tradeable — a live frozen
+    // Honesty guard: only a REAL dislocation is tradeable, a live frozen
     // reference (not the self-fallback) AND a non-trivial gap (≥50bps).
     // If the reference feed is down, every gap reads 0 and the vault must
     // hold cash instead of buying blind.
@@ -280,7 +280,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
     return [...tradeable].sort((a, b) => Math.abs(b.gapPct || 0) - Math.abs(a.gapPct || 0))[0];
   }
 
-  // Sell every held position — used by auto-unwind (opt-in) and the explicit
+  // Sell every held position, used by auto-unwind (opt-in) and the explicit
   // /api/vault/unwind endpoint. Returns { sold, failed } counts.
   async function sellAll(s, now) {
     const out = [];
@@ -299,7 +299,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
       s.lastError = null;
       return { action: "unwound", sold: out.length, failed: 0 };
     }
-    // partial/none sold — keep the survivors, surface the failure
+    // partial/none sold, keep the survivors, surface the failure
     s.positions = s.positions.filter((p) => !out.some((o) => o.mint === p.mint && o.tx));
     s.lastError = "partial unwind: some sells failed";
     return { action: "unwound_partial", sold: out.length, failed: s.positions.length };
@@ -367,7 +367,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
 
   async function arm() {
     const s = load();
-    if (s.status === "holding") return { error: "vault already holding — stop or unwind first", state: s };
+    if (s.status === "holding") return { error: "vault already holding, stop or unwind first", state: s };
     s.status = "armed";
     s.armedAt = Date.now();
     s.lastError = null;
@@ -399,7 +399,7 @@ export function createVault({ db, userId = 0, getGaps, swapBuy, swapSell, solPri
     return { state: s, action: "nothing to unwind" };
   }
 
-  // Keeper loop — mirrors loop.js guardrails (in-flight lock, no overlap).
+  // Keeper loop, mirrors loop.js guardrails (in-flight lock, no overlap).
   function loop({ intervalMs = Number(process.env.AH_VAULT_INTERVAL_MS || 60_000) } = {}) {
     let timer = null, running = false;
     async function onTick() {

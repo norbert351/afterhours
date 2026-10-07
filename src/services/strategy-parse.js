@@ -1,4 +1,4 @@
-// AfterHours v2 — natural-language strategy instruction → load-bearing params.
+// AfterHours v2, natural-language strategy instruction → load-bearing params.
 //
 // Users type a plain-English rule in the UI ("rotate to discounted tokenized
 // equities", "buy SPACEX and OPENAI under 5% over mark", "top 3 biggest
@@ -29,27 +29,27 @@ export function buildAliasRegistry() {
 
 const defaultTopN = 6;
 
-// Core parse — pure, testable. Returns params object.
+// Core parse, pure, testable. Returns params object.
 export function parseStrategyInstruction(text, { topNDefault = defaultTopN } = {}) {
   const t = (text || "").toLowerCase();
 
-  // 1) Direction — which side of the gap we rotate into.
+  // 1) Direction, which side of the gap we rotate into.
   let direction = "discount"; // default = buy-the-dip (core thesis)
   if (/(below|discount|undervalued|cheap|under mark)/.test(t)) direction = "discount";
   else if (/(above|premium|overvalued|expensive|over mark|gap up)/.test(t)) direction = "premium";
 
-  // 2) Threshold — "more than 10%" / "at least 5%" / ">5%".
+  // 2) Threshold, "more than 10%" / "at least 5%" / ">5%".
   let thresholdPct = null;
   const m = t.match(/(?:\d+(?:\.\d+)?)\s*%/);
   if (m) thresholdPct = Number(parseFloat(m[0]));
 
-  // 3) Top N — "top 3", "biggest", "largest".
+  // 3) Top N, "top 3", "biggest", "largest".
   let topN = null;
   const tm = t.match(/top\s+(\d+)/);
   if (tm) topN = Number(tm[1]);
   else if (/(biggest|largest|biggest mover|most moved|deepest)/.test(t)) topN = topNDefault;
 
-  // 4) Symbols — any alias present in the text.
+  // 4) Symbols, any alias present in the text.
   const symbols = [];
   for (const alias of buildAliasRegistry().keys()) {
     if (t.includes(alias.toLowerCase())) symbols.push(alias);

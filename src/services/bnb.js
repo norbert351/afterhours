@@ -1,8 +1,8 @@
-// AfterHours BNB port — service layer over the BSC data/exec adapters.
+// AfterHours BNB port, service layer over the BSC data/exec adapters.
 // Surfaces the weekend-gap surface + execution on BNB Chain, honestly.
 // Real per-stock price/reference requires the sanctioned Binance Web3 API RWA
 // key (free during the hackathon). With no key, the adapter still proves the
-// rails and flags every gated value — never a fabricated number.
+// rails and flags every gated value, never a fabricated number.
 import { listBnbTokenPrices, bnbGap, bnbRwaPrices, bnbWeb3Configured, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS, bnbRealTokens, bnbEquityGaps, bnbAggQuote } from "../adapters/bsc.js";
 import { listReferencePrices, isMarketOpen } from "../adapters/twelvedata.js";
 import { annotateGaps, byNetEdgeDesc, COST_MODEL, annotateActions, rotationLeg, actionLabel, LIQUIDITY, LARGE_GAP_PCT, isActionableRow } from "./fairvalue.js";
@@ -31,8 +31,8 @@ export async function bnbStatus() {
     chainName: "BNB Chain (BSC)",
     configured: { web3Api: bnbWeb3Configured(), rpc: true, gecko: true, kyber: true, twelvedata: true },
     keyNote: bnbWeb3Configured()
-      ? "Binance Web3 API key live — RWA Data API provides real on-chain vs reference per tokenized equity."
-      : "Web3 API key NOT set — register free at web3.binance.com dev-portal to unlock real per-stock RWA price/reference. Keyless rails (RPC/Gecko/Kyber/TwelveData) still prove reachability.",
+      ? "Binance Web3 API key live, RWA Data API provides real on-chain vs reference per tokenized equity."
+      : "Web3 API key NOT set, register free at web3.binance.com dev-portal to unlock real per-stock RWA price/reference. Keyless rails (RPC/Gecko/Kyber/TwelveData) still prove reachability.",
   };
 }
 
@@ -55,7 +55,7 @@ export async function bnbUniverse() {
       const tokens = [...bstock, ...ondo, ...stocks];
       const { gaps: raw, flagged } = bnbEquityGaps(tokens);
       const gaps = raw.filter((g) => !g.error);
-      // Residual/fair-value layer — adjust each gap for the broad-market move, subtract
+      // Residual/fair-value layer, adjust each gap for the broad-market move, subtract
       // estimated execution costs, rank by NET EDGE (SPYB = market factor). A raw gap
       // that does not survive adjustment + costs is a WAIT, never an "opportunity".
       const { marketMovePct } = annotateGaps(gaps, {
@@ -75,7 +75,7 @@ export async function bnbUniverse() {
         source: "rwa-data-api",
         tokenCount: tokens.length,
         platformCount: { bstock: bstock.length, ondo: ondo.length, xstock: stocks.length },
-        tokens: bstock, // only the ~25 bStocks (for RWA addresses) — NOT the full 5k-token array (was a 4.4MB payload)
+        tokens: bstock, // only the ~25 bStocks (for RWA addresses), NOT the full 5k-token array (was a 4.4MB payload)
         tokenCountTotal: tokens.length,
         gaps,
         topGaps: gaps.slice(0, 25),
@@ -92,7 +92,7 @@ export async function bnbUniverse() {
         reference: {
           source: "Binance Web3 API · RWA underlying reference",
           status: marketOpen ? "LIVE" : "FROZEN",
-          note: marketOpen ? "US market open — reference updates." : "US market closed — the RWA underlying reference is frozen (the closed-market gap baseline).",
+          note: marketOpen ? "US market open, reference updates." : "US market closed, the RWA underlying reference is frozen (the closed-market gap baseline).",
         },
         counts: {
           tracked: tokens.length, signals: gaps.length,
@@ -102,11 +102,11 @@ export async function bnbUniverse() {
         },
         session: {
           state: marketOpen ? "OPEN" : "CLOSED",
-          label: marketOpen ? "NYSE OPEN" : "NYSE CLOSED — closed-market gap",
-          note: marketOpen ? "US market open — reference updating." : "US market closed — the reference is frozen; the on-chain token keeps trading (the dislocation window).",
+          label: marketOpen ? "NYSE OPEN" : "NYSE CLOSED, closed-market gap",
+          note: marketOpen ? "US market open, reference updating." : "US market closed, the reference is frozen; the on-chain token keeps trading (the dislocation window).",
         },
         flagged: { count: flagged.length, rows: flagged.slice(0, 5) },
-        gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact) — not reported as real.`,
+        gapNote: `gapPct = (on-chain tokenPrice − underlying referencePrice) / reference. ${flagged.length} on-chain price(s) flagged as implausible (>${10}% from reference, wrapper/denomination artifact), not reported as real.`,
         generatedAt: Date.now(),
       };
       lastGoodUniverse = { at: Date.now(), data: out };
@@ -122,7 +122,7 @@ export async function bnbUniverse() {
         chain: "bnb", configured: true, error: `RWA fetch failed: ${e.message}`,
         tokenCount: 0, platformCount: { bstock: 0, ondo: 0, xstock: 0 },
         tokens: [], gaps: [], topGaps: [], bstockTop: [], flagged: { count: 0, rows: [] },
-        gapNote: "RWA data API temporarily unreachable — retry shortly.",
+        gapNote: "RWA data API temporarily unreachable, retry shortly.",
         generatedAt: Date.now(),
       };
     }

@@ -1,8 +1,8 @@
-// Strategy engine — turns plain-English market rules into real, live checks
+// Strategy engine, turns plain-English market rules into real, live checks
 // against verified dislocation data, and fires alerts when a rule trips.
 //
 // SCOPE HONESTY: this engine DETECTS + ALERTS on real live gaps. It does not
-// yet execute on-chain orders — that needs a funded wallet, slippage math and
+// yet execute on-chain orders, that needs a funded wallet, slippage math and
 // a verified DEX-routing venue, which is the next build increment. Never fakes
 // an order.
 //

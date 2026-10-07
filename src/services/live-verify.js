@@ -1,4 +1,4 @@
-// live-verify.js — verify REAL blockchain fills against the chain, at request time.
+// live-verify.js, verify REAL blockchain fills against the chain, at request time.
 //
 // The Proof page must never claim a live execution from a local JSON log or a
 // hardcoded hash. This module takes documented real fill hashes, asks the BSC RPC

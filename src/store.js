@@ -1,4 +1,4 @@
-// AfterHours v2 store — node:sqlite persistence (WAL).
+// AfterHours v2 store, node:sqlite persistence (WAL).
 // Persistent: strategies, paper account (cash), paper positions, decisions
 // (the strategy-action log), alerts (delivery events).
 import { DatabaseSync } from "node:sqlite";
@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Integer money/units — no floats in the ledger.
+// Integer money/units, no floats in the ledger.
 export const PRICE_SCALE = 1_000_000; // $1 == 1_000_000 priceMicro
 export const QTY_SCALE = 1_000_000;   // 1 share == 1_000_000 qtyMicro
 
@@ -20,7 +20,7 @@ export function openStore(dbPath) {
 
   const db = new DatabaseSync(resolved);
   db.exec("PRAGMA journal_mode = WAL");
-  // Wait (don't error) if another connection holds the write lock — a watchdog
+  // Wait (don't error) if another connection holds the write lock, a watchdog
   // restart racing the old instance previously crashed migrations with
   // "database is locked" (SQLITE_BUSY).
   db.exec("PRAGMA busy_timeout = 5000");

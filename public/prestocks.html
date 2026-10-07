@@ -54,8 +54,8 @@ button.secondary{background:transparent;color:var(--acc);border:1px solid var(--
   </header>
 
   <h1>PreStocks Desk</h1>
-  <p class="muted">Tokenized pre-IPO stocks carry <b style="color:var(--txt)">two prices at once</b> — the issued <b>token price</b> and the issuer's <b>mark price</b>. The spread between them is the tradeable story. The desk turns it into a live screener with history, plain-English rules, and honest scenarios.</p>
-  <div class="elig">✅ <b>Bounty-eligible surface</b> — this desk integrates <b>only PreStocks data</b> (<code>prestocks.com/api/prestocks</code>, no key). No other pre-IPO issuer is read here. ("Projects that integrate any non-PreStocks pre-IPO tokens are ineligible" — so this page deliberately stays single-source.)</div>
+  <p class="muted">Tokenized pre-IPO stocks carry <b style="color:var(--txt)">two prices at once</b>, the issued <b>token price</b> and the issuer's <b>mark price</b>. The spread between them is the tradeable story. The desk turns it into a live screener with history, plain-English rules, and honest scenarios.</p>
+  <div class="elig">✅ <b>Bounty-eligible surface</b>, this desk integrates <b>only PreStocks data</b> (<code>prestocks.com/api/prestocks</code>, no key). No other pre-IPO issuer is read here. ("Projects that integrate any non-PreStocks pre-IPO tokens are ineligible", so this page deliberately stays single-source.)</div>
 
   <section>
     <h2>Live desk · token vs mark <span class="chip" id="deskTs"></span></h2>
@@ -94,7 +94,7 @@ button.secondary{background:transparent;color:var(--acc);border:1px solid var(--
 <script>
 "use strict";
 const $ = (s) => document.querySelector(s);
-const fmt = (n, d = 2) => (n == null || !Number.isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d }));
+const fmt = (n, d = 2) => (n == null || !Number.isFinite(n) ? "n/a" : n.toLocaleString(undefined, { maximumFractionDigits: d }));
 const sign = (n) => (n >= 0 ? "+" : "");
 
 function sparkSVG(points, color) {
@@ -137,13 +137,13 @@ async function loadDesk() {
       <td>$${fmt(t.markPrice)}</td>
       <td>$${fmt(t.tokenPrice)}</td>
       <td class="${t.premiumPct >= 0 ? "up" : "down"}">${sign(t.premiumPct)}${fmt(t.premiumPct, 2)}% ${Math.abs(t.premiumPct) >= 5 ? `<span class="pill big">big</span>` : Math.abs(t.premiumPct) >= 1 ? `<span class="pill small">moved</span>` : ""}</td>
-      <td class="hide-sm muted">${t.valuationSpreadPct == null ? "—" : sign(t.valuationSpreadPct) + fmt(t.valuationSpreadPct, 2) + "%"}</td>
-      <td class="hide-sm ${t.deltaToken == null ? "muted" : t.deltaToken >= 0 ? "up" : "down"}">${t.deltaToken == null ? "—" : sign(t.deltaToken) + fmt(t.deltaToken, 2) + "%"}</td>
+      <td class="hide-sm muted">${t.valuationSpreadPct == null ? "n/a" : sign(t.valuationSpreadPct) + fmt(t.valuationSpreadPct, 2) + "%"}</td>
+      <td class="hide-sm ${t.deltaToken == null ? "muted" : t.deltaToken >= 0 ? "up" : "down"}">${t.deltaToken == null ? "n/a" : sign(t.deltaToken) + fmt(t.deltaToken, 2) + "%"}</td>
       <td class="hide-sm">${spark}</td>
     </tr>`;
   }));
   $("#deskBody").innerHTML = rows.join("");
-  $("#deskHint").textContent = "Premium = (token price − mark price) / mark. Positive = the token trades ABOVE the issuer's mark (froth); negative = BELOW (discount). Valuation spread = implied vs mark company valuation — the reprice view. Δ = change vs the previous snapshot.";
+  $("#deskHint").textContent = "Premium = (token price − mark price) / mark. Positive = the token trades ABOVE the issuer's mark (froth); negative = BELOW (discount). Valuation spread = implied vs mark company valuation, the reprice view. Δ = change vs the previous snapshot.";
 }
 
 async function loadRules() {
@@ -151,7 +151,7 @@ async function loadRules() {
   const ev = await fetch("/api/prestocks/rules/evaluate", { method: "POST" }).then((r) => r.json());
   const seen = new Map(ev.fired.map((f) => [f.rule.id, f]));
   $("#ruleRes").innerHTML = rules.length === 0
-    ? '<p class="muted" style="font-size:12px">No rules yet — add one above. Example: "SPACEX trades more than 5% below its mark price".</p>'
+    ? '<p class="muted" style="font-size:12px">No rules yet, add one above. Example: "SPACEX trades more than 5% below its mark price".</p>'
     : rules.map((r) => {
         const f = seen.get(r.id);
         const badge = f && f.result === "fired"
@@ -184,7 +184,7 @@ $("#simForm").addEventListener("submit", async (ev) => {
   if (!r.ok) { $("#simRes").innerHTML = `<p class="err" style="color:var(--down);font-size:12px">${s.error}</p>`; return; }
   $("#simRes").innerHTML = `<div class="muted" style="font-size:12px;margin-bottom:8px">${s.symbol} · ${s.qty} tokens · entry $${fmt(s.entryUsd)}</div>` +
     `<table><thead><tr><th>Scenario</th><th>Price</th><th>Value</th><th>Move</th></tr></thead><tbody>` +
-    s.scenarios.map((x) => `<tr><td>${x.label}</td><td>$${fmt(x.price)}</td><td>$${fmt(x.value)}</td><td class="${(x.movePct||0) >= 0 ? "up" : "down"}">${x.movePct == null ? "—" : sign(x.movePct) + fmt(x.movePct, 0) + "%"}</td></tr>`).join("") +
+    s.scenarios.map((x) => `<tr><td>${x.label}</td><td>$${fmt(x.price)}</td><td>$${fmt(x.value)}</td><td class="${(x.movePct||0) >= 0 ? "up" : "down"}">${x.movePct == null ? "n/a" : sign(x.movePct) + fmt(x.movePct, 0) + "%"}</td></tr>`).join("") +
     `</tbody></table><p class="muted" style="font-size:11px;margin-top:6px">${s.honest}</p>`;
 });
 

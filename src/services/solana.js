@@ -1,4 +1,4 @@
-// AfterHours v3 — live Solana execution rail.
+// AfterHours v3, live Solana execution rail.
 // Reads the project wallet from .env (SOLANA_PRIVATE_KEY, base58), talks to the
 // Solana RPC, and can broadcast REAL mainnet transactions.
 //
@@ -40,12 +40,12 @@ export async function getBalance(connection = conn()) {
 
 // Raw token balance (atoms) for a mint across Token-2022 + Token-1 programs.
 // Used by the vault to detect dividend/rebase accrual (xStocks are rebasing
-// assets — dividends arrive as balance growth, no transfer events).
+// assets, dividends arrive as balance growth, no transfer events).
 const T22 = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 const T1 = SPL_TOKEN_PROGRAM_ID;
 // Wallet token balances (raw atoms) for every mint across Token-2022 + Token-1.
 // Used by the vault to detect dividend/rebase accrual (xStocks are rebasing
-// assets — dividends arrive as balance growth, no transfer events).
+// assets, dividends arrive as balance growth, no transfer events).
 export async function tokenBalancesAtoms(connection = conn()) {
   if (!isConfigured()) return null;
   const out = {};
@@ -84,7 +84,7 @@ export async function probe({ lamports = 2000, connection = conn() } = {}) {
 // Jupiter swap (SOL or SPL input; USDC etc). Returns the broadcast
 // signature; never fabricates. Base URL note: quote-api.jup.ag was retired
 // from DNS (2026); api.jup.ag/swap/v1 is the live surface (verified from
-// this VM 2026-09-21 — real SOL->AAPLx fill FINALIZED).
+// this VM 2026-09-21, real SOL->AAPLx fill FINALIZED).
 const JUP_BASE = "https://api.jup.ag/swap/v1";
 
 export async function jupiterSwap({

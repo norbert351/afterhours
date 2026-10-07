@@ -142,7 +142,7 @@ body.ah-lock{overflow:hidden}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;filter:none}
 @media (hover:none){.btn:hover{transform:none;box-shadow:none;filter:none}}
 
-/* Shared status + venue components (Phase 55) — one vocabulary across pages.
+/* Shared status + venue components (Phase 55), one vocabulary across pages.
    Falls back to literals so pages defining their own tokens still render. */
 .ah-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.02em;white-space:nowrap}
 .ah-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// AfterHours BNB — minimal MCP server (stdio JSON-RPC, zero deps).
+// AfterHours BNB, minimal MCP server (stdio JSON-RPC, zero deps).
 // Exposes the product's real rails as MCP tools so an AI agent (BNB Agent
 // Studio or Binance Agentic Wallet via MCP) can drive it. This is the load-
 // bearing surface for the two $2K specials.
 //
 // Tools:
-//   bnb_gap         — weekend-gap surface on BNB (on-chain vs frozen ref)
-//   bnb_quote       — keyless KyberSwap route quote (read-only, capped)
-//   bnb_status      — what rails are configured (honest configured:false)
+//   bnb_gap        , weekend-gap surface on BNB (on-chain vs frozen ref)
+//   bnb_quote      , keyless KyberSwap route quote (read-only, capped)
+//   bnb_status     , what rails are configured (honest configured:false)
 //
 // Speaks the MCP protocol over stdin/stdout: initialize, tools/list, tools/call.
 import { bnbUniverse, bnbStatus, bnbQuote } from "../services/bnb.js";

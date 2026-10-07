@@ -1,8 +1,8 @@
-// bnb-x402.js — AfterHours BNB agent *self-funding* via x402.
+// bnb-x402.js, AfterHours BNB agent *self-funding* via x402.
 // Exposes the real BNB weekend-gap report as an x402 pay-per-call resource:
 // a buyer sends an EIP-3009 payment in $U (settlement token of the BNB agent
 // economy) to the exec wallet; once settled on-chain the report is served.
-// The proceeds fund the agent's autonomous loop + gas — the "self-funding via
+// The proceeds fund the agent's autonomous loop + gas, the "self-funding via
 // x402" axis of the BNB Agent Studio special.
 import { createX402Merchant, U_TOKEN } from "@altananetwork/x402-server";
 import { parseEther } from "viem";

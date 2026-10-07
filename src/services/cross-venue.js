@@ -1,11 +1,11 @@
-// cross-venue.js — same underlying, two venues (Phase 5/39).
+// cross-venue.js, same underlying, two venues (Phase 5/39).
 // Bitget rToken vs BNB bStock for the SAME underlying, against the frozen
 // reference. Labels are honest:
-//   OBSERVATION      — a spread exists but is below the cost threshold
-//   POTENTIAL EDGE   — the cross-venue spread clears the threshold
-//   EXECUTABLE EDGE  — both legs are verifiably tradeable (we only claim this
+//   OBSERVATION     , a spread exists but is below the cost threshold
+//   POTENTIAL EDGE  , the cross-venue spread clears the threshold
+//   EXECUTABLE EDGE , both legs are verifiably tradeable (we only claim this
 //                      when a liquidity check passes; otherwise it stays POTENTIAL)
-//   BLOCKED          — a leg's data is missing / not tradeable
+//   BLOCKED         , a leg's data is missing / not tradeable
 // We never call something arbitrage if both legs cannot actually be executed.
 import * as bitgetArb from "./bitget-arb.js";
 import { bnbUniverse } from "./bnb.js";
@@ -45,7 +45,7 @@ export async function crossVenue() {
       note = `Cross-venue spread ${spread.toFixed(2)}% clears costs (${COST_PCT.toFixed(2)}%). Executing needs BOTH legs live: sell/trim the rich venue's token, buy the cheap venue's token (spot).`;
     } else if (Math.abs(spread) < 0.2) {
       status = "OBSERVATION";
-      note = `Spread ${spread.toFixed(2)}% is within noise/costs — watch, don't act.`;
+      note = `Spread ${spread.toFixed(2)}% is within noise/costs, watch, don't act.`;
     } else {
       status = "BLOCKED";
       note = `Spread ${spread.toFixed(2)}% exists but does not clear estimated costs (${COST_PCT.toFixed(2)}%).`;
@@ -63,8 +63,8 @@ export async function crossVenue() {
     reference: bg.source, costPct: COST_PCT,
     overlapCount: pairs.length,
     note: pairs.length
-      ? "Both legs must be executable to call it arbitrage — current cross-venue execution is analysed, not automated (spot only)."
-      : "No underlying is listed on BOTH Bitget and BNB right now — nothing to spread. This surface stays empty honestly rather than fabricating pairs.",
+      ? "Both legs must be executable to call it arbitrage, current cross-venue execution is analysed, not automated (spot only)."
+      : "No underlying is listed on BOTH Bitget and BNB right now, nothing to spread. This surface stays empty honestly rather than fabricating pairs.",
     pairs,
   };
 }

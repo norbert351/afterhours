@@ -1,12 +1,12 @@
-// Jupiter Price v3 — official xStocks data carried keylessly on the same rail
-// the vault executes through (api.jup.ag — verified reachable from this VM).
+// Jupiter Price v3, official xStocks data carried keylessly on the same rail
+// the vault executes through (api.jup.ag, verified reachable from this VM).
 // Per mint it returns:
-//   usdPrice            — on-chain last-swap USD price
-//   stockData.price     — the OFFICIAL xStocks print (xStocks publish through
+//   usdPrice           , on-chain last-swap USD price
+//   stockData.price    , the OFFICIAL xStocks print (xStocks publish through
 //                         this channel; includes mcap + updatedAt)
-//   scaledUiConfig      — the REBASE multiplier schedule: current multiplier,
+//   scaledUiConfig     , the REBASE multiplier schedule: current multiplier,
 //                         next multiplier + effective timestamp
-//   liquidity           — pool liquidity USD (a better volume proxy)
+//   liquidity          , pool liquidity USD (a better volume proxy)
 //   priceChange24h
 import { cachedFetch } from "../lib/http.js";
 import { XSTOCKS } from "./xstocks.js";

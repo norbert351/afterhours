@@ -1,4 +1,4 @@
-// bnb-agent.js — AfterHours BNB *agent*: natural-language commands → real BSC
+// bnb-agent.js, AfterHours BNB *agent*: natural-language commands → real BSC
 // execution. This is the "agentic" layer: a user types a plain-English rule
 // (e.g. "buy IBMB if it dips 5% below mark over the weekend"), the agent parses
 // it, watches the real RWA gap, and when the rule triggers it executes a BOUNDED

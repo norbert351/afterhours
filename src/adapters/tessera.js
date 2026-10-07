@@ -1,4 +1,4 @@
-// Tessera adapter — REAL, verified. GET https://rest-api.tessera.pe/v1/public/token-details
+// Tessera adapter, REAL, verified. GET https://rest-api.tessera.pe/v1/public/token-details
 // returns tokenized PRIVATE EQUITY (T-OpenAI, T-Kalshi, T-SpaceX).
 // Verified fields: id, name, symbol, code, sector, mint, markPrice, holders, markValuation.
 import { config } from "../config.js";

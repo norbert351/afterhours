@@ -1,6 +1,6 @@
-// bitget-arb.js — AfterHours Bitget Arbitrage surface (Alpha Factory · Arbitrage).
+// bitget-arb.js, AfterHours Bitget Arbitrage surface (Alpha Factory · Arbitrage).
 // Signal: 7×24 Bitget rToken price (R<SYM>USDT) vs its native US reference.
-// During NYSE closure the reference is FROZEN while the rToken keeps trading —
+// During NYSE closure the reference is FROZEN while the rToken keeps trading -
 // divergence is the arbitrage signal, exactly the S2 Arbitrage sub-theme.
 // Honesty: reference fetched sparingly (refreshed only while the market is
 // open; reused while closed because it cannot move); implausible gaps flagged.

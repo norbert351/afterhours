@@ -1,4 +1,4 @@
-// Dislocation engine — finds and ranks real, verified pricing gaps.
+// Dislocation engine, finds and ranks real, verified pricing gaps.
 //
 // Two signals, both computable from VERIFIED live data:
 //  1. issuer-internal premium : PreStocks tokenPrice vs its own markPrice

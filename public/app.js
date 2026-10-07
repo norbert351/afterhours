@@ -1,7 +1,11 @@
-// AfterHours frontend — fetches ONLY verified live endpoints and renders.
+// AfterHours frontend, fetches ONLY verified live endpoints and renders.
 const $ = (sel) => document.querySelector(sel);
-const fmt = (n, d = 2) => (n == null ? "—" : (typeof n === "number" ? n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) : n));
+const fmt = (n, d = 2) => (n == null ? "n/a" : (typeof n === "number" ? n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) : n));
 const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+// `me` (the current user) MUST be declared before any loader runs: loadRail()/loadVault()
+// are invoked at module top level further down, and reading `me` from the temporal dead
+// zone threw "Cannot access 'me' before initialization" into the UI. Declare it here.
+let me = null;
 
 async function get(path) {
   const r = await fetch(path);
@@ -28,7 +32,7 @@ function renderUniverse(instruments) {
   const tbody = $("#univBody");
   tbody.innerHTML = instruments.map((i) => {
     const prem =
-      i.markPremium == null ? '<span class="muted">—</span>'
+      i.markPremium == null ? '<span class="muted">-</span>'
       : i.markPremium >= 0
         ? `<span class="up">+${(i.markPremium * 100).toFixed(2)}%</span>`
         : `<span class="down">${(i.markPremium * 100).toFixed(2)}%</span>`;
@@ -37,7 +41,7 @@ function renderUniverse(instruments) {
       <td><b>${i.symbol}</b><div class="iss">${i.name || ""}</div></td>
       <td class="iss">${i.issuer}</td>
       <td>$${fmt(i.markPrice)}</td>
-      <td class="muted">${i.tokenPrice == null ? "—" : "$" + i.tokenPrice.toLocaleString()}</td>
+      <td class="muted">${i.tokenPrice == null ? "n/a" : "$" + i.tokenPrice.toLocaleString()}</td>
       <td>${prem}</td>
       <td class="muted">$${fmt(i.markValuation ?? i.impliedValuation, 0)}</td>
       <td class="muted">${addr}</td>
@@ -62,7 +66,7 @@ function renderRules() {
   const wrap = $("#rulesWrap");
   get("/api/strategies").then((rules) => {
     wrap.innerHTML = rules.length === 0
-      ? '<p class="muted" style="margin:0;font-size:13px">No rules yet — add one above.</p>'
+      ? '<p class="muted" style="margin:0;font-size:13px">No rules yet, add one above.</p>'
       : rules.map((r) => `<div class="rowflex" style="background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:8px">
           <span>${r.text}</span><span class="muted" style="font-family:var(--mono);font-size:12px">${r.id} · ${r.type}</span>
         </div>`).join("");
@@ -132,28 +136,28 @@ async function loadVault() {
     const last = [...(v.fills || [])].pop();
     const posSym = v.positions?.[0]?.symbol;
     const rb = posSym ? v.rebase?.[posSym] : null;
-    const rebaseCard = rb ? `${Number(rb.multiplier).toFixed(4)}× → ${Number(rb.nextMultiplier || 0).toFixed(4)}× <span style="font-size:11px;color:var(--mut)">${rb.nextMultiplierAt ? "eff " + new Date(rb.nextMultiplierAt).toLocaleDateString() : ""}</span>` : "—";
+    const rebaseCard = rb ? `${Number(rb.multiplier).toFixed(4)}× → ${Number(rb.nextMultiplier || 0).toFixed(4)}× <span style="font-size:11px;color:var(--mut)">${rb.nextMultiplierAt ? "eff " + new Date(rb.nextMultiplierAt).toLocaleDateString() : ""}</span>` : "n/a";
     $("#vaultGapStats").textContent = v.gapStats
       ? `today: ${v.gapStats.n} gaps · mean |gap| ${v.gapStats.meanAbsGapPct.toFixed(2)}% · largest ${v.gapStats.largestAbsGapPct.toFixed(2)}%`
       : "gap stats unavailable";
     $("#vaultCards").innerHTML = [
       ["Status", `<span style="color:var(--up)">●</span> ${label}`],
-      ["Deployed (at cost)", deployed > 0 ? `$${deployed.toFixed(2)}` : "—"],
-      ["Dividends accrued", accrued > 0 ? `+$${accrued.toFixed(4)}` : "—"],
+      ["Deployed (at cost)", deployed > 0 ? `$${deployed.toFixed(2)}` : "n/a"],
+      ["Dividends accrued", accrued > 0 ? `+$${accrued.toFixed(4)}` : "n/a"],
       [posSym ? `${posSym} rebase` : "Rebase", rebaseCard],
-      ["Wallet SOL", wsol == null ? "—" : wsol.toFixed(4)],
-      ["Last fill", last ? (last.explorer ? `<a href="${last.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(last.signature)}</a>` : last.symbol + " " + last.side) : "—"],
+      ["Wallet SOL", wsol == null ? "n/a" : wsol.toFixed(4)],
+      ["Last fill", last ? (last.explorer ? `<a href="${last.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(last.signature)}</a>` : last.symbol + " " + last.side) : "n/a"],
     ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:15px">${val}</div></div>`).join("");
 
     const pos = v.positions || [];
     $("#vaultPosEmpty").style.display = pos.length ? "none" : "";
-    $("#vaultPosEmpty").textContent = v.status === "holding" ? "" : "No position — arm the vault while the market is closed and it deploys into the deepest live gap.";
+    $("#vaultPosEmpty").textContent = v.status === "holding" ? "" : "No position, arm the vault while the market is closed and it deploys into the deepest live gap.";
     $("#vaultPos").innerHTML = pos.map((p) => `<tr>
-      <td><b>${p.symbol}</b><div class="iss">gap ${p.gapPctAtBuy == null ? "—" : p.gapPctAtBuy.toFixed(2) + "%"}</div></td>
+      <td><b>${p.symbol}</b><div class="iss">gap ${p.gapPctAtBuy == null ? "n/a" : p.gapPctAtBuy.toFixed(2) + "%"}</div></td>
       <td>${fmt(p.qtyUnits, 6)}</td>
-      <td>${p.gapPctAtBuy == null ? "—" : p.gapPctAtBuy.toFixed(2) + "%"}</td>
+      <td>${p.gapPctAtBuy == null ? "n/a" : p.gapPctAtBuy.toFixed(2) + "%"}</td>
       <td class="hide-sm">${p.mode}</td>
-      <td>${p.explorer ? `<a href="${p.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(p.tx)}</a>` : "—"}</td>
+      <td>${p.explorer ? `<a href="${p.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(p.tx)}</a>` : "n/a"}</td>
     </tr>`).join("");
 
     const fills = (v.fills || []).slice(-8).reverse();
@@ -164,13 +168,18 @@ async function loadVault() {
         <span>${f.explorer ? `<a href="${f.explorer}" target="_blank" style="color:var(--acc)">${fmtAddr(f.signature)}</a>` : ""}<span class="chip">${new Date(f.ts).toLocaleTimeString()}</span></span>
       </div>`).join("");
     let m = v.bestGap
-      ? "Market " + (v.marketOpen ? "OPEN — vault will unwind at the open" : "CLOSED — deepest live gap: " + v.bestGap.symbol + " " + (v.bestGap.gapPct >= 0 ? "+" : "") + v.bestGap.gapPct.toFixed(2) + "%") + "."
+      ? "Market " + (v.marketOpen ? "OPEN, vault will unwind at the open" : "CLOSED, deepest live gap: " + v.bestGap.symbol + " " + (v.bestGap.gapPct >= 0 ? "+" : "") + v.bestGap.gapPct.toFixed(2) + "%") + "."
       : (v.marketOpen == null ? "" : "No tradeable gap right now.");
     if (v.lastError) m += " · " + v.lastError;
     $("#vaultMsg").textContent = m;
   } catch (e) {
-    $("#vaultStatus").textContent = "offline";
-    $("#vaultMsg").textContent = "vault error: " + e.message;
+    // A guest is a NORMAL state, not an error. Only genuine failures get error styling.
+    const auth = /401|not signed in|unauthor|forbidden/i.test(String(e.message));
+    $("#vaultStatus").textContent = auth ? "signed out" : "unavailable";
+    $("#vaultStatus").className = "chip " + (auth ? "" : "err");
+    $("#vaultMsg").innerHTML = auth
+      ? "Solana vault: connect a wallet to access your vault. Market data remains available without a wallet."
+      : 'Vault is temporarily unavailable. Market data remains available. <button class="chip" onclick="loadVault()">Retry</button>';
   }
 }
 async function vaultAction(path, verb) {
@@ -182,7 +191,12 @@ async function vaultAction(path, verb) {
     if (!r.ok) throw new Error(d.error || r.status);
     $("#vaultMsg").textContent = d.action ? `→ ${d.action}` : "";
     if (d.error) $("#vaultMsg").textContent = d.error;
-  } catch (e) { $("#vaultMsg").textContent = "vault error: " + e.message; }
+  } catch (e) {
+    const auth = /401|not signed in|unauthor|forbidden|connect/i.test(String(e.message));
+    $("#vaultMsg").innerHTML = auth
+      ? "Connect a wallet to arm the vault. Market data remains available without a wallet."
+      : "Vault action failed. Please retry. <button class=\"chip\" onclick=\"loadVault()\">Retry</button>";
+  }
   if (btn) btn.disabled = false;
   loadVault();
 }
@@ -198,17 +212,20 @@ async function loadRail() {
     if (!me) { $("#railStatus").textContent = "Sign in to view the rail"; return; }
     const r = await get("/api/v3/live/info");
     $("#railStatus").textContent = r.configured ? "● CONFIGURED" : "NOT CONFIGURED";
-    $("#railAddr").textContent = r.address || "—";
+    $("#railAddr").textContent = r.address || "n/a";
     $("#railCards").innerHTML = [
-      ["Address", r.address ? `<a href="https://solscan.io/account/${r.address}" target="_blank" style="color:var(--acc)">${r.address.slice(0, 10)}…${r.address.slice(-6)}</a>` : "—"],
-      ["SOL balance", r.balanceSol == null ? "—" : r.balanceSol.toFixed(4)],
-      ["RPC", (r.rpc || "").replace("https://", "").slice(0, 28) || "—"],
+      ["Address", r.address ? `<a href="https://solscan.io/account/${r.address}" target="_blank" style="color:var(--acc)">${r.address.slice(0, 10)}…${r.address.slice(-6)}</a>` : "n/a"],
+      ["SOL balance", r.balanceSol == null ? "n/a" : r.balanceSol.toFixed(4)],
+      ["RPC", (r.rpc || "").replace("https://", "").slice(0, 28) || "n/a"],
       ["Safety", "cap $0.60 · allowlist · rate-limited"],
     ].map(([k, val]) => `<div class="card"><div class="k">${k}</div><div class="v" style="font-size:14px">${val}</div></div>`).join("");
     $("#railMsg").textContent = "";
   } catch (e) {
-    $("#railStatus").textContent = "offline";
-    $("#railMsg").textContent = "rail error: " + e.message;
+    const auth = /401|not signed in|unauthor|forbidden/i.test(String(e.message));
+    $("#railStatus").textContent = auth ? "signed out" : "unavailable";
+    $("#railMsg").innerHTML = auth
+      ? "Connect a wallet to view the live rail. Market data remains available without a wallet."
+      : 'Rail is temporarily unavailable. <button class="chip" onclick="loadRail()">Retry</button>';
   }
 }
 $("#railProbe").addEventListener("click", guarded(async () => {
@@ -219,8 +236,8 @@ $("#railProbe").addEventListener("click", guarded(async () => {
     const d = await r.json();
     $("#railMsg").innerHTML = r.ok
       ? `✓ Real rail proof: <a href="${d.explorer}" target="_blank" style="color:var(--acc)">${d.signature.slice(0, 14)}…</a>`
-      : "✗ " + (d.error || r.status);
-  } catch (e) { $("#railMsg").textContent = "probe error: " + e.message; }
+      : "Rail probe unavailable. " + (d.error || r.status);
+  } catch (e) { $("#railMsg").textContent = "Rail probe temporarily unavailable. Please retry."; }
   btn.disabled = false; btn.textContent = "Prove rail · real 2,000-lamport tx";
 }));
 loadRail();
@@ -266,7 +283,7 @@ async function loadV2() {
     $("#acctCards").classList.toggle("nonzero", pos.length>0);
 
     $("#posEmpty").style.display = pos.length?"none":"";
-    $("#posEmpty").textContent = "No open holdings right now — the strategy is idle because no tokenized equity is trading below its mark in this live snapshot. Watch a live gap, or connect a wallet to execute.";
+    $("#posEmpty").textContent = "No open holdings right now, the strategy is idle because no tokenized equity is trading below its mark in this live snapshot. Watch a live gap, or connect a wallet to execute.";
     $("#posBody").innerHTML = pos.map(p => `<tr>
       <td><b>${p.symbol}</b><div class="iss">${p.issuer||""}</div></td>
       <td>${Number(p.shares).toFixed(6)}</td>
@@ -274,7 +291,7 @@ async function loadV2() {
       <td class="hide-sm">$${Number(p.valueUsd).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
       <td class="muted hide-sm">$${Number(p.realizedPnlUsd).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
     </tr>`).join("");
-    $("#posEmpty").textContent = pos.length===0 ? "No holdings yet — run the strategy to deploy the paper book." : "";
+    $("#posEmpty").textContent = pos.length===0 ? "No holdings yet, run the strategy to deploy the paper book." : "";
   } catch (e) {
     $("#acctCards").innerHTML = `<div class="card"><div class="k">Paper</div><div class="v err">${e.message}</div></div>`;
   }
@@ -320,7 +337,7 @@ const stratHandler = async () => {
   if (!me) { openAuth(); return; }
   const el = window.solana;
   if (!el || !el.isConnected) {
-    $("authMsg").textContent = "Add a strategy is confirmed on-chain — connect a Solana wallet first.";
+    $("authMsg").textContent = "Add a strategy is confirmed on-chain, connect a Solana wallet first.";
     openAuth();
     return;
   }
@@ -335,7 +352,7 @@ const stratHandler = async () => {
     const r = await fetch("/api/v2/strategies", { method: "POST", headers: {"Content-Type":"application/json"}, credentials: "same-origin", body: JSON.stringify({ text, type: "rotate_to_discount", address: addr, signature: Array.from(sigBytes) }) });
     const d = await r.json();
     if (r.ok && d?.parsed?.ok) {
-      pi.innerHTML = `<span style="color:var(--good,#2ecc71)">✓ Confirmed on-chain · Understood:</span> <b>${escapeHtml(d.parsed.summary)}</b> — the autonomous loop will rebalance toward this every 60s.`;
+      pi.innerHTML = `<span style="color:var(--good,#2ecc71)">✓ Confirmed on-chain · Understood:</span> <b>${escapeHtml(d.parsed.summary)}</b>, the autonomous loop will rebalance toward this every 60s.`;
       if (!d.parsed.hasSymbols) {
         pi.innerHTML += `<br><span style="color:var(--warn,#e67e22)">Tip:</span> name a symbol (SPACEX, AAPL, OPENAI…) to restrict which tokens it rotates into.`;
       }
@@ -353,7 +370,7 @@ loadV2();
 setInterval(loadV2, 30_000);
 
 // ---- v4 accounts + watchlist (navbar + modal) ----
-let me = null;
+// (`me` is declared at the top of this file so early loaders can read it.)
 function fmtAddr(h){ return (h||'').length>14 ? h.slice(0,4)+'…'+h.slice(-4) : h; }
 async function checkAuth() {
   try {
@@ -417,14 +434,14 @@ async function renderGaps() {
     const d = await get("/api/markethours/gap");
     $("#gapOpen").textContent = d.marketOpen ? "● NYSE OPEN" : "● MARKET CLOSED (STALE REF)";
     $("#gapHint").textContent = d.marketOpen
-      ? "NYSE open — on-chain trades alongside the live reference."
-      : "NYSE closed — tokenized equities still trade 24/7 on-chain; the reference is the frozen close. The gap is the real signal.";
+      ? "NYSE open, on-chain trades alongside the live reference."
+      : "NYSE closed, tokenized equities still trade 24/7 on-chain; the reference is the frozen close. The gap is the real signal.";
     $("#gapBody").innerHTML = d.gaps.filter(g=>!g.error).map(g => {
       const gap = typeof g.gapPct==="number" ? g.gapPct : 0;
       const cls = gap>=0 ? "up" : "down";
       return `<tr><td><b>${g.symbol}</b><div class="iss">${g.ref}</div></td>
         <td>$${Number(g.onChainPriceUsd).toFixed(2)}</td>
-        <td class="muted">${g.referencePriceUsd?("$"+Number(g.referencePriceUsd).toFixed(2)):"—"}</td>
+        <td class="muted">${g.referencePriceUsd?("$"+Number(g.referencePriceUsd).toFixed(2)):"n/a"}</td>
         <td class="${cls}">${gap>=0?"+":""}${gap.toFixed(2)}%</td>
         <td class="muted hide-sm">$${(Number(g.volumeUsd24h||0)/1e3).toFixed(0)}k</td></tr>`;
     }).join("") || '<tr><td colspan="5" class="muted">no live data</td></tr>';
@@ -435,7 +452,7 @@ setInterval(renderGaps, 45_000);
 
 // ---- Connect wallet (custom Solana sign-in) ----
 async function connectWallet() {
-  // Privy path (auth island mounted on the page) — else native Solana.
+  // Privy path (auth island mounted on the page), else native Solana.
   if (window.__privyLogin) { await window.__privyLogin(); closeAuth(); checkAuth(); return; }
   const el = window.solana;
   if (!el || !el.isConnected) {

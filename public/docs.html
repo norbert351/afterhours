@@ -42,24 +42,27 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
 <body>
 <div id="ahnav"></div>
 <div class="wrap">
-  <h1>AfterHours — Docs</h1>
-  <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible — and executable. <span class="pill good">LIVE on afterhourequity.xyz</span></p>
+  <h1>AfterHours, Docs</h1>
+  <p class="mut">Tokenized equities trade 24/7. Their references freeze. We make that visible, and executable. <span class="pill good">LIVE on afterhourequity.xyz</span></p>
 
   <h2>What the product does</h2>
-  <p>AfterHours is a <b>multi-tenant, account-gated on-chain equity-intelligence + autonomous-execution platform for Solana.</b> While the NYSE closes, the on-chain copies of the same stocks (xStocks/Backed tokenized equities — AAPLx, NVDAx, MSFTx…) keep trading. AfterHours continuously maps the <b>live on-chain price</b> of every tokenized equity against its <b>frozen reference</b>, surfaces the dislocations (the "gap"), and lets <b>each user</b> instruct their own paper (<i>or real, through the vault</i>) strategy against it. Every real fill is signed, capped, and visible with its Solscan link.</p>
+  <p>AfterHours is a <b>multi-tenant, account-gated on-chain equity-intelligence + autonomous-execution platform for Solana.</b> While the NYSE closes, the on-chain copies of the same stocks (xStocks/Backed tokenized equities, AAPLx, NVDAx, MSFTx…) keep trading. AfterHours continuously maps the <b>live on-chain price</b> of every tokenized equity against its <b>frozen reference</b>, surfaces the dislocations (the "gap"), and lets <b>each user</b> instruct their own paper (<i>or real, through the vault</i>) strategy against it. Every real fill is signed, capped, and visible with its Solscan link.</p>
 
-  <h2>Accounts &amp; access (every action requires one)</h2>
-  <p>AfterHours is <b>account-gated</b>: to use any feature — strategies, paper trading, the vault, the live Solana rail, or even creating a plain-English rule — you must <b>create an account or connect a Solana wallet</b>. No anonymous execution.</p>
+  <h2>Accounts &amp; access (what needs an account)</h2>
+  <p>Market data and paper exploration are open: you can browse the live feed, open any opportunity, inspect the gap, fair-value adjustment, costs, net edge and the agent decision, and paper trade on the BNB and Bitget surfaces <b>without an account</b>. An account or connected wallet is only required for account-specific and value-moving actions (on this Solana surface: strategies, the vault, and the live rail).</p>
   <ul>
-    <li><b>Connect wallet</b> — self-custody Solana sign-in (challenge → ed25519 verify → session). Your keys never leave your wallet.</li>
-    <li><b>Create account</b> — zero-dep handle + password (scrypt-hashed, HttpOnly session cookie).</li>
-    <li><b>Wallet-confirmed actions</b> — adding a strategy is confirmed in your wallet: you sign an intent message, the server verifies the ed25519 signature over <i>your</i> wallet, and only then persists the rule. No signature, no strategy.</li>
+    <li><b>Explore, no account required</b>, live feed, opportunity detail, paper trade (BNB and Bitget surfaces).</li>
+    <li><b>Save strategy</b>, account required (this Solana surface).</li>
+    <li><b>Real execution</b>, wallet + execution configuration required.</li>
+    <li><b>Connect wallet</b>, self-custody Solana sign-in (challenge → ed25519 verify → session). Your keys never leave your wallet.</li>
+    <li><b>Create account</b>, zero-dep handle + password (scrypt-hashed, HttpOnly session cookie).</li>
+    <li><b>Wallet-confirmed actions</b>, adding a strategy is confirmed in your wallet: you sign an intent message, the server verifies the ed25519 signature over <i>your</i> wallet, and only then persists the rule. No signature, no strategy.</li>
   </ul>
-  <p><b>Per-user autonomous books.</b> Every paper account, strategy, position, decision and alert is scoped to <b>your</b> user id. The server-authoritative 60s loop ticks <b>each user's</b> book independently — your instruction drives your book, never a shared global ledger.</p>
+  <p><b>Per-user autonomous books.</b> Every paper account, strategy, position, decision and alert is scoped to <b>your</b> user id. The server-authoritative 60s loop ticks <b>each user's</b> book independently, your instruction drives your book, never a shared global ledger.</p>
 
   <h3>Try it: drive your own autonomous loop</h3>
   <ol>
-    <li><b>Sign in</b> (connect a wallet or create an account) — the 60s loop is already running server-side.</li>
+    <li><b>Sign in</b> (connect a wallet or create an account), the 60s loop is already running server-side.</li>
     <li>Open the <b>Strategy engine</b> panel and type a plain-English rule telling it what to trade, e.g.
       <ul>
         <li><i>"rotate to discounted tokenized equities"</i> → any real discount, equal-weighted</li>
@@ -68,17 +71,17 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
         <li><i>"buy AAPL on premium"</i> → rotate into the <b>premiums</b> instead of discounts</li>
       </ul>
     </li>
-    <li>Click <b>Add strategy</b> — your wallet prompts you to <b>confirm the rule on-chain</b> (an intent signature). The UI echoes back exactly what the engine understood.</li>
-    <li>Every 60s the loop rebalances <b>your</b> paper book toward that target and logs each decision in <b>Recent decisions</b>. Paper-only — no real orders are sent.</li>
+    <li>Click <b>Add strategy</b>, your wallet prompts you to <b>confirm the rule on-chain</b> (an intent signature). The UI echoes back exactly what the engine understood.</li>
+    <li>Every 60s the loop rebalances <b>your</b> paper book toward that target and logs each decision in <b>Recent decisions</b>. Paper-only, no real orders are sent.</li>
   </ol>
-  <p class="mut">Your words are load-bearing: the rule text is parsed into real strategy params (<code>direction</code>, <code>symbols</code>, <code>minGapPct</code>, <code>topN</code>) that the engine honors — not a decorative label.</p>
+  <p class="mut">Your words are load-bearing: the rule text is parsed into real strategy params (<code>direction</code>, <code>symbols</code>, <code>minGapPct</code>, <code>topN</code>) that the engine honors, not a decorative label.</p>
 
   <h2>Core data (verified live)</h2>
   <div class="card">
     <h3>Live on-chain gap ("Market never sleeps")</h3>
     <table>
       <tr><th>Source</th><th>What it gives</th><th>Status</th></tr>
-      <tr><td>Jupiter Price v3</td><td>Official xStocks channel: last-swap USD + <b>official xStocks print</b> + <b>rebase multiplier schedule</b> + pool liquidity — primary on-chain price for the gap engine</td><td><span class="pill good">LIVE</span></td></tr>
+      <tr><td>Jupiter Price v3</td><td>Official xStocks channel: last-swap USD + <b>official xStocks print</b> + <b>rebase multiplier schedule</b> + pool liquidity, primary on-chain price for the gap engine</td><td><span class="pill good">LIVE</span></td></tr>
       <tr><td>GeckoTerminal DEX index</td><td>Fallback on-chain price + 24h volume + reserve (by mint)</td><td><span class="pill good">LIVE</span></td></tr>
       <tr><td>TwelveData</td><td>NYSE reference close (AAPL by quota-safe config; more with a bigger key)</td><td><span class="pill good">LIVE</span></td></tr>
       <tr><td>PreStocks / Tessera</td><td>Cross-issuer dislocations (SPACEX priced 178% apart across issuers, verified)</td><td><span class="pill good">LIVE</span></td></tr>
@@ -87,7 +90,7 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
   </div>
 
   <h2>Weekend Gap Vault (real capital, tiny size)</h2>
-  <p>The winner-shaped capital-utilization product: deposit SOL → <b>arm</b> → while the NYSE reference is frozen the vault buys the deepest discounted xStock (hard-capped ≈$0.25/fill, curated mint allowlist, ≥50bps real gap required — it refuses to buy blind if references are down) → at the open it unwinds to SOL. A 60s keeper runs the state machine (<code>idle → armed → holding → unwind</code>) with no-churn, kill-switch, and min-volume guards.</p>
+  <p>The winner-shaped capital-utilization product: deposit SOL → <b>arm</b> → while the NYSE reference is frozen the vault buys the deepest discounted xStock (hard-capped ≈$0.25/fill, curated mint allowlist, ≥50bps real gap required, it refuses to buy blind if references are down) → at the open it unwinds to SOL. A 60s keeper runs the state machine (<code>idle → armed → holding → unwind</code>) with no-churn, kill-switch, and min-volume guards.</p>
   <div class="card">
     <h3>Verified on mainnet (2026-09-21)</h3>
     <table>
@@ -95,26 +98,26 @@ th{color:var(--mut);font-size:.72rem;letter-spacing:.08em;text-transform:upperca
       <tr><td>Test fill #1 · 0.0016 SOL → AAPLx</td><td><code>62HV8t3F…</code></td><td><span class="pill good">FINALIZED</span></td></tr>
       <tr><td>Test fill #2 · through the app API</td><td><code>2gh4uPpC…</code></td><td><span class="pill good">CONFIRMED</span></td></tr>
       <tr><td><b>Vault buy</b> · AAPLx @ gap −0.16%</td><td><code>8g18g7V3…</code></td><td><span class="pill good">FINALIZED</span></td></tr>
-      <tr><td>Wallet</td><td><code>7JL8s63F5WPXMWmbPFKN7Wn2VrsyitA4GHCWxqb4RLYg</code> — holds <b>0.00197113 AAPLx</b></td><td><span class="pill good">ON-CHAIN</span></td></tr>
-      <tr><td>Dividend/rebase accrual</td><td>Detected on-chain (xStocks are rebasing assets) — honest label, never overclaims source</td><td><span class="pill good">WIRED</span></td></tr>
+      <tr><td>Wallet</td><td><code>7JL8s63F5WPXMWmbPFKN7Wn2VrsyitA4GHCWxqb4RLYg</code>, holds <b>0.00197113 AAPLx</b></td><td><span class="pill good">ON-CHAIN</span></td></tr>
+      <tr><td>Dividend/rebase accrual</td><td>Detected on-chain (xStocks are rebasing assets), honest label, never overclaims source</td><td><span class="pill good">WIRED</span></td></tr>
     </table>
   </div>
 
   <h2>Autonomous strategy engine (paper, per-user)</h2>
-  <p>Plain-English rules (e.g. <i>"rotate to discounted tokenized equities"</i>) drive an <b>honest paper ledger</b> — integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes phantom profit structurally impossible. 60s server-authoritative loop ticks each user's book independently; every decision logged, dust-filtered alerts.</p>
+  <p>Plain-English rules (e.g. <i>"rotate to discounted tokenized equities"</i>) drive an <b>honest paper ledger</b>, integer micro-units, real fees + slippage, a <b>cost-basis guard</b> that makes phantom profit structurally impossible. 60s server-authoritative loop ticks each user's book independently; every decision logged, dust-filtered alerts.</p>
 
   <h2>Live Solana rail</h2>
   <ul>
-    <li><code>GET /api/v3/live/info</code> — wallet address + SOL balance + RPC (honest <code>configured:false</code> when no key).</li>
-    <li><code>POST /api/v3/live/probe</code> — signs + broadcasts a real 2,000-lamport self-transfer to prove the rail (returns the tx).</li>
-    <li><code>POST /api/v3/live/swap</code> — SOL → curated xStock, <b>hard-capped ≈$0.60/order + mint allowlist + rate-limited</b>; routes via Jupiter <code>/swap/v1</code> on <code>api.jup.ag</code>. Never a fabricated fill.</li>
+    <li><code>GET /api/v3/live/info</code>, wallet address + SOL balance + RPC (honest <code>configured:false</code> when no key).</li>
+    <li><code>POST /api/v3/live/probe</code>, signs + broadcasts a real 2,000-lamport self-transfer to prove the rail (returns the tx).</li>
+    <li><code>POST /api/v3/live/swap</code>, SOL → curated xStock, <b>hard-capped ≈$0.60/order + mint allowlist + rate-limited</b>; routes via Jupiter <code>/swap/v1</code> on <code>api.jup.ag</code>. Never a fabricated fill.</li>
   </ul>
 
   <h2>Authentication providers</h2>
   <ul>
-    <li><b>Native Solana</b> — self-custody wallet sign-in (challenge → ed25519 verify → session).</li>
-    <li><b>Privy</b> — managed wallet login, ID-token verified server-side (App Secret never leaves the server). Activates once <code>PRIVY_APP_ID</code> is set.</li>
-    <li><b>Handle/password</b> — zero-dep accounts + per-user watchlist.</li>
+    <li><b>Native Solana</b>, self-custody wallet sign-in (challenge → ed25519 verify → session).</li>
+    <li><b>Privy</b>, managed wallet login, ID-token verified server-side (App Secret never leaves the server). Activates once <code>PRIVY_APP_ID</code> is set.</li>
+    <li><b>Handle/password</b>, zero-dep accounts + per-user watchlist.</li>
   </ul>
 
   <h2>Architecture</h2>
@@ -126,9 +129,9 @@ scripts/ micro-swap.mjs (reusable "little-by-little" tester) · jupiter-swap.mjs
 
   <h2>Security &amp; honesty</h2>
   <ul>
-    <li>Secrets only in <code>.env</code> (gitignored); <b>API keys redacted from every surfaced error</b> (a leak was caught live and fixed — keys were appearing in public 429 messages).</li>
-    <li>Swap endpoints: mint allowlist + hard value cap + rate limit — a public caller cannot drain the wallet.</li>
-    <li>No fabricated prices or fills — every number traces to a verified live source; paper/real modes are explicit.</li>
+    <li>Secrets only in <code>.env</code> (gitignored); <b>API keys redacted from every surfaced error</b> (a leak was caught live and fixed, keys were appearing in public 429 messages).</li>
+    <li>Swap endpoints: mint allowlist + hard value cap + rate limit, a public caller cannot drain the wallet.</li>
+    <li>No fabricated prices or fills, every number traces to a verified live source; paper/real modes are explicit.</li>
     <li>Ledger guard prevents phantom NAV; vault accrual uses a self-calibrating baseline so pre-existing holdings are never mislabeled as dividends.</li>
   </ul>
 

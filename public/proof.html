@@ -35,9 +35,9 @@
 <div class="wrap">
   <span class="ah-eyebrow" style="display:inline-flex;align-items:center;gap:7px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#9c9cb6"><span style="width:6px;height:6px;border-radius:50%;background:#69f0ae;display:inline-block"></span>Proof</span>
   <h1>What's actually real here.</h1>
-  <p class="lead">Every claim below carries a status — <span class="badge live">VERIFIED LIVE</span> <span class="badge paper">PAPER</span> <span class="badge gate">GATED</span> — never a green badge over a missing integration. Data is fetched live on load; nothing is hardcoded.</p>
+  <p class="lead">Every claim below carries a status, <span class="badge live">VERIFIED LIVE</span> <span class="badge paper">PAPER</span> <span class="badge gate">GATED</span>, never a green badge over a missing integration. Data is fetched live on load; nothing is hardcoded.</p>
 
-  <h2>Live execution — BNB Smart Chain</h2>
+  <h2>Live execution, BNB Smart Chain</h2>
   <div class="card" id="execCard"><div class="muted">Loading…</div></div>
 
   <h2>Bitget data (7×24 rTokens)</h2>
@@ -62,36 +62,51 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Truthful badge classes: green ONLY for independently confirmed things. A
+// CONFIGURED / GATED / READY state is never green (that was the "READY with no
+// execution" bug). PAPER is amber. Everything else is neutral.
 const badge = (s) => {
   const u = String(s || "").toUpperCase();
-  const cls = /VERIFIED|LIVE|READY|PASS|AVAILABLE/.test(u) ? "live" : (/PAPER|COMPATIBLE|COMPATIBLE/.test(u) ? "paper" : "gate");
+  const cls = /VERIFIED|CONFIRMED|LIVE|PASS/.test(u) ? "live"
+    : (/PAPER|COMPATIBLE|AVAILABLE|READY\b/.test(u) ? "paper" : "gate");
   return `<span class="badge ${cls}">${esc(s)}</span>`;
 };
 const row = (k, v) => `<div class="row"><span class="k">${esc(k)}</span><span>${v}</span></div>`;
+const shortHash = (h) => String(h || "").slice(0, 10) + "..." + String(h || "").slice(-6);
 
 async function load() {
   let d;
   try { d = await fetch("/api/proof", { cache: "no-store" }).then((r) => r.json()); }
-  catch (e) { ["execCard", "bitgetCard", "agentCard", "sourcesCard", "mcpCard", "sponsorCard"].forEach((id) => { $("#" + id).innerHTML = `<div class="muted">Unavailable — ${esc(e.message)}</div>`; }); return; }
+  catch (e) {
+    // Human-facing error. The technical message is logged to the console only.
+    console.error("proof fetch failed:", e);
+    ["execCard", "bitgetCard", "agentCard", "sourcesCard", "mcpCard", "sponsorCard"].forEach((id) => { $("#" + id).innerHTML = `<div class="muted">Proof data is temporarily unavailable.</div>`; });
+    return;
+  }
 
-  // LIVE EXECUTION
+  // LIVE EXECUTION, verified against the chain, never from a local log alone.
   const le = d.liveExecution || {};
+  const fills = (d.liveFills || []).filter((f) => f.verified);
+  const verifiedRows = fills.map((f) =>
+    `<div class="row"><span class="k">${esc(f.pair || "spot fill")} · $${esc(f.spendUsd)}</span>`
+    + `<span class="tx"><a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(shortHash(f.txHash))} · View on BscScan</a></span></div>`
+    + row("Network", esc(f.venue) + ` · chain ${esc(f.chainId)}`)
+    + row("Status", badge("Confirmed") + (f.confirmedAt ? ` · ${new Date(f.confirmedAt).toLocaleString()}` : ""))
+    + row("Block", esc(String(f.blockNumber || "n/a")) + (f.logsCount ? ` · ${esc(String(f.logsCount))} logs` : ""))
+  ).join("");
   $("#execCard").innerHTML =
     row("Status", badge(le.status)) +
-    row("Network", esc(le.venue || "—") + (le.chainId ? ` · chain ${le.chainId}` : "")) +
+    row("Network", esc(le.venue || "n/a") + (le.chainId ? ` · chain ${le.chainId}` : "")) +
     row("Execution wallet", le.wallet ? `<span class="mono">${esc(le.wallet)}</span>` : `<span class="muted">not configured</span>`) +
-    row("Recorded live fills", String(le.count || 0)) +
-    (le.fills || []).slice(0, 5).map((f) =>
-      `<div class="row"><span class="k">${esc(f.symbol)} · $${esc(f.amountUsd)}</span>` +
-      `<span class="tx">${f.swapHash ? `<a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(String(f.swapHash).slice(0, 18))}… · view on BscScan</a>` : esc(f.error || "—")}</span></div>`
-    ).join("") ||
-    row("", `<span class="muted">No live fill recorded yet — paper environment active. Live execution runs when a funded exec wallet + Web3 key are set.</span>`);
+    row("Confirmed live fills", String(le.count || 0)) +
+    (le.note ? `<div class="muted" style="margin:4px 0 8px">${esc(le.note)}</div>` : "") +
+    (verifiedRows || row("", `<span class="muted">No confirmed fill broadcast from this surface yet. Live execution runs when a funded exec wallet + Web3 key are set.</span>`));
 
   // BITGET
   const b = d.bitget || {};
   $("#bitgetCard").innerHTML =
     row("Status", badge(b.status)) +
-    row("Universe", `${esc(b.symbols)} rToken symbols · ${esc(b.gaps)} gaps`) +
+    row("Universe", `${esc(b.symbols)} rToken symbols · ${esc(b.gaps)} gaps · ${esc(b.actionable)} actionable`) +
     row("Market factor (SPY)", b.marketFactorMovePct == null ? "n/a" : `${b.marketFactorMovePct >= 0 ? "+" : ""}${Number(b.marketFactorMovePct).toFixed(2)}%`) +
     row("Cost model", b.costModelPct == null ? "n/a" : `${Number(b.costModelPct).toFixed(2)}%`) +
     (b.top || []).map((g) => row(`Top: ${esc(g.symbol)}`, `raw ${g.raw >= 0 ? "+" : ""}${Number(g.raw).toFixed(2)}% → net ${g.net >= 0 ? "+" : ""}${Number(g.net).toFixed(2)}% · ${esc(g.decision)}`)).join("");
@@ -99,15 +114,16 @@ async function load() {
   // AGENT
   const a = d.agent || {};
   $("#agentCard").innerHTML =
-    row("Autopilot", a.armed ? badge("ARMED") : badge("DISARMED")) +
-    row("Venues", esc((a.venues || []).join(", ") || "—")) +
-    row("Model", esc(a.model || "—")) +
+    row("Autopilot", a.armed ? badge("ARMED") : badge("PAUSED")) +
+    row("Execution", badge("PAPER") + " · no real funds move") +
+    row("Venues", esc((a.venues || []).join(", ") || "n/a")) +
+    row("Model", esc(a.model || "n/a")) +
     row("Decisions logged", String(a.decisions || 0)) +
-    (a.last || []).map((x) => row(`${esc(x.venue || "")} ${esc(x.trigger || x.decision || "")}`, `source: ${esc(x.model || "—")} · ${badge(String(x.model || "").includes("stub") ? "PAPER" : "LIVE")}`)).join("");
+    (a.last || []).map((x) => row(`${esc(x.venue || "")} ${esc(x.trigger || x.decision || "")}`, `source: ${esc(x.model || "n/a")} · ${badge(String(x.model || "").includes("stub") ? "PAPER" : "LIVE")}`)).join("");
 
   // SOURCES
   $("#sourcesCard").innerHTML = (d.sources || []).map((s) => row(esc(s.name), badge(esc(s.status)))).join("")
-    + `<div class="muted" style="margin-top:8px">checked ${d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : "—"} · statuses reflect what each source returns right now</div>`;
+    + `<div class="muted" style="margin-top:8px">checked ${d.generatedAt ? new Date(d.generatedAt).toLocaleTimeString() : "n/a"} · statuses reflect what each source returns right now</div>`;
 
   // MCP + SPONSOR
   const m = d.mcp || {};

@@ -1,6 +1,6 @@
-// AfterHours — the live "market never sleeps" gap.
+// AfterHours, the live "market never sleeps" gap.
 // On-chain tokenized-equity price (xStock, 24/7, from Jupiter Price v3's
-// last-swap USD — official xStocks print embedded) vs the frozen NYSE
+// last-swap USD, official xStocks print embedded) vs the frozen NYSE
 // reference price (TwelveData). The gap is the real signal this product acts
 // on. Reference is STALE when NYSE is closed.
 import { listXStockPrices, XSTOCKS } from "../adapters/xstocks.js";

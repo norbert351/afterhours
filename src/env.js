@@ -1,6 +1,6 @@
 // Tiny .env loader (no deps). Runs BEFORE config.js is imported so keys are
 // available at import time. Never overrides an existing process.env value
-// (so Render/VM env wins — the project-env-only rule).
+// (so Render/VM env wins, the project-env-only rule).
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

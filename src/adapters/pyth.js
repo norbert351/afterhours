@@ -1,9 +1,9 @@
-// Pyth adapter — feed IDs VERIFIED to exist on Pyth Hermes (price_feeds query
+// Pyth adapter, feed IDs VERIFIED to exist on Pyth Hermes (price_feeds query
 // for AAPL returns 5 distinct live feeds). HONEST GATE: live latest-price pulls
 // returned HTTP 401 from this environment without an API key. So this adapter:
 //   • always exposes the verified feed registry (no key needed)
 //   • fetches LATEST PRICES only when PYTH_API_KEY is set (else 501)
-// Never fabricates a price — if we lack a key, we say so explicitly.
+// Never fabricates a price, if we lack a key, we say so explicitly.
 import { config } from "../config.js";
 import { cachedFetch } from "../lib/http.js";
 
@@ -26,7 +26,7 @@ export function feedRegistry() {
 // Live prices for all five AAPL feeds. Requires PYTH_API_KEY.
 // Returns per-feed status so a key that lacks a grant on a feed is reported
 // honestly (e.g. public-crypto-only keys get 403 on the tokenized-equity feeds
-// until a Pyth Pro grant covers them). Never fabricates — absent grants = error.
+// until a Pyth Pro grant covers them). Never fabricates, absent grants = error.
 export async function latestAaplPrices() {
   if (!config.sources.pyth.apiKey) {
     throw Object.assign(new Error("PYTH_API_KEY required for live Pyth prices"), { code: "PYTH_KEY_REQUIRED", status: 501 });

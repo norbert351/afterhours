@@ -1,7 +1,7 @@
-// AfterHours v4 — zero-dep accounts + watchlist (self-contained, no external IdP).
+// AfterHours v4, zero-dep accounts + watchlist (self-contained, no external IdP).
 // Pattern: zerodep-node-backend → native auth (scrypt + timingSafeEqual + HttpOnly
 // session cookie). Auth answers "who's signed in"; the wallet answers "which keys
-// move money" — separate layers.
+// move money", separate layers.
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { openStore } from "./store.js";
 
@@ -69,7 +69,7 @@ export function userFromToken(db, token) {
 // Convenience for handlers: 401 out unless a valid session is present.
 export function requireUser(req, db) {
   const u = userFromToken(db, parseCookies(req)[AUTH_COOKIE]);
-  if (!u) return { error: "not signed in — create an account or connect a wallet", status: 401 };
+  if (!u) return { error: "not signed in, create an account or connect a wallet", status: 401 };
   return u;
 }
 export function logout(db, token) {
@@ -137,8 +137,8 @@ export function createActionChallenge(address, intent) {
 export function verifyActionSignature({ address, intent, signature }) {
   const entry = ACTION_CHALLENGES.get(`${address}:${intent}`);
   ACTION_CHALLENGES.delete(`${address}:${intent}`);
-  if (!entry) return { error: "no active action challenge — request one first", status: 400 };
-  if (Date.now() > entry.expiresAt) return { error: "action challenge expired — try again", status: 400 };
+  if (!entry) return { error: "no active action challenge, request one first", status: 400 };
+  if (Date.now() > entry.expiresAt) return { error: "action challenge expired, try again", status: 400 };
   try {
     const pub = bs58.decode(address);
     const sigBytes = Array.isArray(signature) ? Uint8Array.from(signature) : bs58.decode(String(signature));
@@ -155,8 +155,8 @@ export function walletUserByAddress(db, address) { return db.prepare("SELECT * F
 
 export function walletSignIn(db, { address, signature }) {
   const challenge = CHALLENGES.get(address);
-  if (!challenge) return { error: "no active challenge — request one first", status: 400 };
-  if (Date.now() > challenge.expiresAt) { CHALLENGES.delete(address); return { error: "challenge expired — try again", status: 400 }; }
+  if (!challenge) return { error: "no active challenge, request one first", status: 400 };
+  if (Date.now() > challenge.expiresAt) { CHALLENGES.delete(address); return { error: "challenge expired, try again", status: 400 }; }
   try {
     const pub = bs58.decode(address);        // 32-byte ed25519 public key
     const sigBytes = Array.isArray(signature) ? Uint8Array.from(signature) : bs58.decode(String(signature));

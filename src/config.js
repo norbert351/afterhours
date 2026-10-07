@@ -1,11 +1,11 @@
-// AfterHours configuration — all data sources are documented + verified in README.
+// AfterHours configuration, all data sources are documented + verified in README.
 // Every value below was verified live against the real upstream before shipping.
 import "process";
 
 export const config = {
   port: Number(process.env.PORT || 8080),
 
-  // Cache lifetime for upstream calls (seconds) — we hit sponsor APIs politely,
+  // Cache lifetime for upstream calls (seconds), we hit sponsor APIs politely,
   // then serve fast reads from memory. Tune low during live trading.
   cacheTtlMs: Number(process.env.AH_CACHE_TTL_MS || 30_000),
 

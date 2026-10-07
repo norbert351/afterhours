@@ -1,4 +1,4 @@
-// Oracle — pulls every verified source and normalizes into ONE universe.
+// Oracle, pulls every verified source and normalizes into ONE universe.
 // Real data only; a source failure is surfaced per-source, never faked.
 import { listPreStocks } from "../adapters/prestocks.js";
 import { listTessera } from "../adapters/tessera.js";

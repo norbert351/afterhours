@@ -1,4 +1,4 @@
-// Twelve Data adapter — REAL, verified. Free demo key provides live NYSE
+// Twelve Data adapter, REAL, verified. Free demo key provides live NYSE
 // reference prices (market-hours aware). GET /price?symbol=AAPL&apikey=demo
 // verified returning {"price":"335.59"} during this build.
 // This is the "frozen reference" anchor: while the market is CLOSED this price
@@ -49,7 +49,7 @@ export async function listReferencePrices() {
   return out;
 }
 
-// Batched reference fetch — ONE request for many symbols (avoids per-request
+// Batched reference fetch, ONE request for many symbols (avoids per-request
 // rate-limits so every rToken gets a live frozen reference).
 export async function batchReferencePrices(symbols = []) {
   const uniq = [...new Set(symbols.map((s) => String(s).toUpperCase()).filter(Boolean))];

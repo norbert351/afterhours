@@ -1,5 +1,5 @@
-// bnb-exec.js — LIVE spot execution on BSC for the AfterHours BNB build.
-// Spends the BNB execution wallet (AH_BNB_EXEC_PRIVATE_KEY, in .env — never
+// bnb-exec.js, LIVE spot execution on BSC for the AfterHours BNB build.
+// Spends the BNB execution wallet (AH_BNB_EXEC_PRIVATE_KEY, in .env, never
 // printed). Flow: aggregator quote → swap calldata → approve USDT to the router
 // → broadcast the swap tx on BSC. This is the "it actually trades" proof.
 import { createWalletClient, createPublicClient, http } from "viem";
@@ -8,7 +8,7 @@ import { bsc } from "viem/chains";
 import { bnbWeb3Call, USDT_BSC, BSC_RPC } from "../adapters/bsc.js";
 import fs from "node:fs";
 
-// Live-execution proof log — every real BSC fill is persisted here so the Proof
+// Live-execution proof log, every real BSC fill is persisted here so the Proof
 // page can surface it. Never fabricated: only records an actual broadcast result.
 const EXEC_LOG = new URL("../../data/bnb-exec.json", import.meta.url).pathname;
 function readExecLog() { try { return JSON.parse(fs.readFileSync(EXEC_LOG, "utf8")); } catch { return []; } }
