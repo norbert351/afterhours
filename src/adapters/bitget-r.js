@@ -30,7 +30,7 @@ export async function bitgetRTickers() {
     if (!s.startsWith("R") || !s.endsWith("USDT")) continue;
     const us = s.slice(1, -4); // RTSLAUSDT -> TSLA
     if (!/[A-Z0-9]{1,6}/.test(us)) continue;
-    r.set(us, { rSymbol: s, priceUsd: Number(t.lastPr) || 0, change24h: Number(t.change24h) || 0 });
+    r.set(us, { rSymbol: s, priceUsd: Number(t.lastPr) || 0, change24h: Number(t.change24h) || 0, volumeUsd24h: Number(t.usdtVolume ?? t.quoteVolume ?? 0) || 0 });
   }
   cache = r;
   cacheAt = Date.now();

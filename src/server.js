@@ -25,6 +25,7 @@ import { parseStrategyInstruction } from "./services/strategy-parse.js";
 import * as bnb from "./services/bnb.js";
 import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
 import { bnbExecuteSwap, bnbExecAddress, listBnbExecs, bnbExecConfigured } from "./services/bnb-exec.js";
+import { verifyLiveFills } from "./services/live-verify.js";
 import { requireBnbGapPayment, merchantPayTo, merchantPriceUsd } from "./services/bnb-x402.js";
 import * as bnbAgent from "./services/bnb-agent.js";
 import * as bitgetArb from "./services/bitget-arb.js";
@@ -448,21 +449,35 @@ app.get("/api/cross-venue", wrap(async (_req, res) => res.json(await crossVenue.
 // ---- Proof (Phase 23): judge-facing honest status across every surface ----
 app.get("/api/proof", wrap(async (_req, res) => {
   const execs = listBnbExecs(20);
-  const bitget = await bitgetArb.bitgetArbUniverse().catch(() => null);
+  const [bitget, liveFills] = await Promise.all([
+    bitgetArb.bitgetArbUniverse().catch(() => null),
+    verifyLiveFills().catch(() => []),
+  ]);
   const s = sleepAgent.status();
   const decs = sleepAgent.listSleepDecisions(10);
+  const confirmed = liveFills.filter((f) => f.verified);
+  const execConfigured = bnbExecConfigured() && bnbWeb3Configured();
   res.json({
     generatedAt: Date.now(),
     liveExecution: {
       venue: "BNB Smart Chain (BSC)", chainId: 56,
       wallet: bnbExecConfigured() ? bnbExecAddress() : null,
-      configured: bnbExecConfigured() && bnbWeb3Configured(),
-      count: execs.length, fills: execs,
-      status: execs.length ? "VERIFIED LIVE" : (bnbExecConfigured() ? "READY — no live fill recorded yet" : "NOT CONFIGURED"),
+      configured: execConfigured,
+      count: confirmed.length, fills: execs,
+      // Explicit states (never a green READY with no execution): VERIFIED when the
+      // chain confirms a fill, CONFIGURED when the wallet/key are set but nothing has
+      // been broadcast, GATED when a required config is missing.
+      status: confirmed.length ? "VERIFIED" : (execConfigured ? "CONFIGURED" : "GATED"),
+      note: confirmed.length
+        ? `${confirmed.length} confirmed fill(s) verified on BSC mainnet.`
+        : (execConfigured ? "Execution wallet + Web3 key are set. No confirmed fill broadcast from this surface yet."
+          : "A funded BSC execution wallet and Web3 key are required before a live fill can be broadcast."),
     },
+    liveFills,
     bitget: bitget ? {
       status: "LIVE", symbols: bitget.universe, gaps: (bitget.gaps || []).length,
       marketFactorMovePct: bitget.marketFactorMovePct, costModelPct: bitget.costModelPct,
+      actionable: bitget.actionableCount,
       top: (bitget.gaps || []).slice(0, 3).map((g) => ({ symbol: g.symbol, raw: g.gapPct, net: g.netEdgePct, decision: g.decision })),
     } : { status: "UNAVAILABLE" },
     agent: { armed: s.armed, venues: s.venues, model: s.model, decisions: decs.length, last: decs.slice(0, 3) },
@@ -474,7 +489,7 @@ app.get("/api/proof", wrap(async (_req, res) => {
       { name: "Qwen (agent)", status: s.qwen || "unknown" },
       { name: "Hermes (fallback)", status: "FALLBACK READY" },
     ],
-    mcp: { available: true, tools: ["bnb_gap", "bnb_quote", "bnb_status"], note: "MCP server (stdio) — run `npm run bnb-mcp`." },
+    mcp: { available: true, tools: ["bnb_gap", "bnb_quote", "bnb_status"], note: "MCP server (stdio). Run: npm run bnb-mcp" },
     sponsor: {
       agentStudio: { status: "COMPATIBLE", note: "MCP server registers in BNB Agent Studio; x402 self-funding wired at /api/bnb/agent/gap." },
       agenticWallet: { status: "COMPATIBLE", note: "MCP/Skills surface: bnb_gap / bnb_quote / bnb_status." },

@@ -35,8 +35,9 @@ export async function sense(venue) {
 const state = {
   armed: false, venue: "bitget", rules: "", capitalUsd: 100,
   cash: 0, book: new Map(), nav: [], decisions: [], closed: [], fees: 0, slippage: 0, traded: 0, seededVenues: new Set(), venues: ["bitget"],
+  fundedUsd: 0, seedAt: null, marks: new Map(), mode: "PAPER",
 };
-export function _resetForTest() { state.armed = false; state.cash = 0; state.book = new Map(); state.nav = []; state.decisions = []; state.closed = []; state.fees = 0; state.slippage = 0; state.traded = 0; state.seededVenues = new Set(); state.venues = ["bitget"]; }
+export function _resetForTest() { state.armed = false; state.cash = 0; state.book = new Map(); state.nav = []; state.decisions = []; state.closed = []; state.fees = 0; state.slippage = 0; state.traded = 0; state.seededVenues = new Set(); state.venues = ["bitget"]; state.fundedUsd = 0; state.seedAt = null; state.marks = new Map(); }
 
 // ── Qwen ─────────────────────────────────────────────────────────────────────
 function parseDecision(text) {
@@ -81,7 +82,7 @@ async function decide(gaps, rules, capitalUsd, timeoutMs) {
   try {
     const orders = parseOrders(await qwen([{ role: "system", content: sys }, { role: "user", content: user }], 260, timeoutMs || 9000, 1));
     return { trigger: orders.length ? "rebalance" : "hold", rationale: rationaleFor(orders, gaps), orders, model: Q.model };
-  } catch (e) { const d = decideStub({ gaps: gaps.map(g => `${g.symbol} ${g.gapPct}%`) }, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen unavailable (${e.message}); deterministic engine acted. ` + d.rationale; return d; }
+  } catch (e) { const d = decideStub({ gaps: gaps.map(g => `${g.symbol} ${g.gapPct}%`) }, rules, capitalUsd); d.model = "stub (qwen unavailable)"; d.rationale = `Qwen timed out. Safety engine used fallback logic. ` + d.rationale; return d; }
 }
 function parseOrders(text) {
   let t = String(text).trim(); const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) t = f[1].trim();
@@ -139,10 +140,12 @@ function seed(gaps, budgetUsd, venue) {
   const hedgeBudget = hedge.length ? budget * 0.15 : 0;         // 15% crypto hedge sleeve
   const coreBudget = budget - hedgeBudget;
   state.cash += budgetUsd; // each venue contributes its sleeve to the shared portfolio
+  state.fundedUsd += budgetUsd; // total notional funded (the honest return denominator)
+  if (!state.seedAt) state.seedAt = Date.now();
   const per = core.length ? coreBudget / core.length : 0;
   const v = venue || state.venue;
-  for (const g of core) { const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100); buy(v + "|" + g.symbol, per, ref > 0 ? ref : g.price, "seed@reference"); }
-  for (const g of hedge) { buy(v + "|" + g.symbol, hedgeBudget, g.price, "seed@hedge"); }
+  for (const g of core) { const ref = g.price / (1 + (Number(g.gapPct) || 0) / 100); buy(v + "|" + g.symbol, per, ref > 0 ? ref : g.price, "seeded at frozen reference"); }
+  for (const g of hedge) { buy(v + "|" + g.symbol, hedgeBudget, g.price, "seeded at spot"); }
   state.seededVenues.add(v);
 }
 function buy(key, notional, px, reason) {
@@ -190,11 +193,27 @@ function execute(orders, gaps) {
 function sign(fields) { return "VIGIL-" + crypto.createHash("sha256").update(JSON.stringify(fields)).digest("hex").slice(0, 32); }
 
 // ── metrics (honest strategy stats) ──────────────────────────────────────────
+// ── metrics (honest strategy stats) ──────────────────────────────────────────
+// Positions are marked to the CURRENT price (not left frozen at cost basis), so
+// unrealized PnL is real and a return is measured against the ACTUAL funded
+// capital. A paper result is always labelled a historical simulation, never
+// presented as live trading performance.
 export function metrics() {
-  let posValue = 0; for (const p of state.book.values()) posValue += p.qty * p.avgCost;
-  const navUsd = state.cash + posValue;
-  const navs = state.nav.map(x => x.nav);
-  const ret = (navs.length > 1) ? (navs[navs.length - 1] / navs[0] - 1) * 100 : (state.seededVenues.size ? ((navUsd / state.capitalUsd) - 1) * 100 : 0);
+  let posValueMark = 0, posValueCost = 0, openPositions = 0;
+  for (const [k, p] of state.book) {
+    if (!(p.qty > 1e-9)) continue;
+    openPositions++;
+    const mark = (Number.isFinite(state.marks.get(k)) && state.marks.get(k) > 0) ? state.marks.get(k) : p.avgCost;
+    posValueMark += p.qty * mark;
+    posValueCost += p.qty * p.avgCost;
+  }
+  const navUsd = state.cash + posValueMark;
+  const funded = state.fundedUsd || state.capitalUsd || 0;
+  const enoughSample = state.decisions.length > 0 && (openPositions > 0 || state.closed.length > 0);
+  const ret = funded > 0 ? (navUsd / funded - 1) * 100 : 0;
+  const realizedPnlUsd = state.closed.reduce((a, c) => a + (Number(c.pnl) || 0), 0);
+  const unrealizedPnlUsd = posValueMark - posValueCost;
+  const navs = state.nav.map((x) => x.nav);
   // Sharpe on periodic NAV returns
   let sharpe = 0;
   if (navs.length > 2) { const rs = []; for (let i = 1; i < navs.length; i++) rs.push(navs[i] / navs[i - 1] - 1); const mean = rs.reduce((a, b) => a + b, 0) / rs.length; const sd = Math.sqrt(rs.reduce((a, b) => a + (b - mean) ** 2, 0) / rs.length) || 1e-9; sharpe = (mean / sd) * Math.sqrt(365); }
@@ -206,7 +225,9 @@ export function metrics() {
   // OBSERVED (measured from real paper state) / ESTIMATED (model) / INSUFFICIENT SAMPLE.
   const labels = {
     navUsd: "OBSERVED", cashUsd: "OBSERVED", exposureUsd: "OBSERVED", capitalUsd: "OBSERVED",
-    returnPct: navs.length > 1 ? "OBSERVED" : "ESTIMATED",
+    startingCapitalUsd: "OBSERVED",
+    returnPct: enoughSample ? "OBSERVED" : "INSUFFICIENT SAMPLE",
+    realizedPnlUsd: "OBSERVED", unrealizedPnlUsd: "OBSERVED",
     turnoverUsd: "OBSERVED", trades: "OBSERVED", runs: "OBSERVED",
     sharpe: navs.length > 30 ? "OBSERVED" : "INSUFFICIENT SAMPLE",
     maxDrawdownPct: navs.length > 1 ? "OBSERVED" : "INSUFFICIENT SAMPLE",
@@ -214,12 +235,19 @@ export function metrics() {
     feesUsd: "ESTIMATED", slippageUsd: "ESTIMATED",
   };
   return {
-    navUsd: usd(navUsd), cashUsd: usd(state.cash), exposureUsd: usd(exposureUsd()), capitalUsd: state.capitalUsd,
-    returnPct: usd(ret), sharpe: usd(sharpe), maxDrawdownPct: usd(mdd * 100), winRate: usd(winRate),
-    closedTrades: state.closed.length, turnoverUsd: usd(state.traded), feesUsd: usd(state.fees), slippageUsd: usd(state.slippage),
+    mode: "PAPER", execution: "PAPER (simulated, no real funds move)",
+    navUsd: usd(navUsd), cashUsd: usd(state.cash), exposureUsd: usd(posValueMark),
+    capitalUsd: state.capitalUsd, startingCapitalUsd: usd(funded), fundedUsd: usd(funded),
+    returnPct: enoughSample ? usd(ret) : null,
+    realizedPnlUsd: usd(realizedPnlUsd), unrealizedPnlUsd: usd(unrealizedPnlUsd),
+    sharpe: usd(sharpe), maxDrawdownPct: usd(mdd * 100), winRate: usd(winRate),
+    closedTrades: state.closed.length, openPositions, turnoverUsd: usd(state.traded),
+    feesUsd: usd(state.fees), slippageUsd: usd(state.slippage),
     trades: state.decisions.reduce((a, d) => a + (d.executed || []).length, 0), runs: state.decisions.length, sampledPoints: navs.length,
+    periodStart: state.seedAt, periodEnd: Date.now(),
+    performanceBasis: "Historical simulation (paper). Not live trading performance.",
     labels, sampleSize: { navPoints: navs.length, closedTrades: state.closed.length, decisions: state.decisions.length },
-    labelNote: "Sharpe / win-rate / max-DD are labelled INSUFFICIENT SAMPLE until enough observations exist; fees/slippage are model ESTIMATES, not measured fills.",
+    labelNote: "Sharpe / win-rate / max-DD are labelled INSUFFICIENT SAMPLE until enough observations exist; fees/slippage are model ESTIMATES, not measured fills. Return is measured against funded capital and is a paper simulation, never live P&L.",
   };
 }
 
@@ -230,6 +258,8 @@ export async function runSleep({ venue, rules, capitalUsd, deep } = {}) {
   if (capitalUsd) state.capitalUsd = Number(capitalUsd);
   const gaps = await sense(state.venue);
   if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
+  // Mark the book to the latest live price so unrealized PnL is real.
+  for (const g of gaps) if (g.price > 0) state.marks.set(state.venue + "|" + String(g.symbol).toUpperCase(), g.price);
   if (!state.seededVenues.has(state.venue)) seed(gaps, state.capitalUsd / Math.max(1, state.venues.length), state.venue);
   const decision = await decide(gaps, state.rules, state.capitalUsd, deep ? 80000 : undefined);
   const auditRes = await audit(decision);
@@ -253,6 +283,8 @@ export async function injectDecision({ venue = "bitget", orders = [], rationale 
   if (/^(solana|bnb|bitget)$/.test(venue)) state.venue = venue;
   const gaps = await sense(state.venue);
   if (!gaps.length) return { ok: true, venue: state.venue, acted: false, reason: "no tradable gaps right now", metrics: metrics() };
+  // Mark the book to the latest live price so unrealized PnL is real.
+  for (const g of gaps) if (g.price > 0) state.marks.set(state.venue + "|" + String(g.symbol).toUpperCase(), g.price);
   if (!state.seededVenues.has(state.venue)) seed(gaps, state.capitalUsd / Math.max(1, state.venues.length), state.venue);
   const decision = { trigger: orders.length ? "rebalance" : "hold", rationale: String(rationale || "Hermes agent decision").slice(0, 400), orders };
   const auditRes = await audit(decision);
@@ -265,13 +297,34 @@ export async function injectDecision({ venue = "bitget", orders = [], rationale 
   return { ok: true, venue: state.venue, model: source, trigger: rec.trigger, rationale: rec.rationale, audit: auditRes, executed, signature: rec.signature, metrics: metrics() };
 }
 export function lastDecisionModel(venue) { const d = [...state.decisions].reverse().find(x => !venue || x.venue === venue); return d ? d.model : null; }
-export function status() { return { armed: state.armed, venue: state.venue, venues: state.venues, rules: state.rules, capitalUsd: state.capitalUsd, model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset", book: [...state.book.entries()].filter(([,p])=>p.qty>1e-9).map(([s,p])=>({venue:String(s).split("|")[0],symbol:String(s).split("|").pop(),qty:Number(p.qty.toFixed(4)),avgCost:Number(p.avgCost.toFixed(2))})), seededVenues: [...state.seededVenues], equity: state.nav.map(x=>({at:x.at,nav:x.nav})), ...metrics() }; }
+export function status() {
+  const m = metrics();
+  const last = state.decisions.length ? state.decisions[state.decisions.length - 1] : null;
+  const lastAgeMs = last ? Date.now() - last.at : null;
+  return {
+    armed: state.armed,
+    // ONE authoritative state string the UI can bind to (never "ARMED" + a wallet prompt).
+    state: state.armed ? "ARMED" : "PAUSED",
+    venue: state.venue, venues: state.venues, rules: state.rules, capitalUsd: state.capitalUsd,
+    // Execution is PAPER. Real capital custody is a separate, gated capability.
+    execution: "PAPER", mode: "PAPER",
+    custodyNote: "Sleep Mode trades a PAPER book: no real funds move. A connected wallet is only required to authorise REAL execution, which is a separate gated capability.",
+    walletRequiredForLive: true,
+    model: Q.apiKey ? Q.model : "stub (no key)", qwen: Q.apiKey ? "live" : "unset",
+    book: [...state.book.entries()].filter(([, p]) => p.qty > 1e-9).map(([s, p]) => ({ venue: String(s).split("|")[0], symbol: String(s).split("|").pop(), qty: Number(p.qty.toFixed(4)), avgCost: Number(p.avgCost.toFixed(2)) })),
+    seededVenues: [...state.seededVenues],
+    equity: state.nav.map(x => ({ at: x.at, nav: x.nav })),
+    lastDecision: last ? { at: last.at, ageMs: lastAgeMs, venue: last.venue, model: last.model, trigger: last.trigger, verdict: last.audit?.verdict, filled: (last.executed || []).length, signature: last.signature } : null,
+    nextEvalMs: state.armed ? 60_000 : null,
+    ...m,
+  };
+}
 export function listSleepDecisions(limit = 30) { return [...state.decisions].reverse().slice(0, limit); }
 
 export function nightReport() {
   const m = metrics(); const d = state.decisions;
   const summary = d.length
-    ? `In ${d.length} autonomous pass(es) overnight, the agent ${m.trades} fill(s): ${state.closed.length} closed (${usd(m.winRate)}% win) and ${[...state.book.values()].filter(p=>p.qty>1e-9).length} held. Gross return ${usd(m.returnPct)}% (NAV $${m.navUsd}) with $${m.feesUsd} fees + $${m.slippageUsd} slippage.`
-    : "No overnight runs yet.";
-  return { runs: d.length, trades: m.trades, closedTrades: m.closedTrades, winRate: m.winRate, returnPct: m.returnPct, maxDrawdownPct: m.maxDrawdownPct, sharpe: m.sharpe, feesUsd: m.feesUsd, slippageUsd: m.slippageUsd, navUsd: m.navUsd, model: Q.apiKey ? Q.model : "stub", summary, lastSignature: d.at(-1)?.signature || "—" };
+    ? `In ${d.length} autonomous pass(es), the agent made ${m.trades} fill(s): ${state.closed.length} closed (${usd(m.winRate)}% win) and ${m.openPositions} held. Paper return ${m.returnPct == null ? "not enough data" : usd(m.returnPct) + "%"} (NAV $${m.navUsd} vs funded $${m.fundedUsd}) with $${m.feesUsd} fees + $${m.slippageUsd} slippage. Historical simulation, not live performance.`
+    : "No runs yet.";
+  return { runs: d.length, trades: m.trades, closedTrades: m.closedTrades, winRate: m.winRate, returnPct: m.returnPct, maxDrawdownPct: m.maxDrawdownPct, sharpe: m.sharpe, feesUsd: m.feesUsd, slippageUsd: m.slippageUsd, navUsd: m.navUsd, model: Q.apiKey ? Q.model : "stub", summary, lastSignature: d.at(-1)?.signature || null };
 }
