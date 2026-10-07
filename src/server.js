@@ -667,7 +667,14 @@ app.get("/now", (_req, res) => res.sendFile(path.join(__dirname, "..", "public",
 app.get("/bitget", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "bitget.html")));
 app.get("/docs", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "docs.html")));
 app.get("/proof", (_req, res) => res.sendFile(path.join(__dirname, "..", "public", "proof.html")));
-app.use(express.static(path.join(__dirname, "..", "public"), { setHeaders: (res, p) => res.set("Cache-Control", String(p).endsWith(".html") ? "no-cache, must-revalidate" : "public, max-age=300") }));
+app.use(express.static(path.join(__dirname, "..", "public"), { setHeaders: (res, p) => {
+  const f = String(p);
+  // HTML is always revalidated, and the shared shell assets are BOTH versioned
+  // (?v=<content-hash>, see scripts/stamp-assets.mjs) AND revalidated, so a deployed
+  // client can never keep a stale ah-shell.js / ah-ui.css after a release.
+  if (f.endsWith(".html") || /\/(ah-shell\.js|ah-ui\.css)$/.test(f)) return res.set("Cache-Control", "no-cache, must-revalidate");
+  return res.set("Cache-Control", "public, max-age=300");
+} }));
 
 export function start() {
   return app.listen(config.port, () => {

@@ -12,7 +12,8 @@
     "dev": "node --watch --dns-result-order=ipv4first src/index.js",
     "bnb-mcp": "node --dns-result-order=ipv4first src/mcp/bnb-mcp.js",
     "verify": "node --dns-result-order=ipv4first scripts/verify-data.js",
-    "test": "node --test --dns-result-order=ipv4first test/*.test.mjs"
+    "test": "node --test --dns-result-order=ipv4first test/*.test.mjs",
+    "stamp": "node scripts/stamp-assets.mjs"
   },
   "main": "src/index.js",
   "dependencies": {

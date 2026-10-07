@@ -7,7 +7,7 @@
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/ah-ui.css">
+<link rel="stylesheet" href="/ah-ui.css?v=a871cb9990">
 <style>
 :root{--bg:#0a0a0f;--panel:#14141c;--panel2:#0e0e15;--line:#26262f;--txt:#f5f3fa;--mut:#9a9aaa;--acc:#5546ff;--up:#69f0ae;--down:#ff7a8a;--warn:#f0b23c;--mono:ui-monospace,Menlo,monospace;--sans:'Inter',sans-serif;--display:'Space Grotesk',sans-serif}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6}
@@ -97,7 +97,7 @@ th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Opportunity"></div>
 </div>
 <script>window.AH = { route: "now", chain: null, action: "openapp", showChain: true };</script>
-<script src="/ah-shell.js"></script>
+<script src="/ah-shell.js?v=a871cb9990"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

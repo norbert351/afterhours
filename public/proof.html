@@ -7,7 +7,7 @@
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/ah-ui.css">
+<link rel="stylesheet" href="/ah-ui.css?v=a871cb9990">
 <style>
   body{background:#0a0a0f;color:#f5f3fa;font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
   .wrap{max-width:980px;margin:0 auto;padding:24px 18px 60px}
@@ -58,7 +58,7 @@
   <p class="muted" style="margin-top:24px">AfterHours · proof surface · fetched live from <span class="mono">/api/proof</span>. Statuses reflect what the code + external APIs actually return right now.</p>
 </div>
 <script>window.AH = { route: "proof", chain: "bnb", action: "wallet", showChain: false };</script>
-<script src="/ah-shell.js"></script>
+<script src="/ah-shell.js?v=a871cb9990"></script>
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

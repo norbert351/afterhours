@@ -5,7 +5,7 @@
 <link rel="icon" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/ah-ui.css">
+<link rel="stylesheet" href="/ah-ui.css?v=a871cb9990">
 <style>
 .hero{padding:32px 24px}
 label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:14px 0 6px}
@@ -27,6 +27,8 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
 .log .d{padding:9px 2px;border-bottom:1px solid var(--line)}
 .log b{color:var(--text)}.log .up{color:var(--good)}.log .down{color:var(--bad)}
 .armrow{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.gate-hint{display:flex;gap:8px;align-items:flex-start;margin:12px 0 0;padding:10px 12px;border:1px solid rgba(240,178,60,.4);background:rgba(240,178,60,.08);border-radius:10px;color:var(--muted);font-size:12.5px;line-height:1.5;max-width:640px}
+.gate-hint[hidden]{display:none}
 .badge{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--muted)}
 .badge.live{border-color:rgba(74,222,128,.4);color:var(--good)}
 </style></head><body>
@@ -77,6 +79,7 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
       <button class="ah-btn" id="runBtn">▶ Run a pass</button>
       <button class="ah-btn ghost" id="armBtn">⟳ Arm Sleep Mode</button>
     </div>
+    <p class="gate-hint" id="gateHint" role="status" aria-live="polite" hidden></p>
     <div class="ah-state" id="runState" style="display:none"></div>
   </section>
 
@@ -124,7 +127,7 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
   <footer class="foot">AfterHours Sleep Mode · Qwen decision-maker + auditor · paper ledger, fees + slippage · © 2026</footer>
 </div>
 <script>window.AH = { route: "sleep", action: "openapp", showChain: false };</script>
-<script src="/ah-shell.js"></script>
+<script src="/ah-shell.js?v=a871cb9990"></script>
 <script>
 const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
@@ -245,7 +248,7 @@ function composeRules(){
 ['minEdge','maxLoss','turnover','mode','rules'].forEach(id=>{const e=document.getElementById(id);if(e){e.addEventListener('change',composeRules);e.addEventListener('input',composeRules);}});
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
-function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';const rb=$('#runBtn'),ab=$('#armBtn');if(rb){rb.disabled=show;rb.title=show?'Connect a wallet to run the paper agent. No real funds move.':'';}if(ab){ab.disabled=show;ab.title=show?'Connect a wallet to arm the autopilot. No real funds move.':'';}const sb=$('#stateBadge');if(sb&&show){sb.textContent='○ PAUSED · wallet not connected';sb.className='badge';}}
+function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';const rb=$('#runBtn'),ab=$('#armBtn');if(rb){rb.disabled=show;rb.title=show?'Connect a wallet to run the paper agent. No real funds move.':'';}if(ab){ab.disabled=show;ab.title=show?'Connect a wallet to arm the autopilot. No real funds move.':'';}const gh=$('#gateHint');if(gh){gh.hidden=!show;gh.textContent=show?'Run a pass and Arm need a connected wallet: the agent acts on your account. Paper mode moves no real funds.':'';}const sb=$('#stateBadge');if(sb&&show){sb.textContent='○ PAUSED · wallet not connected';sb.className='badge';}}
 $('#gateConnect').addEventListener('click',()=>{location.href='/app';});
 async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
 function _srcLine(model){const m=String(model||'').toLowerCase();if(m.includes('hermes'))return{t:'Hermes fallback',c:'live'};if(m.includes('stub')||m.includes('deterministic')||m.includes('unavailable'))return{t:'deterministic safety engine',c:''};if(m.includes('qwen'))return{t:'Qwen',c:'live'};return{t:model||'agent',c:''};}
