@@ -16,8 +16,7 @@ of the score being judge-assessed architecture / explainability / risk control.)
 | **Competition Sub-theme** | Open Theme |
 | **Project Name** | AfterHours |
 | **One-line Project Summary** | see below (≤140 chars) |
-| **Did this team participate in S1?** | **Yes** (see "Material Additions Since S1") |
-| **Material Additions Since S1** | see below |
+| **Did this team participate in S1?** | **No** |
 | **Apply for Post-event Kimi K3 Token Credits** | Yes |
 | **Open to Playbook Review and Listing Discussion** | Yes |
 
@@ -256,22 +255,16 @@ X post: <PASTE YOUR X POST URL HERE>
 **<PASTE YOUR X POST URL>** — must contain `#BitgetHackathon` + `@Bitget_AI` and quote
 https://x.com/Bitget_AI/status/2100519318824055159 , and introduce the product (not a bare repost).
 
-## MATERIAL ADDITIONS SINCE S1  *(only if "participated in S1 = Yes")*
-> We entered S1 with a different project (VIGIL, cross-asset execution). **AfterHours is a new,
-> independent project for S2**, not a rename: new Bitget rToken data leg, a new residual fair-value
-> engine and cost model, a new autonomous agent loop (Qwen + audit + fallback), a new paper ledger and
-> a new real-data backtest harness. If the judge treats this as an S1 continuation, the substantive
-> additions are: the Bitget rToken adapter, the closed-market window logic, the risk-gate/refusal
-> layer, the agent audit pass, and the honest backtest finding (no alpha in the naive form).
-> If the team entered S1 with a *different* Bitget entry, adjust the first sentence accordingly.
+## MATERIAL ADDITIONS SINCE S1
+**N/A — this team did not participate in S1** (answer to "Did this team participate in S1?" = **No**).
+Leave this field blank in the form.
 
 ---
 
 ## STILL GATED ON YOU
 1. **X post URL** (required; must carry `#BitgetHackathon` + `@Bitget_AI` and quote the Bitget post).
-2. **S1 Yes/No** — confirm whether this team entered S1 (and with which project) so the
-   "Material Additions" answer is accurate.
-3. **University name** (optional) if you want the University pool.
-4. Confirm the **track choice** (Agentic Trading · Open Theme) — if you prefer Alpha Factory, the only
+   Draft copy is in `docs/X-POST-DRAFT.md`.
+2. **University name** (optional) if you want the University pool.
+3. Confirm the **track choice** (Agentic Trading · Open Theme) — if you prefer Alpha Factory, the only
    change is the sub-theme line and swapping Part 1's positioning; the backtest metrics above are the
    (negative) truth either way.
