@@ -126,14 +126,18 @@ export function bitgetPaperAction({ gaps, amountUsd = 100 } = {}) {
   if (!act) {
     const decision = top.decision === "WATCH" ? "WATCH" : "WAIT";
     const reason = top.reason || `No actionable edge. Top dislocation ${top.symbol} is a ${top.decision.toLowerCase()}, not an executable trade.`;
-    const rec = { at: Date.now(), id: `${decision}-${top.symbol}-${Date.now()}`, venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, decision, reason, notionalUsd: 0, model: "residual-fairvalue-rule" };
+    const rec = { at: Date.now(), id: `${decision}-${top.symbol}-${Date.now()}`, venue: "bitget", symbol: top.symbol, rSymbol: top.rSymbol, side: decision, decision, priceUsd: Number(top.rTokenPriceUsd) || null, qty: 0, notionalUsd: 0, balanceDeltaUsd: 0, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason, model: "residual-fairvalue-rule" };
     recordDecision(rec);
     return { acted: false, decision, target: top.symbol, rawGapPct: top.gapPct, residualGapPct: top.residualGapPct, netEdgePct: top.netEdgePct, reason };
   }
   const action = act.decision; // ROTATE | BUY (spot)
   const leg = action === "ROTATE" ? rotationLeg(pool, act.symbol) : null;
   const label = actionLabel({ decision: action, symbol: act.symbol, leg, amountUsd });
-  recordDecision({ at: Date.now(), id: `${action}-${act.symbol}-${Date.now()}`, venue: "bitget", symbol: act.symbol, rSymbol: act.rSymbol, rawGapPct: act.gapPct, residualGapPct: act.residualGapPct, netEdgePct: act.netEdgePct, action, from: act.symbol, to: leg ? leg.symbol : null, actionLabel: label, notionalUsd: amountUsd, model: "residual-fairvalue-rule" });
-  return { acted: true, decision: action, target: act.symbol, from: act.symbol, to: leg ? leg.symbol : null, actionLabel: label, rawGapPct: act.gapPct, residualGapPct: act.residualGapPct, costPct: act.costPct, netEdgePct: act.netEdgePct, side: action, notionalUsd: amountUsd, reason: act.reason };
+  const price = Number(act.rTokenPriceUsd) || null;
+  const qty = price ? Number((amountUsd / price).toFixed(6)) : null;
+  // Round-trip rotation leaves cash flat; a spot BUY deploys notional (paper cash out).
+  const balanceDelta = action === "BUY" ? -amountUsd : 0;
+  recordDecision({ at: Date.now(), id: `${action}-${act.symbol}-${Date.now()}`, venue: "bitget", symbol: act.symbol, rSymbol: act.rSymbol, side: action, decision: action, priceUsd: price, qty, notionalUsd: amountUsd, balanceDeltaUsd: balanceDelta, rawGapPct: act.gapPct, residualGapPct: act.residualGapPct, netEdgePct: act.netEdgePct, action, from: act.symbol, to: leg ? leg.symbol : null, actionLabel: label, model: "residual-fairvalue-rule" });
+  return { acted: true, decision: action, target: act.symbol, from: act.symbol, to: leg ? leg.symbol : null, actionLabel: label, priceUsd: price, qty, rawGapPct: act.gapPct, residualGapPct: act.residualGapPct, costPct: act.costPct, netEdgePct: act.netEdgePct, side: action, notionalUsd: amountUsd, reason: act.reason };
 }
 export function listBitgetDecisions(limit = 50) { return listDecisions(limit, "bitget"); }
