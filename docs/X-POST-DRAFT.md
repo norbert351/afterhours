@@ -97,11 +97,11 @@ Built for the @Bitget_AI Base Camp S2 #BitgetHackathon 🧵
 - [ ] Links work with no login (all verified 200)
 - [ ] Copy the URL of post 1 → that goes in the form's **X Project Post URL** field
 
-## OPTIONAL SHORT VARIANT (single post, if you'd rather not thread)
+## OPTIONAL SHORT VARIANT (single post, 242 chars — fits 280)
 ```
 Tokenized stocks trade 24/7. The market they reference doesn't.
 
-AfterHours — an autonomous agent for Bitget rTokens. It computes the cost-adjusted edge and refuses the gaps that aren't tradeable. We published the honest backtest showing why most gaps aren't.
+AfterHours — an agent for Bitget rTokens. It computes the cost-adjusted edge and refuses the gaps that aren't tradeable.
 
 afterhourequity.xyz/bitget
 
