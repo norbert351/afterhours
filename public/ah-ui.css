@@ -35,12 +35,20 @@ button:active{transform:scale(.97)}
   background:rgba(11,11,18,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .ah-nav .ah-brand{display:flex;align-items:center;gap:10px;min-width:0}
 .ah-nav .ah-brand img{width:32px;height:32px;border-radius:9px;flex:none}
-.ah-nav .ah-brand span{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap;color:var(--text)}
+.ah-nav .ah-brand span{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em;white-space:nowrap;color:var(--text);overflow:hidden;text-overflow:ellipsis}
 .ah-nav .ah-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
 .ah-nav .ah-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 16px;border-radius:var(--r-btn);font-weight:600;font-size:14px;white-space:nowrap;transition:transform var(--fast) var(--ease),background var(--fast)}
 .ah-nav .ah-action.primary{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff}
 .ah-nav .ah-action.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--text)}
 .ah-nav .ah-burger{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--r-btn);background:transparent;border:1px solid var(--line);color:var(--text);font-size:20px;cursor:pointer}
+/* Responsive CTA label: full "Explore opportunities" on wide screens, short "Explore" on phones so the brand never clips. */
+.ah-nav .ah-action .lbl-short{display:none}
+@media (max-width:560px){
+  .ah-nav{gap:8px;padding:0 12px}
+  .ah-nav .ah-action .lbl-full{display:none}
+  .ah-nav .ah-action .lbl-short{display:inline}
+  .ah-nav .ah-action{padding:0 14px}
+}
 
 /* ---------- Mobile menu (slide-over) ---------- */
 .ah-menu-backdrop{position:fixed;inset:0;z-index:180;background:rgba(5,5,10,.6);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity var(--fast) var(--ease)}

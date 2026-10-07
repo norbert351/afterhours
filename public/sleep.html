@@ -46,8 +46,8 @@ input,select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(
   <section class="config reveal">
     <div id="authGate" style="display:none;background:linear-gradient(180deg,rgba(240,178,60,.12),rgba(240,178,60,.02));border:1px solid rgba(240,178,60,.4);border-radius:12px;padding:14px;margin-bottom:14px">
       <b style="color:var(--warn,#f0b23c)">🔒 Wallet not connected</b>
-      <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">Sleep Mode simulates against a PAPER book, so you can explore and paper trade without a wallet. A connected wallet is only required to authorise REAL execution, which is a separate, gated capability.</p>
-      <button class="ah-btn" id="gateConnect" style="min-height:44px">Connect wallet (required only for real execution)</button>
+      <p style="color:var(--muted);font-size:13px;margin:6px 0 10px">Run a pass and Arm run against your account, so they need a connected wallet. No real funds ever move: Sleep Mode trades a PAPER book only. A wallet is used only to authorise REAL execution, which is a separate, gated capability.</p>
+      <button class="ah-btn" id="gateConnect" style="min-height:44px" title="Connect a wallet to run a pass, arm the autopilot, or authorise real execution. Paper mode never moves real funds.">Connect wallet</button>
     </div>
     <div class="ctl">
       <div><label for="ven">Venue</label><select id="ven"><option value="bitget">Bitget rToken</option><option value="bnb">BNB</option><option value="solana">Solana</option></select></div>
@@ -245,7 +245,7 @@ function composeRules(){
 ['minEdge','maxLoss','turnover','mode','rules'].forEach(id=>{const e=document.getElementById(id);if(e){e.addEventListener('change',composeRules);e.addEventListener('input',composeRules);}});
 async function refresh(){await status();await report();await decisions();}
 function body(o){return {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}}
-function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';$('#runBtn').disabled=show;$('#armBtn').disabled=show;const sb=$('#stateBadge');if(sb&&show){sb.textContent='○ PAUSED · wallet not connected';sb.className='badge';}}
+function gate(show){const a=$('#authGate');if(a)a.style.display=show?'block':'none';const rb=$('#runBtn'),ab=$('#armBtn');if(rb){rb.disabled=show;rb.title=show?'Connect a wallet to run the paper agent. No real funds move.':'';}if(ab){ab.disabled=show;ab.title=show?'Connect a wallet to arm the autopilot. No real funds move.':'';}const sb=$('#stateBadge');if(sb&&show){sb.textContent='○ PAUSED · wallet not connected';sb.className='badge';}}
 $('#gateConnect').addEventListener('click',()=>{location.href='/app';});
 async function checkAuth(){try{const r=await fetch('/api/auth/me',{credentials:'same-origin'});gate(!r.ok);}catch(e){gate(true);}}
 function _srcLine(model){const m=String(model||'').toLowerCase();if(m.includes('hermes'))return{t:'Hermes fallback',c:'live'};if(m.includes('stub')||m.includes('deterministic')||m.includes('unavailable'))return{t:'deterministic safety engine',c:''};if(m.includes('qwen'))return{t:'Qwen',c:'live'};return{t:model||'agent',c:''};}

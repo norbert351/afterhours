@@ -491,8 +491,10 @@ app.get("/api/proof", wrap(async (_req, res) => {
     ],
     mcp: { available: true, tools: ["bnb_gap", "bnb_quote", "bnb_status"], note: "MCP server (stdio). Run: npm run bnb-mcp" },
     sponsor: {
-      agentStudio: { status: "COMPATIBLE", note: "MCP server registers in BNB Agent Studio; x402 self-funding wired at /api/bnb/agent/gap." },
-      agenticWallet: { status: "COMPATIBLE", note: "MCP/Skills surface: bnb_gap / bnb_quote / bnb_status." },
+      // Truthful integration states only: the MCP/Skills surface ships and runs, so it is
+      // AVAILABLE. We never claim COMPATIBLE or CONNECTED without a live, verified link.
+      agentStudio: { status: "AVAILABLE", note: "MCP server (stdio) exposes the AfterHours tools to BNB Agent Studio; x402 self-funding wired at /api/bnb/agent/gap." },
+      agenticWallet: { status: "AVAILABLE", note: "MCP/Skills surface: bnb_gap / bnb_quote / bnb_status." },
     },
   });
 }));

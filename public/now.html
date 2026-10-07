@@ -129,7 +129,10 @@ async function load() {
     rows = rows.concat((b.gaps || []).filter((g) => !g.error).map(normBg));
     if (b.session) sessions.push(b.session.label); if (b.generatedAt) gens.push(b.generatedAt);
   }
-  rows.sort((a, b) => (Number.isFinite(b.netEdgePct) ? b.netEdgePct : -1e9) - (Number.isFinite(a.netEdgePct) ? a.netEdgePct : -1e9));
+  // Ranking is meaningful, not "largest raw gap wins": actionable rows first, then by
+  // verified net edge (already cost-adjusted). Raw gap never leads on its own (§12).
+  const rank = (r) => (r.actionable ? 1 : 0);
+  rows.sort((a, b) => (rank(b) - rank(a)) || ((Number.isFinite(b.netEdgePct) ? b.netEdgePct : -1e9) - (Number.isFinite(a.netEdgePct) ? a.netEdgePct : -1e9)));
   ROWS = rows; GEN = gens.length ? Math.min(...gens) : Date.now();
   const withEdge = rows.filter((r) => !r.noEdge && r.verified !== false);
   const tradeable = rows.filter((r) => r.actionable).length;
@@ -146,8 +149,13 @@ function render() {
   const withEdge = feed.filter((r) => !r.noEdge && r.verified !== false);
   const largeGap = feed.filter((r) => !r.noEdge && r.verified === false);
   const noEdge = feed.filter((r) => r.noEdge);
+  // §12 The main list is deliberately short: the best few verified, ranked opportunities.
+  // Everything else stays reachable through a disclosure so a judge never faces the raw firehose.
+  const MAIN_LIMIT = 8;
+  const main = withEdge.slice(0, MAIN_LIMIT);
+  const rest = withEdge.slice(MAIN_LIMIT);
   window._feed = withEdge; window._feedNo = noEdge;
-  $("#feedBody").innerHTML = withEdge.map((r, i) => {
+  $("#feedBody").innerHTML = main.map((r, i) => {
     const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
     const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
     const dcls = tagClass(r.decision);
@@ -158,7 +166,7 @@ function render() {
       + `<td class="mut">${pct(r.gapPct)}</td><td class="${cls}" style="font-weight:600">${pct(r.netEdgePct)}</td>`
       + `<td><span class="tag ${dcls}">${esc(r.decision)}</span> <a href="#" style="font-size:11px;margin-left:6px" onclick="openReview(window._feed[${i}]);return false">Review</a></td></tr>`;
   }).join("") || '<tr><td colspan="7" class="mut" style="padding:14px">No verified edge clears costs right now. The agent is on WAIT: nothing here is executable yet.</td></tr>';
-  $("#feedCards").innerHTML = withEdge.map((r, i) => {
+  $("#feedCards").innerHTML = main.map((r, i) => {
     const ne = Number.isFinite(r.netEdgePct) ? r.netEdgePct : null;
     const cls = ne == null ? "mut" : (ne >= 0.2 ? "up" : (ne > 0 ? "mut" : "down"));
     const dcls = tagClass(r.decision);
@@ -173,7 +181,9 @@ function render() {
     ? `<details class="ah-details"><summary>${largeGap.length} large gaps held back, verification required</summary><div class="bd">${largeGap.slice(0, 60).map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}${largeGap.length > 60 ? `<div class="mut" style="font-size:11px">… ${largeGap.length - 60} more</div>` : ""}</div></details>` : "";
   const noEdgeHtml = noEdge.length
     ? `<details class="ah-details"><summary>${noEdge.length} asset${noEdge.length > 1 ? "s" : ""} with no edge (|raw| below threshold), inspect</summary><div class="bd">${noEdge.map((r) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b></div>`).join("")}</div></details>` : "";
-  $("#feedNoEdge").innerHTML = largeHtml + noEdgeHtml;
+  const restHtml = rest.length
+    ? `<details class="ah-details"><summary>View all ${withEdge.length} verified opportunities (top ${MAIN_LIMIT} shown above)</summary><div class="bd">${rest.map((r, j) => `<div class="mrow"><span><span class="vbadge ${r.venue}">${r.vlabel}</span> ${esc(r.symbol)}</span><b class="mut">raw ${pct(r.gapPct)} · net ${pct(r.netEdgePct)}</b> <a href="#" style="font-size:11px" onclick="openReview(window._feed[${j + MAIN_LIMIT}]);return false">Review</a></div>`).join("")}</div></details>` : "";
+  $("#feedNoEdge").innerHTML = restHtml + largeHtml + noEdgeHtml;
 }
 
 async function loadCross() {

@@ -29,7 +29,7 @@
     "</a>" +
     '<div class="ah-actions">' +
       (action === "openapp"
-        ? '<a class="ah-action primary" href="/app">Open app</a>'
+        ? '<a class="ah-action primary" href="/now"><span class="lbl-full">Explore opportunities</span><span class="lbl-short">Explore</span></a>'
         : '<button class="ah-action ghost" id="ahWallet" type="button">Connect wallet</button>') +
       '<button class="ah-burger" id="ahBurger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="ahMenu">☰</button>' +
     "</div>";
