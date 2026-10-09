@@ -28,7 +28,12 @@
 
 ## Special prizes — honest state
 - **Agentic Wallet special — NOT VERIFIED.** The natural-language strategy agent (`/api/bnb/agent/{strategy,arm,actions}`) turns an NL command into **real, bounded BSC execution**, but the **execution wallet is a private key** (`AH_BNB_EXEC_PRIVATE_KEY`) — this is **not** the official Binance Agentic Wallet. We do not claim the special.
-- **Agent Studio special — PARTIAL.** The **x402 self-funding endpoint is real** (`/api/bnb/agent/gap` returns a verified x402 v2 challenge, $U · EIP-3009 · eip155:56, → exec wallet), and the stdio MCP server runs. **Remaining:** no *deployed* Agent Studio agent, and the **ERC-8004 on-chain identity mint is registrar-gated** — `register()` on the IdentityRegistry (`0x8004A818…`) reverts from an arbitrary EOA (owner `0x5472…`); the identity NFT must be minted through the **BNB Agent Studio platform registrar**. A durable EIP-8004 registration JSON is hosted at `/agent/afterhours-bnb.json` and referenced by `/api/bnb/agent/info`, ready to register on the platform.
+- **Agent Studio special — PARTIAL (stronger).** The **x402 self-funding endpoint is real** (`/api/bnb/agent/gap` returns a verified x402 v2 challenge, $U · EIP-3009 · eip155:56, → exec wallet), the stdio MCP server runs, AND the **ERC-8004 on-chain agent identity is now MINTED and independently verified**:
+  - Registry `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (BSC mainnet, chain 56), **agentId `369879`**
+  - tx [`0x99521f8d…eecb749`](https://bscscan.com/tx/0x99521f8dc14cfed1da3233a73799e328394472a3452eb4cc215436408eecb749) (status `success`, block 126685171)
+  - `ownerOf(369879)` = exec wallet `0xa5de403F…`, `tokenURI(369879)` = `https://afterhourequity.xyz/agent/afterhours-bnb.json`
+  - Exposed live at `/api/bnb/agent/info` → `erc8004`.
+  - **Correcting an earlier claim:** the prior note said `register()` was "registrar-gated / reverts from an arbitrary EOA". That was **wrong** — the IdentityRegistry's `register(string)` is **permissionless**: `estimateGas` succeeded and the Transaction-API dry-run returned `SUCCESS` before we broadcast. **Remaining for the special:** no *deployed* Agent Studio agent.
 - **RFQ not wired** — illiquid tickers route on the SWAP leg only when liquidity exists; the app shows per-asset/route/size failures honestly rather than generalizing.
 
 ## Repro (for judges)

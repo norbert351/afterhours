@@ -36,7 +36,7 @@ BNB Chain hosts the **largest** tokenized-equity venue (bStocks + Ondo). The wee
 |---|---|---|
 | **Binance Web3 API** (RWA data / market / swap quote / transaction dry-run) | `bnbWeb3Call()` — real **HMAC-SHA256** signing (`X-OC-APIKEY/TIMESTAMP/SIGN`, `preHash = ts+method+requestPath(/build)+body`). `dex/market/rwa/*` gives on-chain price **and** underlying reference in one call; `dex/aggregator/quote|swap` for SWAP routes; `dex/pre-transaction/simulate` for the pre-broadcast dry-run. RFQ is **not** wired. Honest `configured:false` when the key is unset. | `src/adapters/bsc.js` |
 | **Binance Agentic Wallet** ($2K special) | An **MCP server** (`bnb_gap`, `bnb_quote`, `bnb_status`). ⚠️ *Prepared, NOT verified* — live exec uses a private-key wallet, not the official Agentic Wallet | `src/mcp/bnb-mcp.js` |
-| **BNB Agent Studio** ($2K special) | The same MCP server + NL strategy agent + a real x402 self-funding endpoint. ⚠️ *PARTIAL* — no deployed Studio agent; ERC-8004 identity registrar-gated (JSON prepared only) | `npm run bnb-mcp` · `/api/bnb/agent/*` |
+| **BNB Agent Studio** ($2K special) | The same MCP server + NL strategy agent + a real x402 self-funding endpoint + a **VERIFIED ERC-8004 on-chain identity** (agentId `369879`). ⚠️ *PARTIAL* — no deployed Studio agent | `npm run bnb-mcp` · `/api/bnb/agent/*` |
 | **bStocks / Ondo on BSC** | Real BEP-20 tokens, symbol-verified on-chain | `src/services/bnb.js` |
 | **TwelveData** | Independent frozen-NYSE reference fallback when the RWA key is unset | `src/adapters/twelvedata.js` |
 
@@ -58,7 +58,7 @@ BNB Chain hosts the **largest** tokenized-equity venue (bStocks + Ondo). The wee
 
 ### Honest gaps (BNB)
 - ⚠️ **Thin bStocks liquidity** — only liquid tickers route on the SWAP leg (IBMB ✓; CBRSB returns 40374 at $0.15). RFQ mode is the path for illiquid tickers, not yet wired.
-- ⚠️ **ERC-8004 on-chain identity mint is registrar-gated** — `register()` on the IdentityRegistry reverts from an arbitrary EOA; the identity NFT must be minted through the **BNB Agent Studio platform registrar**. The durable EIP-8004 registration JSON is hosted at `/agent/afterhours-bnb.json`, ready to register.
+- ✅ **ERC-8004 on-chain identity MINTED** (agentId `369879`, tx `0x99521f8d…`, registry `0x8004A169…`, BSC mainnet) — the earlier "registrar-gated" note was **corrected**: `register(string)` on the IdentityRegistry is permissionless (verified via estimateGas + Transaction-API dry-run before broadcast). tokenURI → `/agent/afterhours-bnb.json`.
 - ❌ **xStocks-on-BSC** — unverified (official docs omit BSC); deliberately not claimed. Build anchors on bStocks + Ondo.
 
 ---
@@ -219,7 +219,7 @@ A judge-facing surface: LIVE EXECUTION (BNB exec wallet + **persisted** fills �
 ### Honest gaps (unchanged)
 - ⚠️ Cross-venue execution is analysed, **not automated**.
 - ⚠️ Bitget **mint/redeem arbitrage is NOT executed** — the strategy is secondary-market + cross-venue dislocation only.
-- ⚠️ ERC-8004 on-chain identity mint is registrar-gated (JSON ready at `/agent/afterhours-bnb.json`).
+- ✅ ERC-8004 on-chain identity minted (agentId 369879) and served at `/api/bnb/agent/info`.
 - ⚠️ BNB live spot exec is bounded ($0.05–$0.50); thin bStocks liquidity means illiquid tickers need RFQ (unwired).
 - ❌ Compliant X posts (`#BitgetHackathon` + `@Bitget_AI`) are user-gated.
 

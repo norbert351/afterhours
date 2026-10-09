@@ -95,7 +95,9 @@ Studio agent and **not** an official Agentic Wallet integration.
 - **Wallet API / DeFi API / b402** — not implemented.
 - **Agentic Wallet** — NOT VERIFIED (private-key wallet).
 - **Agent Studio agent / ERC-8004 identity** — PARTIAL: x402 self-funding endpoint is real;
-  the ERC-8004 mint is **registrar-gated** (`register()` reverts from an arbitrary EOA).
+  the **ERC-8004 identity is MINTED and verified** (agentId `369879`, tx `0x99521f8d…`, registry
+  `0x8004A169…`, owner = exec wallet). The earlier "registrar-gated" note was **corrected** —
+  `register(string)` is permissionless. Still missing for the special: a *deployed* Studio agent.
 - **xStocks-on-BSC** — unverified, deliberately not claimed.
 
 ---

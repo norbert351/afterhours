@@ -137,7 +137,7 @@ Studio agent is claimed (see the matrix below).
 | Special | State | Why |
 |---|---|---|
 | Best Use of Agentic Wallet / Wallet Skills | **NOT PURSUING as "complete"** | Live exec uses a **private-key wallet** (`AH_BNB_EXEC_PRIVATE_KEY`), **not** the official Agentic Wallet. The MCP surface is available; the official wallet integration is **not verified**. |
-| Best Use of BNB Agent Studio | **PARTIAL** | Local stdio MCP server + a real x402 self-funding endpoint exist; **no deployed Agent Studio agent** and **no minted ERC-8004 on-chain identity** are verified (the registry `register()` is registrar-gated). A registration JSON is hosted at `/agent/afterhours-bnb.json`, ready to register on the platform. |
+| Best Use of BNB Agent Studio | **PARTIAL** | Local stdio MCP server + a real x402 self-funding endpoint + a **VERIFIED ERC-8004 on-chain identity** (agentId `369879`, tx `0x99521f8d…`, registry `0x8004A169…`, owner = exec wallet, verified via `ownerOf`/`tokenURI`). No **deployed Agent Studio agent** yet. |
 
 ## Links
 
@@ -161,5 +161,5 @@ Studio agent is claimed (see the matrix below).
 | PancakeSwap V2 Router | ✅ | `0x10ED…024E` `eth_getCode` bytecode |
 | "88% of tokenized-stock DEX volume" | ❌ removed | no trustworthy source for scope/date/denominator |
 | Agentic Wallet integrated | ❌ NOT VERIFIED | private-key wallet only |
-| Agent Studio agent deployed / ERC-8004 minted | ❌ NOT VERIFIED | registrar-gated; JSON prepared only |
+| Agent Studio agent deployed / ERC-8004 minted | ⚠️ PARTIAL | ERC-8004 identity **MINTED + verified** (agentId `369879`, tx `0x99521f8d…`, registry `0x8004A169…`); **no deployed Studio agent** |
 

@@ -21,6 +21,7 @@ import { marketHoursGap } from "./services/markethours.js";
 import { XSTOCKS } from "./adapters/xstocks.js";
 import * as desk from "./services/prestocks-desk.js";
 import { xstockOfficialData } from "./adapters/jupiter-price.js";
+import { readFileSync } from "node:fs";
 import { parseStrategyInstruction } from "./services/strategy-parse.js";
 import * as bnb from "./services/bnb.js";
 import { bnbWeb3Configured, bnbWeb3Call, bnbKyberQuote, WBNB, USDT_BSC, BNB_STOCKS } from "./adapters/bsc.js";
@@ -507,7 +508,7 @@ app.get("/api/proof", wrap(async (_req, res) => {
       // Agentic Wallet or Agent Studio integration as complete: the live exec path is
       // a private-key wallet (AH_BNB_EXEC_PRIVATE_KEY), and Agent Studio deployment /
       // an on-chain ERC-8004 identity are NOT VERIFIED.
-      agentStudio: { status: "PARTIAL", note: "An MCP stdio server + an x402 endpoint exist and are prepared for Agent Studio; no deployed Agent Studio agent and no minted ERC-8004 identity are verified." },
+      agentStudio: { status: "PARTIAL", note: "An MCP stdio server + a real x402 endpoint + a VERIFIED ERC-8004 on-chain identity (see agentInfo.erc8004) exist and are prepared for Agent Studio; no deployed Agent Studio agent is verified." },
       agenticWallet: { status: "NOT VERIFIED", note: "Live BNB execution uses a private-key wallet (AH_BNB_EXEC_PRIVATE_KEY), not the official Agentic Wallet. The MCP surface (bnb_gap/bnb_quote/bnb_status) is available." },
     },
   });
@@ -583,14 +584,28 @@ app.post("/api/bnb/exec", wrap(async (req, res) => {
 }));
 // ---- BNB Agent Studio: x402 self-funding merchant for the agent intelligence ----
 // GET /api/bnb/agent/info, public read-only: how to pay the agent ($U → exec wallet).
-app.get("/api/bnb/agent/info", wrap(async (_req, res) => res.json({
-  agent: "AfterHours BNB weekend-gap agent",
-  chain: "BNB Smart Chain (BSC)", chainId: 56,
-  payTo: merchantPayTo(), price: merchantPriceUsd(),
-  resource: "https://afterhourequity.xyz/api/bnb/agent/gap",
-  settlement: "x402 · EIP-3009 · $U (eip3009 rail), proceeds self-fund the agent",
-  spec: ["ERC-8004 agent identity", "x402 self-funding", "autonomous runtime"],
-})));
+// Includes the verified ERC-8004 identity when a registration is on record.
+function readErc8004() {
+  try { return JSON.parse(readFileSync(new URL("../data/erc8004-registration.json", import.meta.url).pathname, "utf8")); }
+  catch { return null; }
+}
+app.get("/api/bnb/agent/info", wrap(async (_req, res) => {
+  const erc8004 = readErc8004();
+  res.json({
+    agent: "AfterHours BNB weekend-gap agent",
+    chain: "BNB Smart Chain (BSC)", chainId: 56,
+    payTo: merchantPayTo(), price: merchantPriceUsd(),
+    resource: "https://afterhourequity.xyz/api/bnb/agent/gap",
+    settlement: "x402 · EIP-3009 · $U (eip3009 rail), proceeds self-fund the agent",
+    agentURI: "https://afterhourequity.xyz/agent/afterhours-bnb.json",
+    erc8004: erc8004 ? {
+      registry: erc8004.registry, agentId: erc8004.agentId, txHash: erc8004.txHash,
+      block: erc8004.block, status: erc8004.status,
+      explorer: `https://bscscan.com/tx/${erc8004.txHash}`,
+    } : { status: "not registered" },
+    spec: ["ERC-8004 agent identity", "x402 self-funding", "autonomous runtime"],
+  });
+}));
 // GET /api/bnb/agent/gap, real gap report, gated behind an x402 payment.
 app.get("/api/bnb/agent/gap", wrap(async (req, res) => {
   const header = req.get("x-payment") || req.get("payment-signature");
