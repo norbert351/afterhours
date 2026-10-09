@@ -26,16 +26,17 @@
 - Public dashboards (`/bnb`), read-only quotes public, keyless Kyber swap quote works.
 - 9/9 BNB tests (`node --test test/bnb.test.mjs`).
 
-## Honest gaps (built-but-partial / not yet done)
-- **Thin tokenized-equity liquidity**: only liquid bStocks route on the SWAP leg (IBMB ✓; CBRSB 40374 at $0.15). For illiquid tickers, RFQ mode is the path — not yet wired.
-- **Agentic Wallet special — WIRED ✅.** The natural-language strategy agent (`/api/bnb/agent/{strategy,arm,actions}`) turns an NL command ("rotate to the biggest discounts over 3%") into **real, bounded BSC execution** with an auditable action log — the essential "agent executes onchain from NL" the Agentic Wallet special values.
-- **Agent Studio special — x402 self-funding WIRED ✅** (`/api/bnb/agent/gap`, verified x402 v2 challenge, $U → exec wallet). **Remaining (external blocker):** the **ERC-8004 on-chain identity mint is registrar-gated** — `register()` on the IdentityRegistry (`0x8004A818…`) reverts from an arbitrary EOA (owner `0x5472…`); the identity NFT must be minted through the **BNB Agent Studio platform registrar**, not a raw wallet call. Durable EIP-8004 registration JSON hosted at `/agent/afterhours-bnb.json` and referenced by `/api/bnb/agent/info`, ready to register on the platform.
+## Special prizes — honest state
+- **Agentic Wallet special — NOT VERIFIED.** The natural-language strategy agent (`/api/bnb/agent/{strategy,arm,actions}`) turns an NL command into **real, bounded BSC execution**, but the **execution wallet is a private key** (`AH_BNB_EXEC_PRIVATE_KEY`) — this is **not** the official Binance Agentic Wallet. We do not claim the special.
+- **Agent Studio special — PARTIAL.** The **x402 self-funding endpoint is real** (`/api/bnb/agent/gap` returns a verified x402 v2 challenge, $U · EIP-3009 · eip155:56, → exec wallet), and the stdio MCP server runs. **Remaining:** no *deployed* Agent Studio agent, and the **ERC-8004 on-chain identity mint is registrar-gated** — `register()` on the IdentityRegistry (`0x8004A818…`) reverts from an arbitrary EOA (owner `0x5472…`); the identity NFT must be minted through the **BNB Agent Studio platform registrar**. A durable EIP-8004 registration JSON is hosted at `/agent/afterhours-bnb.json` and referenced by `/api/bnb/agent/info`, ready to register on the platform.
+- **RFQ not wired** — illiquid tickers route on the SWAP leg only when liquidity exists; the app shows per-asset/route/size failures honestly rather than generalizing.
 
 ## Repro (for judges)
 ```bash
 git clone https://github.com/norbert351/afterhours && cd afterhours
 # needs AH_BNB_WEB3_KEY / AH_BNB_WEB3_SECRET (free at web3.binance.com dev-portal)
-npm i && node --test test/bnb.test.mjs
+npm i && npm test          # 77 tests, incl. the Transaction-API simulation-gate suite
 PORT=8090 node src/index.js
 # → https://afterhourequity.xyz/bnb   API: /api/bnb/universe (real gaps) · /api/bnb/equity-quote
+# → dry-run proof:  POST /api/bnb/exec/dry-run  {"symbol":"IBMB","amountUsd":0.2}
 ```

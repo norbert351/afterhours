@@ -2,15 +2,46 @@
 // execution. This is the "agentic" layer: a user types a plain-English rule
 // (e.g. "buy IBMB if it dips 5% below mark over the weekend"), the agent parses
 // it, watches the real RWA gap, and when the rule triggers it executes a BOUNDED
-// fill from the exec wallet via bnb-exec, logging every decision as an auditable
-// agent_action. Covers the Agentic Wallet special (NL → onchain exec) and the
+// fill from the exec wallet via bnb-exec (which runs the Transaction API dry-run
+// gate first), logging every decision as an auditable agent_action. Covers the
 // main-track "agents expected" axis. The x402 merchant (bnb-x402) self-funds it.
+// NOTE: this is NOT the official Binance Agentic Wallet and NOT a deployed BNB
+// Agent Studio agent — the exec wallet is a private key (AH_BNB_EXEC_PRIVATE_KEY).
 import { bnbExecuteSwap } from "./bnb-exec.js";
 import { bnbWeb3Call } from "../adapters/bsc.js";
+import fs from "node:fs";
 
-// Simple in-process action ledger (auditable; could persist to sqlite later).
-const actions = [];
-export function logBnbAction(entry) { actions.push({ at: Date.now(), ...entry }); }
+// Auditable agent action ledger. Persisted to disk (JSON) so the audit trail
+// SURVIVES a process restart — it is advertised as auditable, so it must not be
+// in-memory only. AH_BNB_AGENT_LOG overrides the path (tests use a temp file).
+// Writes are atomic (tmp + rename) and malformed/partial records are dropped on
+// read rather than crashing the agent.
+const AGENT_LOG = process.env.AH_BNB_AGENT_LOG || new URL("../../data/bnb-agent-actions.json", import.meta.url).pathname;
+function readActions() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(AGENT_LOG, "utf8"));
+    if (!Array.isArray(raw)) return [];
+    // keep only records with the minimum required shape (safe on corruption)
+    return raw.filter((a) => a && typeof a === "object" && a.at);
+  } catch { return []; }
+}
+function writeActions(list) {
+  try {
+    const tmp = `${AGENT_LOG}.tmp-${process.pid}`;
+    fs.writeFileSync(tmp, JSON.stringify(list.slice(0, 200), null, 2));
+    fs.renameSync(tmp, AGENT_LOG); // atomic replace — concurrent readers never see a partial file
+  } catch { /* non-fatal: audit log degrades, execution unaffected */ }
+}
+// In-memory working copy, hydrated from disk at boot so the audit trail persists.
+const actions = readActions();
+export function logBnbAction(entry) {
+  // Never persist secrets: strip any key/secret/signature-ish fields defensively.
+  const clean = { ...entry };
+  for (const k of Object.keys(clean)) if (/key|secret|sign|pk|private|auth/i.test(k)) delete clean[k];
+  actions.push({ at: Date.now(), ...clean });
+  if (actions.length > 200) actions.splice(0, actions.length - 200);
+  writeActions(actions);
+}
 export function listBnbActions(limit = 50) { return [...actions].reverse().slice(0, limit); }
 
 // A tiny symbol cache so the agent resolver doesn't hammer the RWA Data API.

@@ -284,3 +284,30 @@ export async function bnbAggQuote({ tokenIn, tokenOut, amount }) {
     params: { binanceChainId: "56", fromTokenAddress: tokenIn, toTokenAddress: tokenOut, amount: String(amount) },
   });
 }
+
+// ===========================================================================
+// Transaction API — dry-run / simulation (the official pre-broadcast preflight).
+// Official endpoint (verified live 2026-10-09): POST /api/v1/dex/pre-transaction/simulate
+// Body: { binanceChainId, evmTx: { from, to, data, value } }
+// Response: { code:0, data: { status: "SUCCESS"|"FAILED", failReason, balanceChanges, allowanceChanges } }
+// This is NOT a quote and NOT a local gas estimate: the API simulates the
+// assembled EVM transaction and returns a verdict. Callers MUST treat it as a
+// gate — a FAILED / ambiguous / errored simulation must stop the broadcast.
+export async function bnbSimulateTx({ from, to, data, value = "0", chainId = "56" }) {
+  if (!from || !to || !data) {
+    const e = new Error("simulate requires from, to and data");
+    e.code = 400;
+    throw e;
+  }
+  const body = { binanceChainId: String(chainId), evmTx: { from, to, data, value: String(value) } };
+  const r = await bnbWeb3Call("/api/v1/dex/pre-transaction/simulate", { method: "POST", params: {}, body, ttlMs: 0 });
+  // The wrapper returns { code, msg, data }. code !== 0 => the simulation call
+  // itself failed (transport/auth/validation) — treat as no verdict.
+  if (r.code !== 0) {
+    return { ok: false, status: null, failReason: r.msg || `simulate error ${r.code}`, raw: r };
+  }
+  const d = r.data || {};
+  const status = d.status || null;
+  const ok = status === "SUCCESS";
+  return { ok, status, failReason: d.failReason || null, balanceChanges: d.balanceChanges || [], allowanceChanges: d.allowanceChanges || [], raw: r };
+}

@@ -84,23 +84,35 @@ async function load() {
     return;
   }
 
-  // LIVE EXECUTION, verified against the chain, never from a local log alone.
+  // LIVE EXECUTION — two DISTINCT, honestly-labelled sources:
+  //  (a) broadcast fills from the exec log (le.fills / le.count — same list, so
+  //      the count can never disagree with the rows shown);
+  //  (b) RPC-verified fills (d.liveFills) whose receipt the chain confirmed.
   const le = d.liveExecution || {};
-  const fills = (d.liveFills || []).filter((f) => f.verified);
-  const verifiedRows = fills.map((f) =>
+  const broadcasts = Array.isArray(le.fills) ? le.fills : [];
+  const broadcastRows = broadcasts.slice(0, 10).map((f) =>
+    `<div class="row"><span class="k">${esc(f.symbol ? "USDT → " + f.symbol : "spot fill")} · $${esc(f.amountUsd)}</span>`
+    + `<span class="tx"><a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(shortHash(f.txHash))} · View on BscScan</a></span></div>`
+    + row("Network", esc(f.chain) + ` · chain ${esc(f.chainId)}`)
+    + row("Broadcast", `${new Date(f.at).toLocaleString()} · sim ${esc((f.simulation && f.simulation.status) || "n/a")}`)
+  ).join("");
+  const verified = (d.liveFills || []).filter((f) => f.verified);
+  const verifiedRows = verified.map((f) =>
     `<div class="row"><span class="k">${esc(f.pair || "spot fill")} · $${esc(f.spendUsd)}</span>`
     + `<span class="tx"><a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(shortHash(f.txHash))} · View on BscScan</a></span></div>`
     + row("Network", esc(f.venue) + ` · chain ${esc(f.chainId)}`)
-    + row("Status", badge("Confirmed") + (f.confirmedAt ? ` · ${new Date(f.confirmedAt).toLocaleString()}` : ""))
+    + row("Chain status", badge("Confirmed") + (f.confirmedAt ? ` · ${new Date(f.confirmedAt).toLocaleString()}` : ""))
     + row("Block", esc(String(f.blockNumber || "n/a")) + (f.logsCount ? ` · ${esc(String(f.logsCount))} logs` : ""))
   ).join("");
   $("#execCard").innerHTML =
     row("Status", badge(le.status)) +
     row("Network", esc(le.venue || "n/a") + (le.chainId ? ` · chain ${le.chainId}` : "")) +
     row("Execution wallet", le.wallet ? `<span class="mono">${esc(le.wallet)}</span>` : `<span class="muted">not configured</span>`) +
-    row("Confirmed live fills", String(le.count || 0)) +
+    row("Broadcast fills (exec log)", String(broadcasts.length)) +
+    row("Chain-verified fills (RPC receipt)", String(verified.length)) +
     (le.note ? `<div class="muted" style="margin:4px 0 8px">${esc(le.note)}</div>` : "") +
-    (verifiedRows || row("", `<span class="muted">No confirmed fill broadcast from this surface yet. Live execution runs when a funded exec wallet + Web3 key are set.</span>`));
+    (broadcastRows || row("", `<span class="muted">No fill broadcast from this surface yet. Live spot execution runs when a funded exec wallet + Web3 key are set.</span>`)) +
+    (verifiedRows ? `<div class="muted" style="margin:10px 0 4px">RPC-verified receipt(s):</div>${verifiedRows}` : "");
 
   // BITGET
   const b = d.bitget || {};

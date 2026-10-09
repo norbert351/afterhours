@@ -90,45 +90,60 @@ one is single-source by design).
 ## Theme pick
 
 **Main track** — *Tokenized-stock product / autonomous agent on BSC.* The weekend
-gap that AfterHours captures on Solana exists identically on BNB Chain (the #1
-tokenized-equity venue, 88% of tokenized-stock DEX volume): reference price
-freezes at the NYSE close, the on-chain market trades 24/7. The port maps the
-verified BSC rails (bStocks + Ondo, Binance Web3 API RWA) onto the same engine.
+gap that AfterHours captures on Solana exists identically on BNB Chain: the reference
+price freezes at the NYSE close, while the on-chain market trades 24/7. The port
+maps the verified BSC rails (bStocks + Ondo, Binance Web3 API RWA) onto the same engine.
+
+> **Venue-size claim removed.** Earlier drafts stated BNB Chain is "88% of tokenized-stock
+> DEX volume" (and "#1 tokenized-equity venue"). That figure's scope, date and denominator
+> could not be sourced to a trustworthy, directly-relevant reference, so it is **removed**
+> rather than cited. The product does not depend on it.
 
 ## Description (paste text, ~3 paragraphs)
 
-AfterHours on BNB Chain brings the weekend-gap capture agent to the largest
-tokenized-equity venue. BNB Chain hosts more than 88% of tokenized-stock DEX
-volume — bStocks (verifed BEP-20, symbol checks on-chain) and Ondo (documented
-BSC addresses) trade while their NYSE reference freezes. AfterHours reads the
-**Binance Web3 API** aggregate surface (the sanctioned market + RWA + swap + RFQ
-API) for on-chain price **and** underlying reference in one call, computes the
-weekend-gap dislocation per token, and routes execution through the Web3 API
-Trading aggregator (SWAP for crypto/xStocks, RFQ for bStocks/Ondo) with hard
-caps, mint allowlists, and rate limits carried over from the Solana build.
+AfterHours on BNB Chain brings the weekend-gap capture agent to BSC. bStocks (BEP-20,
+symbol-verified on-chain) and Ondo (documented BSC addresses) trade while their NYSE
+reference freezes. AfterHours reads the **Binance Web3 API** for the on-chain price **and**
+the underlying reference, computes the weekend-gap dislocation per token, and — after the
+official **Transaction API dry-run** returns SUCCESS — routes bounded spot execution through
+the Web3 API Trading aggregator (token→token SWAP) with hard caps, mint allowlists and rate
+limits. *(RFQ execution is **not** wired; illiquid tickers that don't route on the SWAP leg
+are shown as unavailable for that size, not traded.)*
 
-The product is a **multi-tenant, account-gated app**: every user owns an isolated
-paper book and an isolated Weekend Gap Vault (per-user deposit/state/fills), and
-every strategy add is confirmed on-chain in your wallet. The same rails are also
-exposed as an **MCP server** (`bnb_gap`, `bnb_quote`, `bnb_status`) so an agent
-drives it directly — deployable through **BNB Agent Studio** and operated inside
-**Binance Agentic Wallet** via MCP/Skills, the two $2K special tracks.
+The product is a **multi-tenant, account-gated app**: every user owns an isolated paper
+book and an isolated Weekend Gap Vault (per-user deposit/state/fills), and every strategy
+add is confirmed in your wallet. The same rails are also exposed as a **local stdio MCP
+server** (`bnb_gap`, `bnb_quote`, `bnb_status`) and an **x402 self-funding endpoint**
+(`/api/bnb/agent/gap`, real x402 v2 challenge). Both are **prepared for** Agent Studio /
+Agentic Wallet, but neither an official Agentic Wallet integration nor a deployed Agent
+Studio agent is claimed (see the matrix below).
 
 ## Load-bearing BNB sponsor tech (in code, not claims)
 
-| Sponsor surface | How it's used (in the repo) |
-|---|---|
-| **Binance Web3 API** (aggregate market/RWA/swap/RFQ) | `src/adapters/bsc.js` `bnbWeb3Call()` (HMAC-SHA256 `X-OC-APIKEY/TIMESTAMP/SIGN`), `dex/market/rwa/*` for on-chain+reference; Trading aggregator for SWAP/RFQ exec. Free key gates real per-stock values — honest `configured:false` when unset |
-| **Binance Agentic Wallet** ($2K) | `src/mcp/bnb-mcp.js` is an MCP server exposing the product as tools (`bnb_gap`/`bnb_quote`/`bnb_status`); runs from the `binance-skills-hub` Agentic Wallet stack (MCP/Skills) |
-| **BNB Agent Studio** ($2K) | the same MCP server registers in Agent Studio; `npm run bnb-mcp` |
-| **bStocks / Ondo on BSC** | bStocks BEP-20 `0x2F701b108a9aF5558960325A0239D0a13c2C4444` symbol-verified on-chain; Ondo GMTokenManager/Oracle/limit-order documented addresses |
-| **TwelveData** | independent frozen-NYSE reference fallback when the RWA key is unset |
+| Sponsor surface | How it's used (in the repo) | Status |
+|---|---|---|
+| **Binance Web3 API — RWA Data API** | `src/adapters/bsc.js` `bnbRealTokens()` → `GET /api/v1/dex/market/rwa/tokens` (on-chain + reference price, market status) | **VERIFIED** (keyed) |
+| **Binance Web3 API — Market API** | `bnbRwaPrices()` → `dex/market/rwa/price`; `/api/bnb/web3/rwa-price` | **VERIFIED** (keyed) |
+| **Binance Web3 API — Trading API** | `bnbAggQuote()` / swap build → `/api/v1/dex/aggregator/quote` + `/swap` (token→token SWAP) | **VERIFIED** (keyed) |
+| **Binance Web3 API — Transaction API** | `bnbSimulateTx()` → `POST /api/v1/dex/pre-transaction/simulate`; the **pre-broadcast dry-run gate** in `bnbExecuteSwap` (fails closed) | **VERIFIED live** (keyed) |
+| **Binance Web3 API — Wallet API** | not used (balances read via BSC RPC) | **NOT IMPLEMENTED** |
+| **Binance Web3 API — DeFi API / b402** | not used | **NOT IMPLEMENTED** |
+| **bStocks / Ondo on BSC** | bStocks BEP-20 symbol-verified on-chain; Ondo documented addresses; 46 bStocks + Ondo tokens from the RWA Data API | **VERIFIED** |
+| **x402 self-funding** | `src/services/bnb-x402.js` (`@altananetwork/x402-server`) → `/api/bnb/agent/gap` returns a real x402 v2 challenge ($U · EIP-3009 · eip155:56) | **VERIFIED** (challenge); settlement proceeds not yet observed |
+| **TwelveData** | independent frozen-NYSE reference fallback when the RWA key is unset | **VERIFIED** |
+
+## Special prizes — honest state
+
+| Special | State | Why |
+|---|---|---|
+| Best Use of Agentic Wallet / Wallet Skills | **NOT PURSUING as "complete"** | Live exec uses a **private-key wallet** (`AH_BNB_EXEC_PRIVATE_KEY`), **not** the official Agentic Wallet. The MCP surface is available; the official wallet integration is **not verified**. |
+| Best Use of BNB Agent Studio | **PARTIAL** | Local stdio MCP server + a real x402 self-funding endpoint exist; **no deployed Agent Studio agent** and **no minted ERC-8004 on-chain identity** are verified (the registry `register()` is registrar-gated). A registration JSON is hosted at `/agent/afterhours-bnb.json`, ready to register on the platform. |
 
 ## Links
 
-- **Live:** https://afterhourequity.xyz/bnb (BNB port) · https://afterhourequity.xyz (Solana)
+- **Live:** https://afterhourequity.xyz/bnb (BNB port) · https://afterhourequity.xyz (product)
 - **GitHub:** https://github.com/norbert351/afterhours
-- **MCP:** `npm run bnb-mcp` (stdio protocol; tools `bnb_gap`, `bnb_quote`, `bnb_status`)
+- **MCP:** `npm run bnb-mcp` (stdio; tools `bnb_gap`, `bnb_quote`, `bnb_status`)
 
 ## Verified / unverified matrix (BNB)
 
@@ -138,6 +153,13 @@ drives it directly — deployable through **BNB Agent Studio** and operated insi
 | BSC public RPC reachable | ✅ | `bsc-dataseed.binance.org` → eth_blockNumber 200 |
 | GeckoTerminal bsc prices | ✅ | HTTP 200 for bStocks/USDon |
 | Keyless KyberSwap quote | ✅ | `aggregator-api.kyberswap.com/bsc` routes → code 0, real amountOut |
-| Web3 API RWA (real per-stock gap) | ⚠️ key-gated (free during event) | `/api/bnb/web3/rwa-price` returns 501 when key unset — honest |
-| xStocks-on-BSC | ❌ unverified (official docs omit BSC; only junk pool) | deliberately not claimed; build anchors on bStocks + Ondo |
+| Web3 API RWA (real per-stock gap) | ✅ keyed | 46 bStocks resolved from `dex/market/rwa/tokens`; `/api/bnb/web3/rwa-price` returns 501 when key unset — honest |
+| **Transaction API dry-run** | ✅ | `POST /api/bnb/exec/dry-run` → real simulate verdict (`SUCCESS`/`FAILED` + `failReason`); gate blocks broadcast on non-SUCCESS |
+| Trading API quote/swap-build | ✅ | `code 0` quote with `quoteId`; swap build returns `tx{to,data}` |
+| RFQ execution | ❌ not wired | mentioned only in comments; no RFQ endpoint is called |
+| xStocks-on-BSC | ❌ unverified | official docs omit BSC; deliberately not claimed; anchors on bStocks + Ondo |
 | PancakeSwap V2 Router | ✅ | `0x10ED…024E` `eth_getCode` bytecode |
+| "88% of tokenized-stock DEX volume" | ❌ removed | no trustworthy source for scope/date/denominator |
+| Agentic Wallet integrated | ❌ NOT VERIFIED | private-key wallet only |
+| Agent Studio agent deployed / ERC-8004 minted | ❌ NOT VERIFIED | registrar-gated; JSON prepared only |
+

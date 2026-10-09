@@ -134,7 +134,7 @@ pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;pad
   <details class="ah-details" style="margin:14px 0">
     <summary>Data sources &amp; status</summary>
     <div class="bd">
-      <p>Aggregated <b>Binance Web3 API</b> (market · RWA · swap · RFQ) with <b>bStocks + Ondo</b> on-chain. Without the free Web3 API key, gated values are flagged, never fabricated.</p>
+      <p>Aggregated <b>Binance Web3 API</b> (RWA data · market · swap quote · transaction dry-run) with <b>bStocks + Ondo</b> on-chain. Without the free Web3 API key, gated values are flagged, never fabricated. <span style="color:var(--mut)">RFQ execution is not wired — illiquid tickers route on the SWAP leg only when liquidity exists.</span></p>
       <div class="ah-chips" style="margin-top:12px;margin-bottom:6px" id="railChips"></div>
     </div>
   </details>

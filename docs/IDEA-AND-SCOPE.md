@@ -34,9 +34,9 @@ BNB Chain hosts the **largest** tokenized-equity venue (bStocks + Ondo). The wee
 ### Sponsor tech — load-bearing (in code, not claims)
 | Binance surface | How it's used | File |
 |---|---|---|
-| **Binance Web3 API** (market / RWA / swap / RFQ) | `bnbWeb3Call()` — real **HMAC-SHA256** signing (`X-OC-APIKEY/TIMESTAMP/SIGN`, `preHash = ts+method+requestPath(/build)+body`). `dex/market/rwa/*` gives on-chain price **and** underlying reference in one call. Honest `configured:false` when the key is unset. | `src/adapters/bsc.js` |
-| **Binance Agentic Wallet** ($2K special) | An **MCP server** (`bnb_gap`, `bnb_quote`, `bnb_status`) so the product is drivable by an agent from the Agentic Wallet stack (MCP/Skills) | `src/mcp/bnb-mcp.js` |
-| **BNB Agent Studio** ($2K special) | The same MCP server registers in Agent Studio; NL strategy agent + x402 self-funding | `npm run bnb-mcp` · `/api/bnb/agent/*` |
+| **Binance Web3 API** (RWA data / market / swap quote / transaction dry-run) | `bnbWeb3Call()` — real **HMAC-SHA256** signing (`X-OC-APIKEY/TIMESTAMP/SIGN`, `preHash = ts+method+requestPath(/build)+body`). `dex/market/rwa/*` gives on-chain price **and** underlying reference in one call; `dex/aggregator/quote|swap` for SWAP routes; `dex/pre-transaction/simulate` for the pre-broadcast dry-run. RFQ is **not** wired. Honest `configured:false` when the key is unset. | `src/adapters/bsc.js` |
+| **Binance Agentic Wallet** ($2K special) | An **MCP server** (`bnb_gap`, `bnb_quote`, `bnb_status`). ⚠️ *Prepared, NOT verified* — live exec uses a private-key wallet, not the official Agentic Wallet | `src/mcp/bnb-mcp.js` |
+| **BNB Agent Studio** ($2K special) | The same MCP server + NL strategy agent + a real x402 self-funding endpoint. ⚠️ *PARTIAL* — no deployed Studio agent; ERC-8004 identity registrar-gated (JSON prepared only) | `npm run bnb-mcp` · `/api/bnb/agent/*` |
 | **bStocks / Ondo on BSC** | Real BEP-20 tokens, symbol-verified on-chain | `src/services/bnb.js` |
 | **TwelveData** | Independent frozen-NYSE reference fallback when the RWA key is unset | `src/adapters/twelvedata.js` |
 
@@ -115,9 +115,20 @@ Bitget lists **rTokens** (`R<SYM>USDT` — e.g. `RMSFTUSDT`) that track a US equ
 | **Objective** | Build something people would **actually use** with tokenized stocks **on BSC**, with an agent. |
 | **Deadline** | Submissions lock **Sun 11 Oct 2026 12:00 UTC** · judging 12–23 Oct · winners week of 26 Oct. |
 | **Prize** | **$20K main track** ($6K / $4K / $3K / $2K / $1K) + **2× $2K specials**: *Best Use of Binance Agentic Wallet / Wallet Skills* and *Best Use of BNB Agent Studio*. |
-| **Hard rules** | ≥1 of **bStocks / Ondo / xStocks** central · **spot only** (no perps) · **BSC mainnet only** · the **free Binance Web3 API** (elevated limits) is the official RWA data source. |
+| **Hard rules** | ≥1 of **bStocks / Ondo / xStocks** central · **spot only** (no perps) · **BSC mainnet only** · **dry-run with the Transaction API while you build, then demo with small live amounts** · teams fund their own wallets. Free Binance Web3 API (elevated limits) is the official aggregate surface. |
 | **Judged axes** | Real user + problem · **working end-to-end demo** (not a deck) · **sponsor tech load-bearing** · quality of execution · honest craft. **Agents are scored on craft, not PnL.** |
 | **Suggested ideas** | Market-hours arbitrage / on-chain-vs-reference monitor (their own "Ideas to Build"). |
+
+### Official scoring weights (published)
+| Weight | Criterion | AfterHours evidence this session |
+|---|---|---|
+| **30%** | Technical implementation — does it run, depth of integration, error handling, how it holds up | 77/77 tests; real RWA/Trading/**Transaction** module calls; simulation gate fails closed; spot-only + chain-56 + caps + idempotency enforced server-side |
+| **25%** | Creativity & originality | Weekend-gap agent with a residual/net-edge engine + a **pre-broadcast Transaction-API dry-run gate** on a tokenized-equity rail |
+| **25%** | **Developer Experience Report** | `docs/DEVELOPER-EXPERIENCE-REPORT.md` — **working template, NOT complete.** Must be filled with the developer's own measured experience before submission |
+| **20%** | Product quality & UX | Guest-readable `/bnb` (20 real gap rows, net-edge sort, freshness chips); paper vs live clearly separated; truthful sponsor panel |
+
+> **Tie-breaks:** depth of W3W API usage first, then the quality of the feedback report. **Both
+> submission parts are mandatory** (project + DX report) — "miss either one and you don't get scored".
 
 **AfterHours → criterion mapping**
 | Rule / axis | AfterHours evidence | Status |
@@ -125,7 +136,8 @@ Bitget lists **rTokens** (`R<SYM>USDT` — e.g. `RMSFTUSDT`) that track a US equ
 | Build something usable with tokenized stocks on BSC | Live `/bnb` dashboard + MCP server + real RWA API integration | ✅ live |
 | Market-hours arb / on-chain-vs-reference monitor | `gapPct = (tokenPrice − referencePrice)/reference` from the sanctioned RWA Data API on **real** BSC equities | ✅ real |
 | ≥1 of bStocks / Ondo / xStocks central | **46 bStocks + Ondo** wired from `rwa/tokens`; bStocks demonstrated (IBMB, QCOMB, MSMB…) | ✅ |
-| Spot only / BSC mainnet only | All execution spot; reads/quotes on chain 56 | ✅ |
+| Spot only / BSC mainnet only | All execution spot; reads/quotes on chain 56; enforced server-side | ✅ |
+| **Transaction API dry-run before live** | `bnbSimulateTx()` gates every broadcast; `POST /api/bnb/exec/dry-run` public | ✅ verified live |
 | Agents scored on craft, not PnL | No fabricated gaps; implausible prices (>10% off) **flagged, never reported** | ✅ |
 | Free Web3 API | `AH_BNB_WEB3_KEY/SECRET` wired, HMAC per official auth docs | ✅ |
 

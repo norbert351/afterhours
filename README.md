@@ -2,19 +2,49 @@
 
 **On-chain equity intelligence for tokenized stocks.** AfterHours watches the gap between
 the *frozen* reference price (the last NYSE close) and the *live, 24/7* on-chain price of the
-same underlying — then alerts you when tokenized equities trade away from their reference.
+same underlying — then tells you whether that gap is **real and actionable after costs**.
 Built against **verified** sponsor data, no fabricated prices.
 
-> Target: Solana **STOCKLANA** (Sep 25) · BNB **Tokenized Stocks** (Oct 11) · Monad **Metropolis** (Oct 13)
-> Same product core, three sponsor re-tunings — the "one product → N chains" pattern.
+> **Current track: BNB Hack — Tokenized Stocks Edition** (deadline Oct 11 2026).
+> Product core also ported to Solana (Stocklana) and Bitget.
 
 ---
 
-## 🔗 Stocklana submission (Sep 25, 4pm ET)
+## 🟡 BNB Tokenized Stocks submission (Oct 11)
+
+- **Live BNB product:** https://afterhourequity.xyz/bnb · **Proof:** https://afterhourequity.xyz/proof
+- **Submission pack:** `docs/SUBMISSION.md` · **Scope/rubric:** `docs/IDEA-AND-SCOPE.md`
+- **Developer Experience Report:** `docs/DEVELOPER-EXPERIENCE-REPORT.md` *(working template — **not complete**; the objective fields must be filled in by the developer)*
+- **BNB demo video:** `docs/BNB-DEMO-VIDEO.md` — **TO BE RECORDED.** The previously-linked
+  `afterhours-demo-v2.mp4` is the **Solana** buy and is **not** the BNB demo.
+- **Verified BSC fill:** `0.15 USDT → 0.000659939 IBMB`, tx
+  `0x2c683c4715766aea6904dc07734153f014e8e72ce682e51c9d3403020b411b74` on BSC mainnet
+  ([BscScan](https://bscscan.com/tx/0x2c683c4715766aea6904dc07734153f014e8e72ce682e51c9d3403020b411b74)),
+  exec wallet `0xa5de403F…F8a94F`.
+
+**Binance Web3 API modules actually used** (truthful inventory — see `/api/proof`):
+
+| Module | Status | What it does here |
+|---|---|---|
+| RWA Data API | ✅ | tokenized-equity universe + on-chain vs reference price |
+| Market API | ✅ | RWA price surface |
+| Trading API | ✅ | aggregator quote + swap-build (SWAP) |
+| **Transaction API** | ✅ | **pre-broadcast dry-run gate** (`dex/pre-transaction/simulate`) — fails closed |
+| Wallet API | ❌ not implemented | balances read via BSC RPC |
+| DeFi API | ❌ not implemented | — |
+| b402 payments | ❌ not implemented | — |
+
+**Not claimed (honest):** RFQ execution (not wired) · xStocks-on-BSC (unverified) · official
+Agentic Wallet (we use a private-key wallet) · deployed BNB Agent Studio agent / minted
+ERC-8004 identity (registrar-gated). **Spot-only · BSC mainnet (chain 56) only.**
+
+---
+
+## 🔵 Stocklana submission (Sep 25, 4pm ET)
 
 - **Live demo:** https://afterhourequity.xyz · **Product:** https://afterhourequity.xyz/app · **Docs:** https://afterhourequity.xyz/docs
 - **Submission pack:** `docs/SUBMISSION.md` (paste-ready form answers) · `docs/rubric.md` (judge-verification map)
-- **Demo video (verified real-buy take):** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4
+- **Demo video (verified real-buy take, Solana):** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4
 - **Mainnet proof:** wallet `7JL8s63F…` holds **0.00260421 AAPLx** — verified fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2), [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN), vault round-trip [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt) → [4UX9k6o7…](https://solscan.io/tx/4UX9k6o7vcVGdfcsdvvpYcxXAPp34ogRPLmdGv4yEvfzcvW4xifsoLwHQcJecqSoVomxbb1DgtvMA2fPuRw8pHnH), swap-verification buys [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik), [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG), and the on-camera demo buy [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV) — all finalized `err=null`
 
 ## Tech stack
