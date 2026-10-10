@@ -94,7 +94,7 @@ async function load() {
     `<div class="row"><span class="k">${esc(f.symbol ? "USDT → " + f.symbol : "spot fill")} · $${esc(f.amountUsd)}</span>`
     + `<span class="tx"><a href="${esc(f.explorer)}" target="_blank" rel="noopener">${esc(shortHash(f.txHash))} · View on BscScan</a></span></div>`
     + row("Network", esc(f.chain) + ` · chain ${esc(f.chainId)}`)
-    + row("Broadcast", `${new Date(f.at).toLocaleString()} · sim ${esc((f.simulation && f.simulation.status) || "n/a")}`)
+    + row("Broadcast", `${new Date(f.at).toLocaleString()} · ${f.simulation ? ("dry-run " + esc(f.simulation.status)) : "pre-dates the dry-run gate"}`)
   ).join("");
   const verified = (d.liveFills || []).filter((f) => f.verified);
   const verifiedRows = verified.map((f) =>

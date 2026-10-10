@@ -99,6 +99,62 @@ maps the verified BSC rails (bStocks + Ondo, Binance Web3 API RWA) onto the same
 > could not be sourced to a trustworthy, directly-relevant reference, so it is **removed**
 > rather than cited. The product does not depend on it.
 
+## The problem & the target user
+
+**Problem.** Tokenized equities trade **168 h/week** but their reference price only updates
+during the **~32.5 h** NYSE session. Through the weekend (and after-hours) the on-chain price
+drifts on thin DEX liquidity — *off real price discovery*. A user staring at the chart can't
+tell whether an apparent gap is a **real, captureable dislocation** or just market movement,
+fees, and bad liquidity.
+
+**Target user.** A crypto-native trader / small desk holding tokenized equities who wants to
+answer one question each weekend: *"Is this gap real and worth trading — or am I looking at a
+cost trap?"* They do **not** want a raw percentage with no context.
+
+## How AfterHours answers it
+
+1. **Universe** — pull real bStocks + Ondo tokens on BSC (`dex/market/rwa/tokens`), each with
+   its **on-chain price** *and* its **underlying reference price** in one call.
+2. **Gap decomposition** — never rank by raw gap:
+   `rawGap = (onChain − ref)/ref` → subtract market beta×SPY move → subtract estimated costs
+   → **net edge** → decision `BUY / ROTATE / WAIT / BLOCKED`.
+3. **Agent reasoning** — a plain-English rule ("buy the biggest discounts over 3%") is parsed,
+   matched against live net edge, and turned into an auditable `agent_action` (durable log).
+4. **Explain, then act** — the UI shows raw → residual → costs → net → decision, plus a
+   liquidity/route check for the *proposed size*. Thin liquidity ⇒ `WAIT`/unavailable, never
+   a pretend trade.
+
+## Simulation vs broadcast vs chain-confirmed (make the distinction explicit)
+
+| Stage | What it is | Can it move funds? | Where to see it |
+|---|---|---|---|
+| **Simulation (dry-run)** | `POST /api/v1/dex/pre-transaction/simulate` — the API executes the assembled tx and returns `SUCCESS`/`FAILED` + `failReason` | **No** | `POST /api/bnb/exec/dry-run` → `simulation.status`, `wouldBroadcast:false` |
+| **Broadcast** | we sent the signed tx to BSC; a hash exists but the chain has not confirmed a receipt yet | Yes (gas spent) | `/proof` → "Broadcast fills (exec log)" |
+| **Chain-confirmed** | the RPC returned a receipt with `status: 0x1` | Yes (settled) | `/proof` → "Chain-verified fills (RPC receipt)", live BscScan link |
+
+**Fail-closed rule:** the live path (`bnbExecuteSwap`) **refuses to broadcast unless the
+simulation returns `SUCCESS`**. A FAILED / timed-out / malformed simulation ⇒ no broadcast.
+
+## Proof & audit workflow
+
+- Every real fill is persisted to `data/bnb-exec.json`; the Proof page shows **broadcast fills**
+  and **chain-verified fills** as **separate counts** (the count always equals the rows shown).
+- Agent decisions are persisted (`data/bnb-agent-actions.json`) and survive a restart.
+- The one verifiable BSC fill: `0.15 USDT → 0.000659939 IBMB`, tx
+  `0x2c683c47…0b411b74`, wallet `0xa5de403F…F8a94F` (BscScan link on `/proof`).
+
+## ERC-8004 agent identity (minted + verified)
+
+- **agentId `369879`**, registry `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (BSC mainnet)
+- tx [`0x99521f8d…eecb749`](https://bscscan.com/tx/0x99521f8dc14cfed1da3233a73799e328394472a3452eb4cc215436408eecb749) (status `success`)
+- `ownerOf(369879)` = exec wallet · `tokenURI(369879)` =
+  [`/agent/afterhours-bnb.json`](https://afterhourequity.xyz/agent/afterhours-bnb.json)
+- served live at `GET /api/bnb/agent/info` → `erc8004`.
+
+> **Scope note:** minting the ERC-8004 identity does **not** by itself complete the *Agent
+> Studio* or *Agentic Wallet* special prizes. Those remain **PARTIAL / NOT VERIFIED** (see the
+> honest-state matrix below).
+
 ## Description (paste text, ~3 paragraphs)
 
 AfterHours on BNB Chain brings the weekend-gap capture agent to BSC. bStocks (BEP-20,
@@ -141,9 +197,30 @@ Studio agent is claimed (see the matrix below).
 
 ## Links
 
-- **Live:** https://afterhourequity.xyz/bnb (BNB port) · https://afterhourequity.xyz (product)
+- **Live BNB:** https://afterhourequity.xyz/bnb · **Proof:** https://afterhourequity.xyz/proof
+- **Live Solana (original build):** https://afterhourequity.xyz/app
 - **GitHub:** https://github.com/norbert351/afterhours
-- **MCP:** `npm run bnb-mcp` (stdio; tools `bnb_gap`, `bnb_quote`, `bnb_status`)
+- **MCP:** `npm run bnb-mcp` (stdio; tools `bnb_gap`, `bnb_quote`, `bnb_status`, `bnb_wallet`)
+
+## Multi-chain context (what this submission does **not** replace)
+
+AfterHours is a **two-chain** project. This BNB submission is the **current track**; the
+original **Solana** implementation ("Stocklana", xStocks on Solana mainnet) remains present,
+working, and documented — it is **not** part of the BNB execution path.
+
+| | Solana (Stocklana) | BNB (this submission) |
+|---|---|---|
+| Assets | xStocks (AAPLx, NVDAx, …) | bStocks + Ondo |
+| Data | GeckoTerminal · PreStocks · Tessera · Pyth | Binance Web3 **RWA Data / Market API** |
+| Execution | Jupiter `/swap/v1` (Solana mainnet) | Web3 **Trading API** → viem on **BSC mainnet (56)** |
+| Pre-broadcast check | signature-status (`err===null`) | **Transaction API dry-run** (fail-closed) |
+| Evidence | Solscan links | BscScan links + ERC-8004 identity |
+| Route | `/app`, `/prestocks`, `/api/v2/*`, `/api/v3/live/*`, `/api/vault/*` | `/bnb`, `/api/bnb/*` |
+
+There is **no cross-chain leakage**: the BNB executor never touches Solana and vice-versa.
+The two paths share only the gap/decision engine (`fairvalue.js`, `dislocation.js`) and the UI
+shell. Solana setup evidence and instructions are retained in the main README (§ Solana
+implementation) and `docs/rubric.md`.
 
 ## Verified / unverified matrix (BNB)
 

@@ -1,12 +1,37 @@
 # AfterHours ⏰ — the market never sleeps
 
-**On-chain equity intelligence for tokenized stocks.** AfterHours watches the gap between
-the *frozen* reference price (the last NYSE close) and the *live, 24/7* on-chain price of the
-same underlying — then tells you whether that gap is **real and actionable after costs**.
-Built against **verified** sponsor data, no fabricated prices.
+**On-chain equity intelligence for tokenized stocks, on two chains.** AfterHours watches the
+gap between the *frozen* reference price (the last NYSE close) and the *live, 24/7* on-chain
+price of the same underlying — then tells you whether that gap is **real and actionable after
+costs**. Built against **verified** sponsor data, no fabricated prices.
 
-> **Current track: BNB Hack — Tokenized Stocks Edition** (deadline Oct 11 2026).
-> Product core also ported to Solana (Stocklana) and Bitget.
+> **This is a multi-chain project.** AfterHours ships **two separate implementation paths** —
+> **Solana** (Stocklana / xStocks, the original build) and **BNB Smart Chain** (bStocks + Ondo,
+> the current hackathon track). They share the gap/decision engine and the UI shell, but the
+> **execution, assets, and sponsor integrations are chain-specific**. Neither chain is required
+> to use the other: the BNB experience does not need any Solana configuration, and vice-versa.
+>
+> **Current submission target:** BNB Hack — *Tokenized Stocks Edition* (deadline Oct 11 2026).
+> The Solana implementation remains fully present, documented, and working (see
+> [§ Solana implementation](#-solana-implementation-stocklana) below).
+
+---
+
+## At a glance — what is shared vs chain-specific
+
+| Area | Shared core | Solana-specific | BNB-specific |
+|---|---|---|---|
+| Gap / net-edge engine | ✅ `fairvalue.js`, `dislocation.js` | — | — |
+| Decision engine (BUY/ROTATE/WAIT/BLOCKED) | ✅ shared semantics | ROTATE/short-capable | **spot-only** (no short/perp) |
+| UI shell (`ah-ui.css`, `ah-shell.js`) | ✅ shared | — | — |
+| Universe / assets | — | xStocks (`xstocks.js`) | bStocks + Ondo (`bnb.js`, `bsc.js` RWA API) |
+| Price sources | — | GeckoTerminal, PreStocks, Tessera, Pyth | Binance Web3 **RWA Data / Market API** |
+| Execution | — | Jupiter `/swap/v1` (Solana mainnet) | Binance Web3 **Trading API** → viem broadcast on **BSC mainnet (56)** |
+| Pre-broadcast gate | — | signature-status verification | **Transaction API dry-run** (`pre-transaction/simulate`) |
+| Reference feed | ✅ TwelveData (NYSE) | ✅ | ✅ |
+| Proof / audit | ✅ `/proof`, `paper-log.js` | Solscan links | BscScan links + ERC-8004 identity |
+
+**Status legend:** ✅ implemented & verified · ⚠️ partial / config-gated · ❌ not implemented.
 
 ---
 
@@ -14,46 +39,90 @@ Built against **verified** sponsor data, no fabricated prices.
 
 - **Live BNB product:** https://afterhourequity.xyz/bnb · **Proof:** https://afterhourequity.xyz/proof
 - **Submission pack:** `docs/SUBMISSION.md` · **Scope/rubric:** `docs/IDEA-AND-SCOPE.md`
-- **Developer Experience Report:** `docs/DEVELOPER-EXPERIENCE-REPORT.md` *(working template — **not complete**; the objective fields must be filled in by the developer)*
-- **BNB demo video:** `docs/BNB-DEMO-VIDEO.md` — **TO BE RECORDED.** The previously-linked
-  `afterhours-demo-v2.mp4` is the **Solana** buy and is **not** the BNB demo.
+- **Developer Experience Report:** `docs/DEVELOPER-EXPERIENCE-REPORT.md` *(technical sections complete; **owner firsthand sections B1–B8 still pending**)*
+- **BNB demo video:** `docs/BNB-DEMO-VIDEO.md` — **TO BE RECORDED** (not created in this task). The
+  previously-linked `afterhours-demo-v2.mp4` is the **Solana** buy and is **not** the BNB demo.
 - **Verified BSC fill:** `0.15 USDT → 0.000659939 IBMB`, tx
   `0x2c683c4715766aea6904dc07734153f014e8e72ce682e51c9d3403020b411b74` on BSC mainnet
   ([BscScan](https://bscscan.com/tx/0x2c683c4715766aea6904dc07734153f014e8e72ce682e51c9d3403020b411b74)),
   exec wallet `0xa5de403F…F8a94F`.
+- **ERC-8004 agent identity (minted + verified):** agentId **`369879`**, registry
+  `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` (BSC mainnet), tx
+  [`0x99521f8d…eecb749`](https://bscscan.com/tx/0x99521f8dc14cfed1da3233a73799e328394472a3452eb4cc215436408eecb749),
+  `tokenURI` → [`/agent/afterhours-bnb.json`](https://afterhourequity.xyz/agent/afterhours-bnb.json).
+  Served live at `GET /api/bnb/agent/info`.
 
-**Binance Web3 API modules actually used** (truthful inventory — see `/api/proof`):
+### BNB routes
+| Route | Purpose |
+|---|---|
+| `GET /bnb` | closed-market gap dashboard (guest-usable, no wallet) |
+| `GET /api/bnb/universe` | real bStocks + Ondo on-chain vs reference gaps |
+| `GET /api/bnb/status` | which BNB rails are configured/reachable |
+| `GET /api/bnb/web3/rwa-price` | RWA price surface (keyed) |
+| `POST /api/bnb/paper-act` | paper decision (no funds move) |
+| `GET /api/bnb/decisions` | paper decision log |
+| `GET /api/bnb/exec/address` · `GET /api/bnb/agent/wallet` | exec wallet identity + live balances (read-only) |
+| `POST /api/bnb/exec/dry-run` | **Transaction API pre-broadcast dry-run** (never broadcasts) |
+| `POST /api/bnb/exec` | bounded live spot swap (rate-limited, cap-enforced, dry-run-gated) |
+| `GET /api/bnb/agent/info` · `GET /api/bnb/agent/gap` (x402) | agent identity + x402-paid gap report |
 
+### BNB sponsor integrations (truthful — see `/api/proof` → `web3Modules`)
 | Module | Status | What it does here |
 |---|---|---|
 | RWA Data API | ✅ | tokenized-equity universe + on-chain vs reference price |
 | Market API | ✅ | RWA price surface |
 | Trading API | ✅ | aggregator quote + swap-build (SWAP) |
 | **Transaction API** | ✅ | **pre-broadcast dry-run gate** (`dex/pre-transaction/simulate`) — fails closed |
-| Wallet API | ❌ not implemented | balances read via BSC RPC |
-| DeFi API | ❌ not implemented | — |
-| b402 payments | ❌ not implemented | — |
+| Wallet API | ❌ | balances read via BSC RPC |
+| DeFi API | ❌ | — |
+| b402 payments | ❌ | — |
 
-**Not claimed (honest):** RFQ execution (not wired) · xStocks-on-BSC (unverified) · official
-Agentic Wallet (we use a private-key wallet) · deployed BNB Agent Studio agent / minted
-ERC-8004 identity (registrar-gated). **Spot-only · BSC mainnet (chain 56) only.**
+**Special prizes (honest states):** **ERC-8004 identity → ✅ minted & verified** · **x402 → ✅ real
+challenge endpoint** (settlement proceeds not yet observed) · **MCP → ✅ 4 stdio tools**
+(`bnb_gap`/`bnb_quote`/`bnb_status`/`bnb_wallet`) · **Agent Studio → ⚠️ PARTIAL** (no *deployed*
+Studio agent) · **Agentic Wallet → ⚠️ NOT VERIFIED** (we use a private-key wallet, not the official
+one). **Not claimed:** RFQ execution (not wired) · xStocks-on-BSC (unverified). **Spot-only · BSC
+mainnet (chain 56) only.**
 
 ---
 
-## 🔵 Stocklana submission (Sep 25, 4pm ET)
+## 🔵 Solana implementation (Stocklana)
 
-- **Live demo:** https://afterhourequity.xyz · **Product:** https://afterhourequity.xyz/app · **Docs:** https://afterhourequity.xyz/docs
-- **Submission pack:** `docs/SUBMISSION.md` (paste-ready form answers) · `docs/rubric.md` (judge-verification map)
-- **Demo video (verified real-buy take, Solana):** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4
-- **Mainnet proof:** wallet `7JL8s63F…` holds **0.00260421 AAPLx** — verified fills [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2), [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN), vault round-trip [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt) → [4UX9k6o7…](https://solscan.io/tx/4UX9k6o7vcVGdfcsdvvpYcxXAPp34ogRPLmdGv4yEvfzcvW4xifsoLwHQcJecqSoVomxbb1DgtvMA2fPuRw8pHnH), swap-verification buys [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik), [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG), and the on-camera demo buy [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV) — all finalized `err=null`
+The original AfterHours build — **still present and working**, not superseded. It targets
+**Solana mainnet** with xStocks (Backed tokenized equities: AAPLx, NVDAx, …).
+
+- **Live product:** https://afterhourequity.xyz/app · **Docs:** https://afterhourequity.xyz/docs
+- **PreStocks desk (bounty surface):** https://afterhourequity.xyz/prestocks
+- **Submission pack (Solana track, Sep 25):** `docs/SUBMISSION.md` · **Judge map:** `docs/rubric.md`
+- **Demo video (verified Solana real-buy take):** https://afterhourequity.xyz/demo/afterhours-demo-v2.mp4
+  — kept as accurate history; **it is not the BNB demo**.
+- **Solana routes:** `GET /api/dashboard` · `/api/dislocations` · `/api/pyth` · `POST|GET /api/v2/*`
+  (strategy + paper) · `GET|POST /api/v3/live/*` (real capped swaps) · `GET|POST /api/vault/*`
+  (Weekend Gap Vault) · `GET|POST /api/prestocks/*` (PreStocks desk).
+- **Solana-specific services:** `src/services/solana.js`, `vault.js`, `src/adapters/xstocks.js`,
+  `jupiter-price.js`, `prestocks.js`, `tessera.js`, `pyth.js`.
+- **Solana execution:** Jupiter `/swap/v1`, hard-capped (~$0.60/order), curated mint allowlist,
+  **signature-status verification** (`err===null`) before a fill is confirmed.
+- **Solana evidence — wallet `7JL8s63F…` holds 0.00260421 AAPLx**, verified fills
+  [62HV8t3F…](https://solscan.io/tx/62HV8t3FNVYfXFku5SHQN9PUEuttTciitEkNChiTdETRK6XDjs8ZGecb67qb2HavWMALvVGuAAuYgjGPUm1ZMXQ2),
+  [2gh4uPpC…](https://solscan.io/tx/2gh4uPpC91ou8FHovqKwoNkDK7wxp19S1ZJ39RQce2fyUSML4HUb4ebKnF3TVjqYtxuxCdE2s9YbUguzBQffKouN),
+  vault round-trip [8g18g7V3…](https://solscan.io/tx/8g18g7V3qVB1ydD7Z2W8oW5LKGD4NcDhHgUvApdBPZVVxzyaAhpseYzkDBJxKfU9XoM5bZyquszXRrgJamQHcDt)
+  → [4UX9k6o7…](https://solscan.io/tx/4UX9k6o7vcVGdfcsdvvpYcxXAPp34ogRPLmdGv4yEvfzcvW4xifsoLwHQcJecqSoVomxbb1DgtvMA2fPuRw8pHnH),
+  swap-verification buys [7YHRhMtz…](https://solscan.io/tx/7YHRhMtzdW5Eezrzmi4ZZpbhEdF3CKnTJTwjHXkSPm1NT3yxoi7CXBvzzok3eVyCDbc8ay4pznTqmdwMVefAaik),
+  [2t5Lmh1Tg…](https://solscan.io/tx/2t5Lmh1TgCDeKunB7pXCWP4V16pxAdngGygTVjLqiXwS12vMsgQ4nQCkr3c6ndftPzvkLZC6bNHyFby6RP5ARAeG),
+  on-camera demo buy [3AqwHQu7k…](https://solscan.io/tx/3AqwHQu7kBUiAcSUoF9HMYaSDvQqBHG68zQtUg5BF9awE8HYR7FytdJ9Hy8BTMgor2gcFGfSyxv915grhJEjKGmV) — all finalized `err=null`.
+  Full detail in [§ Solana notes](#notes--next-increments).
+
+> **No cross-chain leakage:** Solana and BNB do not share an execution path. The BNB executor
+> (`bnb-exec.js`) never touches Solana; the Solana executor (`solana.js`) never touches BSC.
 
 ## Tech stack
 
-Node 22 · Express (no build step) · `node:sqlite` (WAL) · `@solana/web3.js` +
-`@solana/spl-token` + `@noble/ed25519` · Jupiter `/swap/v1` execution ·
-GeckoTerminal (no-key xStock prices) · TwelveData refs · PreStocks / Tessera
-(no-key dislocations) · Pyth feed registry (keyed live) · Privy + native wallet
-auth · vanilla JS frontend · deployed on an own VM behind Caddy (auto-TLS).
+Node 22 · Express (no build step) · `node:sqlite` (WAL) · **Solana:** `@solana/web3.js` +
+`@solana/spl-token` + `@noble/ed25519`, Jupiter `/swap/v1` · **BNB:** `viem` (BSC mainnet),
+Binance Web3 API (HMAC-SHA256) · GeckoTerminal · TwelveData refs · PreStocks / Tessera · Pyth ·
+Privy + native wallet auth · vanilla JS frontend · own VM behind Caddy (auto-TLS), supervised by
+systemd (`afterhours.service`).
 
 ---
 
@@ -114,21 +183,39 @@ The agent **explicitly returns WAIT** when the residual doesn't clear costs — 
 src/
   config.js             env + verified feed IDs/source URLs
   lib/http.js            cached, retry-on-5xx fetch (gentle to flaky upstreams)
+
+  # ---- SHARED (both chains) ----
+  services/
+    fairvalue.js         gap decomposition: raw → residual → netEdge → decision
+    dislocation.js       gap engine (issuer-premium + cross-issuer spreads)
+    markethours.js       NYSE session state (drives the closed-market window)
+    paper-log.js         persistent decision/fill ledger (node:sqlite WAL, survives restart)
+    cross-venue.js       same underlying across venues (Bitget rToken vs BNB bStock)
+    sleep-agent.js       autonomous decision loop (NL strategy → action log)
+  server.js              Express API (all routes) + static frontend
+  public/                mobile-first dashboard + shared shell (ah-ui.css, ah-shell.js)
+  test/                  node --test suites (missing-chain-safe)
+
+  # ---- SOLANA-SPECIFIC ----
   adapters/
+    xstocks.js           xStocks (Backed) token universe
+    jupiter-price.js     Jupiter price / official xStock data
     prestocks.js         REAL pre-IPO token prices
     tessera.js           REAL private-equity prices
-    twelvedata.js        REAL NYSE reference (market-hours aware)
     pyth.js              verified feed registry + keyed live-price gate
   services/
-    oracle.js            unified universe, per-source resilience (one flaky issuer never kills the page)
-    dislocation.js       gap engine (issuer-premium + cross-issuer spreads)
-    strategies.js        plain-English rule engine → live alerts (v1)
-    paper.js             v2 paper execution ledger (integer micro-units, fees/slippage, cost basis, NAV, self-funding)
-    v2.js                v2 orchestration: strategy → target book → paper execution → decision log
-  store.js               v2 persistence (node:sqlite WAL): strategies, paper account, positions, decisions, alerts
-  server.js              Express API (v1 detection + v2 strategy/paper) + static frontend
-public/                  mobile-first dashboard (no build step)
-test/                    ledger-invariant unit tests (node --test)
+    solana.js            Solana execution (Jupiter /swap/v1, sig-status verification)
+    vault.js             Weekend Gap Vault (Solana, hard-capped)
+
+  # ---- BNB-SPECIFIC ----
+  adapters/
+    bsc.js               Binance Web3 API (HMAC-SHA256) + RWA/Market/Trading/Transaction modules
+  services/
+    bnb.js               BNB universe, gap engine, paper decisions
+    bnb-exec.js          BSC mainnet spot execution + Transaction-API dry-run gate
+    bnb-agent.js         NL strategy agent → bounded BSC execution (durable action log)
+    bnb-x402.js          x402 self-funding merchant ($U · EIP-3009 · eip155:56)
+  src/mcp/bnb-mcp.js     stdio MCP server (bnb_gap/bnb_quote/bnb_status/bnb_wallet)
 ```
 
 **Robustness:** per-source `Promise.allSettled` (a flaky issuer degrades that source, never the page), 30s cache TTL, retry-on-5xx, honest error surfaces, WAL persistence, tolerance-based rebalancing (no churn), fees/slippage on every fill.
@@ -137,12 +224,36 @@ test/                    ledger-invariant unit tests (node --test)
 
 ## Run it
 
+**Requirements:** Node **22+** (uses `node:sqlite`). No build step. Both chains run from the
+**same** server process — you enable whichever chain you need via env; neither is required.
+
 ```bash
+# ---- shared ----
 cd afterhours
 npm install
-npm start          # → http://localhost:8080   (PORT env overrides)
-npm run verify     # proves every adapter returns real data or a labeled gate
+npm test                       # 90 tests, no external calls
+PORT=8090 node --dns-result-order=ipv4first src/index.js   # → http://localhost:8090
+npm run verify                 # proves each adapter returns real data or a labeled gate
 ```
+
+**BNB path (BSC mainnet, chain 56)** — needs the Binance Web3 API key + a funded exec wallet:
+```bash
+cp .env.example .env
+# required for BNB: AH_BNB_WEB3_KEY, AH_BNB_WEB3_SECRET, AH_BNB_EXEC_PRIVATE_KEY
+# optional:         AH_BNB_EXEC_MAX_USD (default 0.50)
+PORT=8090 node --dns-result-order=ipv4first src/index.js
+open http://localhost:8090/bnb
+```
+
+**Solana path (Solana mainnet)** — needs an RPC + a funded Solana key:
+```bash
+# required for Solana: SOLANA_RPC_URL, SOLANA_PRIVATE_KEY
+# optional:            AH_VAULT_EXEC=1, AH_VAULT_CAP_USD=0.25, PYTH_API_KEY (live gap), TWELVEDATA_API_KEY
+PORT=8090 node --dns-result-order=ipv4first src/index.js
+open http://localhost:8090/app
+```
+
+**Production:** systemd user unit `afterhours.service` (Restart=always, `EnvironmentFile=/etc/afterhours/afterhours.env`), Caddy reverse-proxies `afterhourequity.xyz → 127.0.0.1:8090`.
 
 ### API
 | Route | Returns |
